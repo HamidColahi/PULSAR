@@ -1,0 +1,1024 @@
+{
+  "version": "6.7",
+  "topic": "field_domain_values",
+  "repository": "/Users/pc012/Documents/projects/Pulsar",
+  "options": {
+    "scope": [
+      "backend",
+      "database",
+      "frontend"
+    ],
+    "relations": [
+      "api",
+      "calls",
+      "imports",
+      "references",
+      "sql"
+    ],
+    "depth": 3,
+    "max_nodes": 160,
+    "traversal_mode": "bidirectional",
+    "graph_types": [
+      "structural",
+      "semantic"
+    ]
+  },
+  "summary": {
+    "files_scanned": 99,
+    "indexed_nodes": 24038,
+    "matched_nodes": 1,
+    "selected_seeds": 1,
+    "trace_nodes": 23,
+    "trace_edges": 57,
+    "graph_edges": {
+      "structural": 27,
+      "semantic": 30
+    },
+    "files_in_trace": 7,
+    "node_kinds": {
+      "class": 3,
+      "database_column_definition": 13,
+      "database_object_definition": 2,
+      "function": 5
+    },
+    "nodes_by_depth": {
+      "0": 1,
+      "1": 7,
+      "2": 4,
+      "3": 11
+    },
+    "max_nodes_reached": false,
+    "traversal_truncated": false
+  },
+  "seeds": [
+    {
+      "node_id": "backend/general/config/models.py:100:database_object_definition:field_domain_values",
+      "score": 67,
+      "reasons": [
+        "exact_phrase_in_name",
+        "identifier_match_in_name"
+      ],
+      "matched_terms": [
+        "field_domain_values"
+      ],
+      "evidence_references": []
+    }
+  ],
+  "match_reasons": {
+    "backend/general/config/models.py:100:database_object_definition:field_domain_values": {
+      "score": 67,
+      "reasons": [
+        "exact_phrase_in_name",
+        "identifier_match_in_name"
+      ],
+      "matched_terms": [
+        "field_domain_values"
+      ],
+      "evidence_references": []
+    }
+  },
+  "matched_candidates": [
+    {
+      "node_id": "backend/general/config/models.py:100:database_object_definition:field_domain_values",
+      "score": 67,
+      "reasons": [
+        "exact_phrase_in_name",
+        "identifier_match_in_name"
+      ],
+      "matched_terms": [
+        "field_domain_values"
+      ],
+      "reference_id": null,
+      "evidence_references": [],
+      "selected_as_seed": true
+    }
+  ],
+  "deferred_seeds": [],
+  "trace_categories": {
+    "backend": [
+      "backend/core/database.py:49:function:get_async_session",
+      "backend/general/config/models.py:81:class:FieldDomainConfig",
+      "backend/general/config/models.py:81:database_object_definition:field_domain_config",
+      "backend/general/config/models.py:85:database_column_definition:schema_name",
+      "backend/general/config/models.py:86:database_column_definition:table_name",
+      "backend/general/config/models.py:87:database_column_definition:field_name",
+      "backend/general/config/models.py:90:database_column_definition:control_type",
+      "backend/general/config/models.py:100:class:FieldDomainValues",
+      "backend/general/config/models.py:100:database_object_definition:field_domain_values",
+      "backend/general/config/models.py:126:database_column_definition:schema_name",
+      "backend/general/config/models.py:127:database_column_definition:table_name",
+      "backend/general/config/models.py:128:database_column_definition:field_name",
+      "backend/general/config/models.py:129:database_column_definition:domain_value",
+      "backend/general/config/models.py:131:database_column_definition:sort_order",
+      "backend/general/config/models.py:137:database_column_definition:requires_translation",
+      "backend/general/config/routes.py:112:function:read_component_config",
+      "backend/general/domain/routes/domain_options.py:34:function:domain_options",
+      "backend/general/domain/services/component_Config_service.py:21:function:get_config_options",
+      "backend/general/domain/services/domain_options_service.py:37:function:get_domain_options",
+      "backend/general/translation/models.py:11:class:TranslationDictionary",
+      "backend/general/translation/models.py:16:database_column_definition:item_code",
+      "backend/general/translation/models.py:17:database_column_definition:language_code",
+      "backend/general/translation/models.py:18:database_column_definition:translated_text"
+    ],
+    "database": [
+      "backend/general/config/models.py:81:database_object_definition:field_domain_config",
+      "backend/general/config/models.py:85:database_column_definition:schema_name",
+      "backend/general/config/models.py:86:database_column_definition:table_name",
+      "backend/general/config/models.py:87:database_column_definition:field_name",
+      "backend/general/config/models.py:90:database_column_definition:control_type",
+      "backend/general/config/models.py:100:database_object_definition:field_domain_values",
+      "backend/general/config/models.py:126:database_column_definition:schema_name",
+      "backend/general/config/models.py:127:database_column_definition:table_name",
+      "backend/general/config/models.py:128:database_column_definition:field_name",
+      "backend/general/config/models.py:129:database_column_definition:domain_value",
+      "backend/general/config/models.py:131:database_column_definition:sort_order",
+      "backend/general/config/models.py:137:database_column_definition:requires_translation",
+      "backend/general/config/routes.py:112:function:read_component_config",
+      "backend/general/domain/services/component_Config_service.py:21:function:get_config_options",
+      "backend/general/domain/services/domain_options_service.py:37:function:get_domain_options",
+      "backend/general/translation/models.py:16:database_column_definition:item_code",
+      "backend/general/translation/models.py:17:database_column_definition:language_code",
+      "backend/general/translation/models.py:18:database_column_definition:translated_text"
+    ],
+    "api": [
+      "backend/general/config/routes.py:112:function:read_component_config"
+    ],
+    "metadata": [
+      "backend/general/config/routes.py:112:function:read_component_config"
+    ]
+  },
+  "layer_categories": {
+    "backend": [
+      "backend/core/database.py:49:function:get_async_session",
+      "backend/general/config/models.py:81:class:FieldDomainConfig",
+      "backend/general/config/models.py:81:database_object_definition:field_domain_config",
+      "backend/general/config/models.py:85:database_column_definition:schema_name",
+      "backend/general/config/models.py:86:database_column_definition:table_name",
+      "backend/general/config/models.py:87:database_column_definition:field_name",
+      "backend/general/config/models.py:90:database_column_definition:control_type",
+      "backend/general/config/models.py:100:class:FieldDomainValues",
+      "backend/general/config/models.py:100:database_object_definition:field_domain_values",
+      "backend/general/config/models.py:126:database_column_definition:schema_name",
+      "backend/general/config/models.py:127:database_column_definition:table_name",
+      "backend/general/config/models.py:128:database_column_definition:field_name",
+      "backend/general/config/models.py:129:database_column_definition:domain_value",
+      "backend/general/config/models.py:131:database_column_definition:sort_order",
+      "backend/general/config/models.py:137:database_column_definition:requires_translation",
+      "backend/general/config/routes.py:112:function:read_component_config",
+      "backend/general/domain/routes/domain_options.py:34:function:domain_options",
+      "backend/general/domain/services/component_Config_service.py:21:function:get_config_options",
+      "backend/general/domain/services/domain_options_service.py:37:function:get_domain_options",
+      "backend/general/translation/models.py:11:class:TranslationDictionary",
+      "backend/general/translation/models.py:16:database_column_definition:item_code",
+      "backend/general/translation/models.py:17:database_column_definition:language_code",
+      "backend/general/translation/models.py:18:database_column_definition:translated_text"
+    ],
+    "database": [
+      "backend/general/config/models.py:81:database_object_definition:field_domain_config",
+      "backend/general/config/models.py:85:database_column_definition:schema_name",
+      "backend/general/config/models.py:86:database_column_definition:table_name",
+      "backend/general/config/models.py:87:database_column_definition:field_name",
+      "backend/general/config/models.py:90:database_column_definition:control_type",
+      "backend/general/config/models.py:100:database_object_definition:field_domain_values",
+      "backend/general/config/models.py:126:database_column_definition:schema_name",
+      "backend/general/config/models.py:127:database_column_definition:table_name",
+      "backend/general/config/models.py:128:database_column_definition:field_name",
+      "backend/general/config/models.py:129:database_column_definition:domain_value",
+      "backend/general/config/models.py:131:database_column_definition:sort_order",
+      "backend/general/config/models.py:137:database_column_definition:requires_translation",
+      "backend/general/config/routes.py:112:function:read_component_config",
+      "backend/general/domain/services/component_Config_service.py:21:function:get_config_options",
+      "backend/general/domain/services/domain_options_service.py:37:function:get_domain_options",
+      "backend/general/translation/models.py:16:database_column_definition:item_code",
+      "backend/general/translation/models.py:17:database_column_definition:language_code",
+      "backend/general/translation/models.py:18:database_column_definition:translated_text"
+    ],
+    "api": [
+      "backend/general/config/routes.py:112:function:read_component_config"
+    ],
+    "metadata": [
+      "backend/general/config/routes.py:112:function:read_component_config"
+    ]
+  },
+  "files": [
+    "backend/core/database.py",
+    "backend/general/config/models.py",
+    "backend/general/config/routes.py",
+    "backend/general/domain/routes/domain_options.py",
+    "backend/general/domain/services/component_Config_service.py",
+    "backend/general/domain/services/domain_options_service.py",
+    "backend/general/translation/models.py"
+  ],
+  "nodes": [
+    {
+      "id": "backend/core/database.py:49:function:get_async_session",
+      "file": "backend/core/database.py",
+      "line": 49,
+      "kind": "function",
+      "name": "get_async_session",
+      "language": "python",
+      "excerpt": "async def get_async_session() -> AsyncGenerator[AsyncSession, None]:\n    async with AsyncSessionLocal() as session:\n        yield session",
+      "tags": [
+        "backend"
+      ],
+      "end_line": 51,
+      "depth": 3
+    },
+    {
+      "id": "backend/general/config/models.py:81:class:FieldDomainConfig",
+      "file": "backend/general/config/models.py",
+      "line": 81,
+      "kind": "class",
+      "name": "FieldDomainConfig",
+      "language": "python",
+      "excerpt": "class FieldDomainConfig(Base):\n    __tablename__ = \"field_domain_config\"\n    __table_args__ = {\"schema\": \"pulsar\"}\n\n    schema_name = Column(String, primary_key=True)\n    table_name = Column(String, primary_key=True)\n    field_name = Column(String, primary_key=True)\n\n    # Supported values: DDLB and DDDW.\n    control_type = Column(String, nullable=False)\n\n    # Required only when control_type is DDDW.\n    dddw_select_sql = Column(Text, nullable=True)",
+      "tags": [
+        "backend"
+      ],
+      "end_line": 93,
+      "depth": 3
+    },
+    {
+      "id": "backend/general/config/models.py:81:database_object_definition:field_domain_config",
+      "file": "backend/general/config/models.py",
+      "line": 81,
+      "kind": "database_object_definition",
+      "name": "field_domain_config",
+      "language": "python",
+      "excerpt": "class FieldDomainConfig(Base):\n    __tablename__ = \"field_domain_config\"\n    __table_args__ = {\"schema\": \"pulsar\"}\n\n    schema_name = Column(String, primary_key=True)\n    table_name = Column(String, primary_key=True)\n    field_name = Column(String, primary_key=True)\n\n    # Supported values: DDLB and DDDW.\n    control_type = Column(String, nullable=False)\n\n    # Required only when control_type is DDDW.\n    dddw_select_sql = Column(Text, nullable=True)",
+      "tags": [
+        "backend",
+        "database"
+      ],
+      "end_line": 93,
+      "depth": 3
+    },
+    {
+      "id": "backend/general/config/models.py:85:database_column_definition:schema_name",
+      "file": "backend/general/config/models.py",
+      "line": 85,
+      "kind": "database_column_definition",
+      "name": "schema_name",
+      "language": "python",
+      "excerpt": "schema_name = Column(String, primary_key=True)",
+      "tags": [
+        "backend",
+        "database"
+      ],
+      "end_line": 85,
+      "depth": 2
+    },
+    {
+      "id": "backend/general/config/models.py:86:database_column_definition:table_name",
+      "file": "backend/general/config/models.py",
+      "line": 86,
+      "kind": "database_column_definition",
+      "name": "table_name",
+      "language": "python",
+      "excerpt": "table_name = Column(String, primary_key=True)",
+      "tags": [
+        "backend",
+        "database"
+      ],
+      "end_line": 86,
+      "depth": 2
+    },
+    {
+      "id": "backend/general/config/models.py:87:database_column_definition:field_name",
+      "file": "backend/general/config/models.py",
+      "line": 87,
+      "kind": "database_column_definition",
+      "name": "field_name",
+      "language": "python",
+      "excerpt": "field_name = Column(String, primary_key=True)",
+      "tags": [
+        "backend",
+        "database"
+      ],
+      "end_line": 87,
+      "depth": 2
+    },
+    {
+      "id": "backend/general/config/models.py:90:database_column_definition:control_type",
+      "file": "backend/general/config/models.py",
+      "line": 90,
+      "kind": "database_column_definition",
+      "name": "control_type",
+      "language": "python",
+      "excerpt": "control_type = Column(String, nullable=False)",
+      "tags": [
+        "backend",
+        "database"
+      ],
+      "end_line": 90,
+      "depth": 3
+    },
+    {
+      "id": "backend/general/config/models.py:100:class:FieldDomainValues",
+      "file": "backend/general/config/models.py",
+      "line": 100,
+      "kind": "class",
+      "name": "FieldDomainValues",
+      "language": "python",
+      "excerpt": "class FieldDomainValues(Base):\n    __tablename__ = \"field_domain_values\"\n\n    __table_args__ = (\n        ForeignKeyConstraint(\n            [\n                \"schema_name\",\n                \"table_name\",\n                \"field_name\",\n            ],\n            [\n                \"pulsar.field_domain_config.schema_name\",\n                \"pulsar.field_domain_config.table_name\",\n                \"pulsar.field_domain_config.field_name\",\n            ],\n            name=\"field_domain_values_field_domain_c",
+      "tags": [
+        "backend"
+      ],
+      "end_line": 141,
+      "depth": 1
+    },
+    {
+      "id": "backend/general/config/models.py:100:database_object_definition:field_domain_values",
+      "file": "backend/general/config/models.py",
+      "line": 100,
+      "kind": "database_object_definition",
+      "name": "field_domain_values",
+      "language": "python",
+      "excerpt": "class FieldDomainValues(Base):\n    __tablename__ = \"field_domain_values\"\n\n    __table_args__ = (\n        ForeignKeyConstraint(\n            [\n                \"schema_name\",\n                \"table_name\",\n                \"field_name\",\n            ],\n            [\n                \"pulsar.field_domain_config.schema_name\",\n                \"pulsar.field_domain_config.table_name\",\n                \"pulsar.field_domain_config.field_name\",\n            ],\n            name=\"field_domain_values_field_domain_c",
+      "tags": [
+        "backend",
+        "database"
+      ],
+      "end_line": 141,
+      "depth": 0
+    },
+    {
+      "id": "backend/general/config/models.py:126:database_column_definition:schema_name",
+      "file": "backend/general/config/models.py",
+      "line": 126,
+      "kind": "database_column_definition",
+      "name": "schema_name",
+      "language": "python",
+      "excerpt": "schema_name = Column(String, primary_key=True)",
+      "tags": [
+        "backend",
+        "database"
+      ],
+      "end_line": 126,
+      "depth": 1
+    },
+    {
+      "id": "backend/general/config/models.py:127:database_column_definition:table_name",
+      "file": "backend/general/config/models.py",
+      "line": 127,
+      "kind": "database_column_definition",
+      "name": "table_name",
+      "language": "python",
+      "excerpt": "table_name = Column(String, primary_key=True)",
+      "tags": [
+        "backend",
+        "database"
+      ],
+      "end_line": 127,
+      "depth": 1
+    },
+    {
+      "id": "backend/general/config/models.py:128:database_column_definition:field_name",
+      "file": "backend/general/config/models.py",
+      "line": 128,
+      "kind": "database_column_definition",
+      "name": "field_name",
+      "language": "python",
+      "excerpt": "field_name = Column(String, primary_key=True)",
+      "tags": [
+        "backend",
+        "database"
+      ],
+      "end_line": 128,
+      "depth": 1
+    },
+    {
+      "id": "backend/general/config/models.py:129:database_column_definition:domain_value",
+      "file": "backend/general/config/models.py",
+      "line": 129,
+      "kind": "database_column_definition",
+      "name": "domain_value",
+      "language": "python",
+      "excerpt": "domain_value = Column(String, primary_key=True)",
+      "tags": [
+        "backend",
+        "database"
+      ],
+      "end_line": 129,
+      "depth": 1
+    },
+    {
+      "id": "backend/general/config/models.py:131:database_column_definition:sort_order",
+      "file": "backend/general/config/models.py",
+      "line": 131,
+      "kind": "database_column_definition",
+      "name": "sort_order",
+      "language": "python",
+      "excerpt": "sort_order = Column(\n        Integer,\n        nullable=False,\n        server_default=text(\"0\"),\n    )",
+      "tags": [
+        "backend",
+        "database"
+      ],
+      "end_line": 135,
+      "depth": 1
+    },
+    {
+      "id": "backend/general/config/models.py:137:database_column_definition:requires_translation",
+      "file": "backend/general/config/models.py",
+      "line": 137,
+      "kind": "database_column_definition",
+      "name": "requires_translation",
+      "language": "python",
+      "excerpt": "requires_translation = Column(\n        Boolean,\n        nullable=False,\n        server_default=text(\"false\"),\n    )",
+      "tags": [
+        "backend",
+        "database"
+      ],
+      "end_line": 141,
+      "depth": 1
+    },
+    {
+      "id": "backend/general/config/routes.py:112:function:read_component_config",
+      "file": "backend/general/config/routes.py",
+      "line": 112,
+      "kind": "function",
+      "name": "read_component_config",
+      "language": "python",
+      "excerpt": "async def read_component_config(\n    component_name: str = Query(...),\n    field_mode: str = Query(...),\n    language_code: str | None = Query(None),\n    db: AsyncSession = Depends(get_async_session),\n):\n    \"\"\"\n    Return component field metadata and domain configuration.\n\n    Component presentation metadata is read from components_config.\n\n    Physical component identity is read from components_base.\n\n    Domain configuration is resolved through:\n        components_config\n            -> compon",
+      "tags": [
+        "api",
+        "backend",
+        "database",
+        "metadata"
+      ],
+      "end_line": 306,
+      "depth": 3
+    },
+    {
+      "id": "backend/general/domain/routes/domain_options.py:34:function:domain_options",
+      "file": "backend/general/domain/routes/domain_options.py",
+      "line": 34,
+      "kind": "function",
+      "name": "domain_options",
+      "language": "python",
+      "excerpt": "async def domain_options(\n    schema_name: str = Query(\n        ...,\n        min_length=1,\n        description=\"Physical table schema name\"\n    ),\n    table_name: str = Query(\n        ...,\n        min_length=1,\n        description=\"Physical table name\"\n    ),\n    field_name: str = Query(\n        ...,\n        min_length=1,\n        description=\"Physical field name\"\n    ),\n    language_code: str = Query(\n        \"en\",\n        min_length=1,\n        description=\"Requested translation language\"\n    )\n",
+      "tags": [
+        "backend"
+      ],
+      "end_line": 68,
+      "depth": 3
+    },
+    {
+      "id": "backend/general/domain/services/component_Config_service.py:21:function:get_config_options",
+      "file": "backend/general/domain/services/component_Config_service.py",
+      "line": 21,
+      "kind": "function",
+      "name": "get_config_options",
+      "language": "python",
+      "excerpt": "async def get_config_options(\n    component_name: str,\n    field_mode: str,\n):\n    async for session in get_async_session():\n\n        stmt = (\n            select(\n                ComponentsConfig.field_name,\n                ComponentsConfig.search_mode,\n\n                ComponentsConfig.visible_in_grid,\n                ComponentsConfig.visible_in_form,\n                ComponentsConfig.visible_in_search,\n\n                ComponentsConfig.is_readonly,\n                ComponentsConfig.default_value",
+      "tags": [
+        "backend",
+        "database"
+      ],
+      "end_line": 139,
+      "depth": 3
+    },
+    {
+      "id": "backend/general/domain/services/domain_options_service.py:37:function:get_domain_options",
+      "file": "backend/general/domain/services/domain_options_service.py",
+      "line": 37,
+      "kind": "function",
+      "name": "get_domain_options",
+      "language": "python",
+      "excerpt": "async def get_domain_options(\n    schema_name: str,\n    table_name: str,\n    field_name: str,\n    language_code: str = \"en\"\n):\n    \"\"\"\n    Fetch DDLB options from field_domain_values.\n\n    Translation is applied only when requires_translation\n    is enabled for the domain value.\n\n    The returned structure is normalized for the\n    domain-options runtime client.\n    \"\"\"\n\n    if not all((\n        schema_name,\n        table_name,\n        field_name\n    )):\n        return []\n\n    language_code = (\n",
+      "tags": [
+        "backend",
+        "database"
+      ],
+      "end_line": 143,
+      "depth": 2
+    },
+    {
+      "id": "backend/general/translation/models.py:11:class:TranslationDictionary",
+      "file": "backend/general/translation/models.py",
+      "line": 11,
+      "kind": "class",
+      "name": "TranslationDictionary",
+      "language": "python",
+      "excerpt": "class TranslationDictionary(Base):\n    __tablename__ = \"translation_dictionary\"\n    __table_args__ = {\"schema\": \"pulsar\"}\n\n    id = Column(Integer, primary_key=True, index=True)\n    item_code = Column(String, nullable=False)\n    language_code = Column(String(10), nullable=False)\n    translated_text = Column(Text, nullable=False)",
+      "tags": [
+        "backend"
+      ],
+      "end_line": 18,
+      "depth": 3
+    },
+    {
+      "id": "backend/general/translation/models.py:16:database_column_definition:item_code",
+      "file": "backend/general/translation/models.py",
+      "line": 16,
+      "kind": "database_column_definition",
+      "name": "item_code",
+      "language": "python",
+      "excerpt": "item_code = Column(String, nullable=False)",
+      "tags": [
+        "backend",
+        "database"
+      ],
+      "end_line": 16,
+      "depth": 3
+    },
+    {
+      "id": "backend/general/translation/models.py:17:database_column_definition:language_code",
+      "file": "backend/general/translation/models.py",
+      "line": 17,
+      "kind": "database_column_definition",
+      "name": "language_code",
+      "language": "python",
+      "excerpt": "language_code = Column(String(10), nullable=False)",
+      "tags": [
+        "backend",
+        "database"
+      ],
+      "end_line": 17,
+      "depth": 3
+    },
+    {
+      "id": "backend/general/translation/models.py:18:database_column_definition:translated_text",
+      "file": "backend/general/translation/models.py",
+      "line": 18,
+      "kind": "database_column_definition",
+      "name": "translated_text",
+      "language": "python",
+      "excerpt": "translated_text = Column(Text, nullable=False)",
+      "tags": [
+        "backend",
+        "database"
+      ],
+      "end_line": 18,
+      "depth": 3
+    }
+  ],
+  "edges": [
+    {
+      "source": "backend/general/config/models.py:100:class:FieldDomainValues",
+      "target": "backend/general/config/models.py:100:database_object_definition:field_domain_values",
+      "relation": "sql",
+      "confidence": "sqlalchemy_tablename",
+      "evidence": "backend/general/config/models.py:100 maps FieldDomainValues to field_domain_values",
+      "graph": "structural"
+    },
+    {
+      "source": "backend/general/config/models.py:100:database_object_definition:field_domain_values",
+      "target": "backend/general/config/models.py:126:database_column_definition:schema_name",
+      "relation": "sql",
+      "confidence": "sqlalchemy_column",
+      "evidence": "FieldDomainValues.schema_name belongs to field_domain_values",
+      "graph": "structural"
+    },
+    {
+      "source": "backend/general/config/models.py:100:database_object_definition:field_domain_values",
+      "target": "backend/general/config/models.py:127:database_column_definition:table_name",
+      "relation": "sql",
+      "confidence": "sqlalchemy_column",
+      "evidence": "FieldDomainValues.table_name belongs to field_domain_values",
+      "graph": "structural"
+    },
+    {
+      "source": "backend/general/config/models.py:100:database_object_definition:field_domain_values",
+      "target": "backend/general/config/models.py:128:database_column_definition:field_name",
+      "relation": "sql",
+      "confidence": "sqlalchemy_column",
+      "evidence": "FieldDomainValues.field_name belongs to field_domain_values",
+      "graph": "structural"
+    },
+    {
+      "source": "backend/general/config/models.py:100:database_object_definition:field_domain_values",
+      "target": "backend/general/config/models.py:129:database_column_definition:domain_value",
+      "relation": "sql",
+      "confidence": "sqlalchemy_column",
+      "evidence": "FieldDomainValues.domain_value belongs to field_domain_values",
+      "graph": "structural"
+    },
+    {
+      "source": "backend/general/config/models.py:100:database_object_definition:field_domain_values",
+      "target": "backend/general/config/models.py:131:database_column_definition:sort_order",
+      "relation": "sql",
+      "confidence": "sqlalchemy_column",
+      "evidence": "FieldDomainValues.sort_order belongs to field_domain_values",
+      "graph": "structural"
+    },
+    {
+      "source": "backend/general/config/models.py:100:database_object_definition:field_domain_values",
+      "target": "backend/general/config/models.py:137:database_column_definition:requires_translation",
+      "relation": "sql",
+      "confidence": "sqlalchemy_column",
+      "evidence": "FieldDomainValues.requires_translation belongs to field_domain_values",
+      "graph": "structural"
+    },
+    {
+      "source": "backend/general/config/models.py:126:database_column_definition:schema_name",
+      "target": "backend/general/config/models.py:85:database_column_definition:schema_name",
+      "relation": "sql",
+      "confidence": "sqlalchemy_composite_foreign_key",
+      "evidence": "FieldDomainValues.schema_name references pulsar.field_domain_config.schema_name",
+      "graph": "structural"
+    },
+    {
+      "source": "backend/general/config/models.py:127:database_column_definition:table_name",
+      "target": "backend/general/config/models.py:86:database_column_definition:table_name",
+      "relation": "sql",
+      "confidence": "sqlalchemy_composite_foreign_key",
+      "evidence": "FieldDomainValues.table_name references pulsar.field_domain_config.table_name",
+      "graph": "structural"
+    },
+    {
+      "source": "backend/general/config/models.py:128:database_column_definition:field_name",
+      "target": "backend/general/config/models.py:87:database_column_definition:field_name",
+      "relation": "sql",
+      "confidence": "sqlalchemy_composite_foreign_key",
+      "evidence": "FieldDomainValues.field_name references pulsar.field_domain_config.field_name",
+      "graph": "structural"
+    },
+    {
+      "source": "backend/general/config/models.py:81:class:FieldDomainConfig",
+      "target": "backend/general/config/models.py:81:database_object_definition:field_domain_config",
+      "relation": "sql",
+      "confidence": "sqlalchemy_tablename",
+      "evidence": "backend/general/config/models.py:81 maps FieldDomainConfig to field_domain_config",
+      "graph": "structural"
+    },
+    {
+      "source": "backend/general/config/models.py:81:database_object_definition:field_domain_config",
+      "target": "backend/general/config/models.py:85:database_column_definition:schema_name",
+      "relation": "sql",
+      "confidence": "sqlalchemy_column",
+      "evidence": "FieldDomainConfig.schema_name belongs to field_domain_config",
+      "graph": "structural"
+    },
+    {
+      "source": "backend/general/config/models.py:81:database_object_definition:field_domain_config",
+      "target": "backend/general/config/models.py:86:database_column_definition:table_name",
+      "relation": "sql",
+      "confidence": "sqlalchemy_column",
+      "evidence": "FieldDomainConfig.table_name belongs to field_domain_config",
+      "graph": "structural"
+    },
+    {
+      "source": "backend/general/config/models.py:81:database_object_definition:field_domain_config",
+      "target": "backend/general/config/models.py:87:database_column_definition:field_name",
+      "relation": "sql",
+      "confidence": "sqlalchemy_column",
+      "evidence": "FieldDomainConfig.field_name belongs to field_domain_config",
+      "graph": "structural"
+    },
+    {
+      "source": "backend/general/config/models.py:81:database_object_definition:field_domain_config",
+      "target": "backend/general/config/models.py:90:database_column_definition:control_type",
+      "relation": "sql",
+      "confidence": "sqlalchemy_column",
+      "evidence": "FieldDomainConfig.control_type belongs to field_domain_config",
+      "graph": "structural"
+    },
+    {
+      "source": "backend/general/config/routes.py:112:function:read_component_config",
+      "target": "backend/general/config/models.py:81:class:FieldDomainConfig",
+      "relation": "imports",
+      "confidence": "imported_symbol_reference",
+      "evidence": "backend/general/config/routes.py:137 uses imported FieldDomainConfig from backend/general/config/models.py",
+      "graph": "structural"
+    },
+    {
+      "source": "backend/general/config/routes.py:112:function:read_component_config",
+      "target": "backend/general/translation/models.py:11:class:TranslationDictionary",
+      "relation": "imports",
+      "confidence": "imported_symbol_reference",
+      "evidence": "backend/general/config/routes.py:209 uses imported TranslationDictionary from backend/general/translation/models.py",
+      "graph": "structural"
+    },
+    {
+      "source": "backend/general/config/routes.py:112:function:read_component_config",
+      "target": "backend/general/config/models.py:81:class:FieldDomainConfig",
+      "relation": "references",
+      "confidence": "resolved_ast_model_symbol",
+      "evidence": "backend/general/config/routes.py:137 uses resolved model FieldDomainConfig: FieldDomainConfig.control_type.label(",
+      "graph": "semantic"
+    },
+    {
+      "source": "backend/general/config/routes.py:112:function:read_component_config",
+      "target": "backend/general/config/models.py:85:database_column_definition:schema_name",
+      "relation": "references",
+      "confidence": "resolved_ast_model_column",
+      "evidence": "backend/general/config/routes.py:164 resolves FieldDomainConfig.schema_name to field_domain_config.schema_name: FieldDomainConfig.schema_name",
+      "graph": "semantic"
+    },
+    {
+      "source": "backend/general/config/routes.py:112:function:read_component_config",
+      "target": "backend/general/config/models.py:86:database_column_definition:table_name",
+      "relation": "references",
+      "confidence": "resolved_ast_model_column",
+      "evidence": "backend/general/config/routes.py:167 resolves FieldDomainConfig.table_name to field_domain_config.table_name: FieldDomainConfig.table_name",
+      "graph": "semantic"
+    },
+    {
+      "source": "backend/general/config/routes.py:112:function:read_component_config",
+      "target": "backend/general/config/models.py:87:database_column_definition:field_name",
+      "relation": "references",
+      "confidence": "resolved_ast_model_column",
+      "evidence": "backend/general/config/routes.py:170 resolves FieldDomainConfig.field_name to field_domain_config.field_name: FieldDomainConfig.field_name",
+      "graph": "semantic"
+    },
+    {
+      "source": "backend/general/config/routes.py:112:function:read_component_config",
+      "target": "backend/general/config/models.py:90:database_column_definition:control_type",
+      "relation": "references",
+      "confidence": "resolved_ast_model_column",
+      "evidence": "backend/general/config/routes.py:137 resolves FieldDomainConfig.control_type to field_domain_config.control_type: FieldDomainConfig.control_type.label(",
+      "graph": "semantic"
+    },
+    {
+      "source": "backend/general/config/routes.py:112:function:read_component_config",
+      "target": "backend/general/translation/models.py:11:class:TranslationDictionary",
+      "relation": "references",
+      "confidence": "resolved_ast_model_symbol",
+      "evidence": "backend/general/config/routes.py:209 uses resolved model TranslationDictionary: TranslationDictionary.item_code,",
+      "graph": "semantic"
+    },
+    {
+      "source": "backend/general/config/routes.py:112:function:read_component_config",
+      "target": "backend/general/translation/models.py:16:database_column_definition:item_code",
+      "relation": "references",
+      "confidence": "resolved_ast_model_column",
+      "evidence": "backend/general/config/routes.py:209 resolves TranslationDictionary.item_code to translation_dictionary.item_code: TranslationDictionary.item_code,",
+      "graph": "semantic"
+    },
+    {
+      "source": "backend/general/config/routes.py:112:function:read_component_config",
+      "target": "backend/general/translation/models.py:17:database_column_definition:language_code",
+      "relation": "references",
+      "confidence": "resolved_ast_model_column",
+      "evidence": "backend/general/config/routes.py:216 resolves TranslationDictionary.language_code to translation_dictionary.language_code: TranslationDictionary.language_code",
+      "graph": "semantic"
+    },
+    {
+      "source": "backend/general/config/routes.py:112:function:read_component_config",
+      "target": "backend/general/translation/models.py:18:database_column_definition:translated_text",
+      "relation": "references",
+      "confidence": "resolved_ast_model_column",
+      "evidence": "backend/general/config/routes.py:210 resolves TranslationDictionary.translated_text to translation_dictionary.translated_text: TranslationDictionary.translated_text,",
+      "graph": "semantic"
+    },
+    {
+      "source": "backend/general/domain/routes/domain_options.py:34:function:domain_options",
+      "target": "backend/general/domain/services/domain_options_service.py:37:function:get_domain_options",
+      "relation": "calls",
+      "confidence": "imported_symbol",
+      "evidence": "backend/general/domain/routes/domain_options.py:63 calls get_domain_options",
+      "graph": "structural"
+    },
+    {
+      "source": "backend/general/domain/routes/domain_options.py:34:function:domain_options",
+      "target": "backend/general/domain/services/domain_options_service.py:37:function:get_domain_options",
+      "relation": "imports",
+      "confidence": "imported_symbol_reference",
+      "evidence": "backend/general/domain/routes/domain_options.py:63 uses imported get_domain_options from backend/general/domain/services/domain_options_service.py",
+      "graph": "structural"
+    },
+    {
+      "source": "backend/general/domain/services/component_Config_service.py:21:function:get_config_options",
+      "target": "backend/core/database.py:49:function:get_async_session",
+      "relation": "calls",
+      "confidence": "imported_symbol",
+      "evidence": "backend/general/domain/services/component_Config_service.py:25 calls get_async_session",
+      "graph": "structural"
+    },
+    {
+      "source": "backend/general/domain/services/component_Config_service.py:21:function:get_config_options",
+      "target": "backend/core/database.py:49:function:get_async_session",
+      "relation": "imports",
+      "confidence": "imported_symbol_reference",
+      "evidence": "backend/general/domain/services/component_Config_service.py:25 uses imported get_async_session from backend/core/database.py",
+      "graph": "structural"
+    },
+    {
+      "source": "backend/general/domain/services/component_Config_service.py:21:function:get_config_options",
+      "target": "backend/general/config/models.py:81:class:FieldDomainConfig",
+      "relation": "imports",
+      "confidence": "imported_symbol_reference",
+      "evidence": "backend/general/domain/services/component_Config_service.py:43 uses imported FieldDomainConfig from backend/general/config/models.py",
+      "graph": "structural"
+    },
+    {
+      "source": "backend/general/domain/services/component_Config_service.py:21:function:get_config_options",
+      "target": "backend/general/config/models.py:81:class:FieldDomainConfig",
+      "relation": "references",
+      "confidence": "resolved_ast_model_symbol",
+      "evidence": "backend/general/domain/services/component_Config_service.py:43 uses resolved model FieldDomainConfig: FieldDomainConfig.control_type.label(",
+      "graph": "semantic"
+    },
+    {
+      "source": "backend/general/domain/services/component_Config_service.py:21:function:get_config_options",
+      "target": "backend/general/config/models.py:85:database_column_definition:schema_name",
+      "relation": "references",
+      "confidence": "resolved_ast_model_column",
+      "evidence": "backend/general/domain/services/component_Config_service.py:60 resolves FieldDomainConfig.schema_name to field_domain_config.schema_name: FieldDomainConfig.schema_name",
+      "graph": "semantic"
+    },
+    {
+      "source": "backend/general/domain/services/component_Config_service.py:21:function:get_config_options",
+      "target": "backend/general/config/models.py:86:database_column_definition:table_name",
+      "relation": "references",
+      "confidence": "resolved_ast_model_column",
+      "evidence": "backend/general/domain/services/component_Config_service.py:63 resolves FieldDomainConfig.table_name to field_domain_config.table_name: FieldDomainConfig.table_name",
+      "graph": "semantic"
+    },
+    {
+      "source": "backend/general/domain/services/component_Config_service.py:21:function:get_config_options",
+      "target": "backend/general/config/models.py:87:database_column_definition:field_name",
+      "relation": "references",
+      "confidence": "resolved_ast_model_column",
+      "evidence": "backend/general/domain/services/component_Config_service.py:66 resolves FieldDomainConfig.field_name to field_domain_config.field_name: FieldDomainConfig.field_name",
+      "graph": "semantic"
+    },
+    {
+      "source": "backend/general/domain/services/component_Config_service.py:21:function:get_config_options",
+      "target": "backend/general/config/models.py:90:database_column_definition:control_type",
+      "relation": "references",
+      "confidence": "resolved_ast_model_column",
+      "evidence": "backend/general/domain/services/component_Config_service.py:43 resolves FieldDomainConfig.control_type to field_domain_config.control_type: FieldDomainConfig.control_type.label(",
+      "graph": "semantic"
+    },
+    {
+      "source": "backend/general/domain/services/domain_options_service.py:37:function:get_domain_options",
+      "target": "backend/core/database.py:49:function:get_async_session",
+      "relation": "calls",
+      "confidence": "imported_symbol",
+      "evidence": "backend/general/domain/services/domain_options_service.py:64 calls get_async_session",
+      "graph": "structural"
+    },
+    {
+      "source": "backend/general/domain/services/domain_options_service.py:37:function:get_domain_options",
+      "target": "backend/core/database.py:49:function:get_async_session",
+      "relation": "imports",
+      "confidence": "imported_symbol_reference",
+      "evidence": "backend/general/domain/services/domain_options_service.py:64 uses imported get_async_session from backend/core/database.py",
+      "graph": "structural"
+    },
+    {
+      "source": "backend/general/domain/services/domain_options_service.py:37:function:get_domain_options",
+      "target": "backend/general/config/models.py:100:class:FieldDomainValues",
+      "relation": "imports",
+      "confidence": "imported_symbol_reference",
+      "evidence": "backend/general/domain/services/domain_options_service.py:68 uses imported FieldDomainValues from backend/general/config/models.py",
+      "graph": "structural"
+    },
+    {
+      "source": "backend/general/domain/services/domain_options_service.py:37:function:get_domain_options",
+      "target": "backend/general/config/models.py:81:class:FieldDomainConfig",
+      "relation": "imports",
+      "confidence": "imported_symbol_reference",
+      "evidence": "backend/general/domain/services/domain_options_service.py:86 uses imported FieldDomainConfig from backend/general/config/models.py",
+      "graph": "structural"
+    },
+    {
+      "source": "backend/general/domain/services/domain_options_service.py:37:function:get_domain_options",
+      "target": "backend/general/translation/models.py:11:class:TranslationDictionary",
+      "relation": "imports",
+      "confidence": "imported_symbol_reference",
+      "evidence": "backend/general/domain/services/domain_options_service.py:70 uses imported TranslationDictionary from backend/general/translation/models.py",
+      "graph": "structural"
+    },
+    {
+      "source": "backend/general/domain/services/domain_options_service.py:37:function:get_domain_options",
+      "target": "backend/general/config/models.py:100:class:FieldDomainValues",
+      "relation": "references",
+      "confidence": "resolved_ast_model_symbol",
+      "evidence": "backend/general/domain/services/domain_options_service.py:68 uses resolved model FieldDomainValues: FieldDomainValues.requires_translation.is_(True),",
+      "graph": "semantic"
+    },
+    {
+      "source": "backend/general/domain/services/domain_options_service.py:37:function:get_domain_options",
+      "target": "backend/general/config/models.py:126:database_column_definition:schema_name",
+      "relation": "references",
+      "confidence": "resolved_ast_model_column",
+      "evidence": "backend/general/domain/services/domain_options_service.py:89 resolves FieldDomainValues.schema_name to field_domain_values.schema_name: FieldDomainValues.schema_name,",
+      "graph": "semantic"
+    },
+    {
+      "source": "backend/general/domain/services/domain_options_service.py:37:function:get_domain_options",
+      "target": "backend/general/config/models.py:127:database_column_definition:table_name",
+      "relation": "references",
+      "confidence": "resolved_ast_model_column",
+      "evidence": "backend/general/domain/services/domain_options_service.py:92 resolves FieldDomainValues.table_name to field_domain_values.table_name: FieldDomainValues.table_name,",
+      "graph": "semantic"
+    },
+    {
+      "source": "backend/general/domain/services/domain_options_service.py:37:function:get_domain_options",
+      "target": "backend/general/config/models.py:128:database_column_definition:field_name",
+      "relation": "references",
+      "confidence": "resolved_ast_model_column",
+      "evidence": "backend/general/domain/services/domain_options_service.py:95 resolves FieldDomainValues.field_name to field_domain_values.field_name: FieldDomainValues.field_name",
+      "graph": "semantic"
+    },
+    {
+      "source": "backend/general/domain/services/domain_options_service.py:37:function:get_domain_options",
+      "target": "backend/general/config/models.py:129:database_column_definition:domain_value",
+      "relation": "references",
+      "confidence": "resolved_ast_model_column",
+      "evidence": "backend/general/domain/services/domain_options_service.py:71 resolves FieldDomainValues.domain_value to field_domain_values.domain_value: FieldDomainValues.domain_value",
+      "graph": "semantic"
+    },
+    {
+      "source": "backend/general/domain/services/domain_options_service.py:37:function:get_domain_options",
+      "target": "backend/general/config/models.py:131:database_column_definition:sort_order",
+      "relation": "references",
+      "confidence": "resolved_ast_model_column",
+      "evidence": "backend/general/domain/services/domain_options_service.py:124 resolves FieldDomainValues.sort_order to field_domain_values.sort_order: FieldDomainValues.sort_order,",
+      "graph": "semantic"
+    },
+    {
+      "source": "backend/general/domain/services/domain_options_service.py:37:function:get_domain_options",
+      "target": "backend/general/config/models.py:137:database_column_definition:requires_translation",
+      "relation": "references",
+      "confidence": "resolved_ast_model_column",
+      "evidence": "backend/general/domain/services/domain_options_service.py:68 resolves FieldDomainValues.requires_translation to field_domain_values.requires_translation: FieldDomainValues.requires_translation.is_(True),",
+      "graph": "semantic"
+    },
+    {
+      "source": "backend/general/domain/services/domain_options_service.py:37:function:get_domain_options",
+      "target": "backend/general/config/models.py:81:class:FieldDomainConfig",
+      "relation": "references",
+      "confidence": "resolved_ast_model_symbol",
+      "evidence": "backend/general/domain/services/domain_options_service.py:86 uses resolved model FieldDomainConfig: FieldDomainConfig,",
+      "graph": "semantic"
+    },
+    {
+      "source": "backend/general/domain/services/domain_options_service.py:37:function:get_domain_options",
+      "target": "backend/general/config/models.py:85:database_column_definition:schema_name",
+      "relation": "references",
+      "confidence": "resolved_ast_model_column",
+      "evidence": "backend/general/domain/services/domain_options_service.py:88 resolves FieldDomainConfig.schema_name to field_domain_config.schema_name: FieldDomainConfig.schema_name ==",
+      "graph": "semantic"
+    },
+    {
+      "source": "backend/general/domain/services/domain_options_service.py:37:function:get_domain_options",
+      "target": "backend/general/config/models.py:86:database_column_definition:table_name",
+      "relation": "references",
+      "confidence": "resolved_ast_model_column",
+      "evidence": "backend/general/domain/services/domain_options_service.py:91 resolves FieldDomainConfig.table_name to field_domain_config.table_name: FieldDomainConfig.table_name ==",
+      "graph": "semantic"
+    },
+    {
+      "source": "backend/general/domain/services/domain_options_service.py:37:function:get_domain_options",
+      "target": "backend/general/config/models.py:87:database_column_definition:field_name",
+      "relation": "references",
+      "confidence": "resolved_ast_model_column",
+      "evidence": "backend/general/domain/services/domain_options_service.py:94 resolves FieldDomainConfig.field_name to field_domain_config.field_name: FieldDomainConfig.field_name ==",
+      "graph": "semantic"
+    },
+    {
+      "source": "backend/general/domain/services/domain_options_service.py:37:function:get_domain_options",
+      "target": "backend/general/config/models.py:90:database_column_definition:control_type",
+      "relation": "references",
+      "confidence": "resolved_ast_model_column",
+      "evidence": "backend/general/domain/services/domain_options_service.py:120 resolves FieldDomainConfig.control_type to field_domain_config.control_type: FieldDomainConfig.control_type ==",
+      "graph": "semantic"
+    },
+    {
+      "source": "backend/general/domain/services/domain_options_service.py:37:function:get_domain_options",
+      "target": "backend/general/translation/models.py:11:class:TranslationDictionary",
+      "relation": "references",
+      "confidence": "resolved_ast_model_symbol",
+      "evidence": "backend/general/domain/services/domain_options_service.py:70 uses resolved model TranslationDictionary: TranslationDictionary.translated_text,",
+      "graph": "semantic"
+    },
+    {
+      "source": "backend/general/domain/services/domain_options_service.py:37:function:get_domain_options",
+      "target": "backend/general/translation/models.py:16:database_column_definition:item_code",
+      "relation": "references",
+      "confidence": "resolved_ast_model_column",
+      "evidence": "backend/general/domain/services/domain_options_service.py:103 resolves TranslationDictionary.item_code to translation_dictionary.item_code: TranslationDictionary.item_code ==",
+      "graph": "semantic"
+    },
+    {
+      "source": "backend/general/domain/services/domain_options_service.py:37:function:get_domain_options",
+      "target": "backend/general/translation/models.py:17:database_column_definition:language_code",
+      "relation": "references",
+      "confidence": "resolved_ast_model_column",
+      "evidence": "backend/general/domain/services/domain_options_service.py:106 resolves TranslationDictionary.language_code to translation_dictionary.language_code: TranslationDictionary.language_code ==",
+      "graph": "semantic"
+    },
+    {
+      "source": "backend/general/domain/services/domain_options_service.py:37:function:get_domain_options",
+      "target": "backend/general/translation/models.py:18:database_column_definition:translated_text",
+      "relation": "references",
+      "confidence": "resolved_ast_model_column",
+      "evidence": "backend/general/domain/services/domain_options_service.py:70 resolves TranslationDictionary.translated_text to translation_dictionary.translated_text: TranslationDictionary.translated_text,",
+      "graph": "semantic"
+    }
+  ],
+  "limitations": [
+    "Static analysis identifies source relationships; it does not prove runtime execution.",
+    "Python analysis uses AST; JavaScript, TypeScript, and Vue analysis uses lightweight lexical scanning.",
+    "API matching supports common axios calls and FastAPI route declarations; dynamic wrappers and prefixes may remain unresolved.",
+    "Database analysis supports SQL references, common SQLAlchemy mappings, and statically declared foreign keys.",
+    "Semantic ORM links require a locally defined or explicitly imported model; dynamic mappings may remain unresolved.",
+    "Call resolution is limited to same-file symbols and resolved imports; reflection and runtime dispatch are not resolved.",
+    "Traversal is bidirectional, while each reported edge retains its original direction and evidence.",
+    "No repository source file is modified by this tool."
+  ]
+}
