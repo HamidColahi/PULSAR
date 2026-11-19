@@ -22,8 +22,9 @@ Static analysis discovers likely source relationships. It does not prove
 runtime execution. Dynamic dispatch, reflection, generated code, and database
 behavior may require runtime instrumentation or manual verification.
 
-Modified: 2026-11-18 (Asia/Baku)
-Version: 6.6
+Modified: 2026-11-19 (Asia/Baku)
+Version: 6.7
+
 In collaboration with GPT4 Chat Assistant: Bahram
 """
 
@@ -547,6 +548,176 @@ class TopicTracer:
                         "line": nested_call.lineno,
                     })
 
+
+            # Index composite ForeignKeyConstraint declarations.
+            for member in class_node.body:
+                if not isinstance(member, (ast.Assign, ast.AnnAssign)):
+                    continue
+
+                value = member.value
+                if value is None:
+                    continue
+
+                for constraint_call in (
+                    item for item in ast.walk(value)
+                    if isinstance(item, ast.Call)
+                    and call_name(item.func) == "ForeignKeyConstraint"
+                ):
+                    if len(constraint_call.args) < 2:
+                        continue
+
+                    try:
+                        source_columns = ast.literal_eval(
+                            constraint_call.args[0]
+                        )
+                        target_columns = ast.literal_eval(
+                            constraint_call.args[1]
+                        )
+                    except (ValueError, TypeError, SyntaxError):
+                        continue
+
+                    if not (
+                        isinstance(source_columns, (list, tuple))
+                        and isinstance(target_columns, (list, tuple))
+                        and len(source_columns) == len(target_columns)
+                        and source_columns
+                        and all(isinstance(item, str) for item in source_columns)
+                        and all(isinstance(item, str) for item in target_columns)
+                    ):
+                        continue
+
+                    self.pending_foreign_keys.append({
+                        "kind": "composite",
+                        "file": file,
+                        "model": class_node.name,
+                        "source_columns": list(source_columns),
+                        "target_columns": list(target_columns),
+                        "line": constraint_call.lineno,
+                    })
+
+
+    def _index_embedded_sql(
+        self,
+        file: str,
+        sql: str,
+        line: int,
+        owner_id: str | None,
+    ) -> None:
+        """Index SQL statements embedded in Python source."""
+        if not sql or not re.search(
+            r"\b(select|insert|update|delete|with)\b",
+            sql,
+            re.I,
+        ):
+            return
+
+        statement_id = self._add_node(
+            file,
+            line,
+            "sql_statement",
+            f"SQL statement at line {line}",
+            sql.strip()[:1200],
+            ["database", "backend"],
+            line + sql.count("\n"),
+        )
+
+        if owner_id:
+            self._add_edge(
+                owner_id,
+                statement_id,
+                "sql",
+                "python_embedded_sql",
+                f"{file}:{line} executes embedded SQL",
+            )
+
+        reserved = {
+            "where", "on", "left", "right", "inner", "outer",
+            "cross", "full", "join", "group", "order", "having",
+            "limit", "offset", "union", "except", "intersect",
+            "set", "values", "returning", "for", "when",
+        }
+
+        table_pattern = re.compile(
+            r"""
+            \b(?:FROM|JOIN|UPDATE|INTO|REFERENCES)
+            \s+
+            ([A-Za-z_]\w*(?:\.[A-Za-z_]\w*)?)
+            (?:\s+(?:AS\s+)?([A-Za-z_]\w*))?
+            """,
+            re.I | re.X,
+        )
+
+        aliases = {}
+        table_nodes = {}
+
+        for match in table_pattern.finditer(sql):
+            table_name = match.group(1)
+            alias = match.group(2)
+
+            if alias and alias.lower() in reserved:
+                alias = None
+
+            object_line = line + sql.count("\n", 0, match.start())
+
+            table_id = self._add_node(
+                file,
+                object_line,
+                "database_object_reference",
+                table_name,
+                match.group(0).strip(),
+                ["database", "backend"],
+            )
+
+            self._add_edge(
+                statement_id,
+                table_id,
+                "sql",
+                "embedded_sql_object",
+                f"SQL references {table_name}",
+            )
+
+            table_nodes[table_name] = table_id
+
+            if alias:
+                aliases[alias] = table_name
+            aliases.setdefault(table_name.split(".")[-1], table_name)
+
+        column_pattern = re.compile(
+            r"\b([A-Za-z_]\w*)\.([A-Za-z_]\w*)\b"
+        )
+
+        for match in column_pattern.finditer(sql):
+            alias, column_name = match.groups()
+            table_name = aliases.get(alias)
+
+            if not table_name:
+                continue
+
+            table_id = table_nodes.get(table_name)
+            if not table_id:
+                continue
+
+            column_line = line + sql.count("\n", 0, match.start())
+
+            column_id = self._add_node(
+                file,
+                column_line,
+                "database_column_reference",
+                f"{table_name}.{column_name}",
+                match.group(0),
+                ["database", "backend"],
+            )
+
+            self._add_edge(
+                table_id,
+                column_id,
+                "sql",
+                "embedded_sql_column",
+                f"{alias}.{column_name} resolves to {table_name}.{column_name}",
+            )
+
+
+
     def _index_python(self, file: str, text: str) -> None:
         try:
             tree = ast.parse(text, filename=file)
@@ -722,6 +893,24 @@ class TopicTracer:
             def visit_Call(self, node):
                 if self.functions:
                     called = self._call_name(node.func)
+
+                    # Index literal SQL passed to text() or execute().
+                    terminal = called.split(".")[-1] if called else ""
+
+                    if terminal in {"text", "execute"} and node.args:
+                        sql_argument = node.args[0]
+
+                        if (
+                            isinstance(sql_argument, ast.Constant)
+                            and isinstance(sql_argument.value, str)
+                        ):
+                            tracer._index_embedded_sql(
+                                file,
+                                sql_argument.value,
+                                getattr(sql_argument, "lineno", node.lineno),
+                                self.functions[-1],
+                            )
+
                     if called:
                         tracer.pending_calls.append({
                             "source": self.functions[-1],
@@ -1436,7 +1625,11 @@ class TopicTracer:
             table_by_name[table_name.lower()].append((model_key, table_id))
 
         for item in self.pending_foreign_keys:
+            if item.get("kind") == "composite":
+                continue
+
             target = item["target"].replace('"', '').replace("'", "").strip()
+
             parts = [part for part in target.split(".") if part]
             if len(parts) < 2:
                 continue
@@ -1472,6 +1665,80 @@ class TopicTracer:
                     "unresolved_foreign_key_target",
                     f"Declared foreign key target could not be indexed: {target}",
                 )
+
+
+        # Resolve composite ForeignKeyConstraint column pairs.
+        for item in self.pending_foreign_keys:
+            if item.get("kind") != "composite":
+                continue
+
+            source_file = item["file"]
+            model_name = item["model"]
+
+            for source_name, target in zip(
+                item["source_columns"],
+                item["target_columns"],
+            ):
+                source_id = self.model_column_nodes.get(
+                    (source_file, model_name, source_name)
+                )
+
+                if not source_id:
+                    continue
+
+                target = target.strip().strip('"').strip("'")
+                parts = [part for part in target.split(".") if part]
+
+                if len(parts) < 2:
+                    continue
+
+                target_table = parts[-2]
+                target_column = parts[-1]
+                resolved = False
+
+                for model_key, table_id in table_by_name.get(
+                    target_table.lower(), []
+                ):
+                    target_column_id = self.model_column_nodes.get(
+                        (model_key[0], model_key[1], target_column)
+                    )
+
+                    if target_column_id:
+                        self._add_edge(
+                            source_id,
+                            target_column_id,
+                            "sql",
+                            "sqlalchemy_composite_foreign_key",
+                            f"{model_name}.{source_name} references {target}",
+                        )
+                        resolved = True
+                    elif table_id:
+                        self._add_edge(
+                            source_id,
+                            table_id,
+                            "sql",
+                            "sqlalchemy_composite_foreign_key_table",
+                            f"{model_name}.{source_name} references {target}",
+                        )
+                        resolved = True
+
+                if not resolved:
+                    target_id = self._add_node(
+                        item["file"],
+                        item["line"],
+                        "database_object_reference",
+                        target,
+                        f"ForeignKeyConstraint target: {target}",
+                        ["database", "backend"],
+                    )
+
+                    self._add_edge(
+                        source_id,
+                        target_id,
+                        "sql",
+                        "unresolved_composite_foreign_key",
+                        f"Could not resolve composite FK target: {target}",
+                    )
 
     def _build_index(self) -> None:
         for file, text in self.file_text.items():
@@ -1575,6 +1842,8 @@ class TopicTracer:
             "database_object_reference": 10,
             "component_usage": 5,
             "source_file": -8,
+            "sql_statement": 10,
+            "database_column_reference": 18,
         }
         score += kind_weights.get(node.kind, 0)
 
@@ -1663,8 +1932,11 @@ class TopicTracer:
             tags = set(node.tags)
             semantic_priority = 0
 
-            if node.kind == "database_column_definition":
-                semantic_priority += 30
+            if node.kind in {
+                    "database_column_definition",
+                    "database_column_reference",
+                }:
+                    semantic_priority += 30
             elif node.kind in {"api_reference", "api_endpoint"}:
                 semantic_priority += 25
             elif node.kind in {"function", "class"}:
@@ -1858,7 +2130,7 @@ class TopicTracer:
                 trace_categories[tag].append(node["id"])
 
         return {
-            "version": "6.6",
+            "version": "6.7",
             "topic": topic,
             "repository": str(self.root),
             "options": {
