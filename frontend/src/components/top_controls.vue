@@ -90,9 +90,9 @@ In collaboration with GPT4 Chat Assistant: Bahram
 
       <!-- CENTER ZONE -->
       <div
-        class="pointer-events-none absolute inset-x-0 flex justify-center px-24 sm:px-40 lg:px-64"
+        class="flex min-w-0 flex-1 justify-center px-3"
       >
-        <div class="flex min-w-0 max-w-[min(680px,55vw)] items-center gap-3">
+        <div class="flex min-w-0 max-w-full items-center gap-3">
           <span
             class="hidden h-px w-8 shrink-0 opacity-50 sm:block"
             style="background:linear-gradient(to right,transparent,var(--pulsar-level-accent),transparent)"
@@ -109,7 +109,7 @@ In collaboration with GPT4 Chat Assistant: Bahram
             style="background:linear-gradient(to right,transparent,var(--pulsar-level-accent),transparent)"
           ></span>
         </div>
-      </div>
+      </div>  
 
       <!-- RIGHT ZONE -->
       <div class="ml-auto flex shrink-0 items-center gap-1.5 sm:gap-2">
@@ -510,7 +510,15 @@ const systemMonitorTooltip = computed(() => {
 // =================================================
 
 function formatMetric(value) {
-  return `${Math.round(Number(value) || 0)}%`
+  const number = Number(value)
+
+  if (!Number.isFinite(number)) {
+    return '--%'
+  }
+
+  const normalized = Math.min(100, Math.max(0, number))
+
+  return `${normalized.toFixed(1)}%`
 }
 
 function formatBytes(bytes) {
@@ -978,17 +986,25 @@ button:focus {
 }
 
 .system-monitor-value {
-  min-width: 29px;
+  display: inline-block;
+  min-width: 38px;
+  direction: ltr;
+  unicode-bidi: isolate;
+  white-space: nowrap;
   color: var(--color-label);
+  font-family: Arial, sans-serif;
   font-size: 10px;
   font-weight: 700;
   font-variant-numeric: tabular-nums;
   text-align: right;
 }
 
-.system-monitor-divider {
-  width: 1px;
-  height: 17px;
+.system-monitor-track {
+  direction: ltr;
+  width: 34px;
+  height: 4px;
+  overflow: hidden;
+  border-radius: 10px;
   background: var(--pulsar-level-border);
 }
 
