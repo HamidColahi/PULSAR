@@ -1,0 +1,92 @@
+/* PULSAR UI design tokens - presentation only. */
+:root {
+  --theme-level: 3;
+  --color-bg: hsl(222 24% calc(97% - var(--theme-level) * 0.7%));
+  --color-panel: hsl(0 0% 100%);
+  --color-panel-alt: hsl(220 20% 98%);
+  --color-border: hsl(220 16% 88%);
+  --color-input: hsl(220 20% 99%);
+  --color-label: hsl(222 25% 28%);
+  --color-input-text: hsl(222 25% 18%);
+  --color-muted: hsl(220 12% 48%);
+  --color-primary: #4f46e5;
+  --color-primary-soft: #eef2ff;
+  --color-button: #4f46e5;
+  --color-button-text: #ffffff;
+  --color-link: #4f46e5;
+  --color-link-hover: #3730a3;
+  --color-focus: #6366f1;
+  --color-selected: #eef2ff;
+  --color-hover: #f8fafc;
+  --color-danger: #dc2626;
+  --color-success: #059669;
+  --color-warning: #d97706;
+  --header-height: 68px;
+}
+
+.dark {
+  --color-bg: hsl(222 28% calc(9% + var(--theme-level) * 0.8%));
+  --color-panel: hsl(222 24% 15%);
+  --color-panel-alt: hsl(222 22% 18%);
+  --color-border: hsl(220 16% 25%);
+  --color-input: hsl(222 22% 19%);
+  --color-label: hsl(220 20% 82%);
+  --color-input-text: hsl(220 20% 94%);
+  --color-muted: hsl(220 12% 62%);
+  --color-primary: #818cf8;
+  --color-primary-soft: rgba(99,102,241,.16);
+  --color-button: #6366f1;
+  --color-button-text: #ffffff;
+  --color-link: #a5b4fc;
+  --color-link-hover: #c7d2fe;
+  --color-focus: #818cf8;
+  --color-selected: rgba(99,102,241,.20);
+  --color-hover: rgba(255,255,255,.045);
+  --color-danger: #f87171;
+  --color-success: #34d399;
+  --color-warning: #fbbf24;
+}
+
+.bg-base { background-color: var(--color-bg); }
+.bg-panel { background-color: var(--color-panel); }
+.bg-input { background-color: var(--color-input); }
+.bg-button { background-color: var(--color-button); }
+.text-label { color: var(--color-label); }
+.text-input { color: var(--color-input-text); }
+.text-primary { color: var(--color-primary); }
+.text-button { color: var(--color-button-text); }
+.text-link { color: var(--color-link); }
+.text-link-hover { color: var(--color-link-hover); }
+.text-muted { color: var(--color-muted); }
+.text-empty { color: var(--color-muted); }
+.text-warning { color: var(--color-warning); }
+.bg-warning { background-color: color-mix(in srgb, var(--color-warning) 12%, transparent); }
+.border-input { border-color: var(--color-border); }
+.bg-selected { background-color: var(--color-selected); }
+.text-selected { color: var(--color-input-text); }
+.bg-hover { background-color: var(--color-hover); }
+.bg-hover-dark { background-color: var(--color-hover); }
+.border-focus { border-color: var(--color-primary); }
+
+.pulsar-shell { min-height: 100vh; background: var(--color-bg); color: var(--color-input-text); }
+.pulsar-header { height: var(--header-height); background: color-mix(in srgb, var(--color-panel) 94%, transparent); border-bottom: 1px solid var(--color-border); box-shadow: 0 1px 8px rgba(15,23,42,.05); backdrop-filter: blur(14px); }
+.dark .pulsar-header { box-shadow: 0 1px 12px rgba(0,0,0,.20); }
+.pulsar-surface { background: var(--color-panel); border: 1px solid var(--color-border); border-radius: 14px; box-shadow: 0 1px 3px rgba(15,23,42,.04), 0 8px 24px rgba(15,23,42,.035); }
+.dark .pulsar-surface { box-shadow: 0 8px 24px rgba(0,0,0,.12); }
+.pulsar-icon-button { display:inline-flex; align-items:center; justify-content:center; width:36px; height:36px; border:1px solid var(--color-border); border-radius:10px; background:var(--color-panel); color:var(--color-label); transition:all .16s ease; }
+.pulsar-icon-button:hover { background:var(--color-hover); border-color:var(--color-primary); color:var(--color-primary); transform:translateY(-1px); }
+.pulsar-action { display:inline-flex; align-items:center; gap:.45rem; min-height:36px; padding:.45rem .75rem; border:1px solid transparent; border-radius:9px; color:var(--color-label); background:transparent; transition:all .16s ease; }
+.pulsar-action:hover { background:var(--color-hover); color:var(--color-primary); }
+.pulsar-action:disabled { opacity:.38; cursor:not-allowed; transform:none; }
+.pulsar-action-primary { background:var(--color-primary); color:#fff; box-shadow:0 2px 7px rgba(79,70,229,.20); }
+.pulsar-action-primary:hover { background:var(--color-primary); color:#fff; filter:brightness(1.06); }
+.pulsar-field { width:100%; min-height:38px; padding:.5rem .7rem; border:1px solid var(--color-border); border-radius:9px; background:var(--color-input); color:var(--color-input-text); transition:border-color .16s ease, box-shadow .16s ease, background .16s ease; }
+.pulsar-field:hover { border-color:color-mix(in srgb, var(--color-primary) 35%, var(--color-border)); }
+.pulsar-field:focus { outline:none; border-color:var(--color-focus); box-shadow:0 0 0 3px color-mix(in srgb, var(--color-focus) 16%, transparent); }
+.pulsar-section-label { font-size:.72rem; font-weight:700; letter-spacing:.06em; text-transform:uppercase; color:var(--color-muted); }
+.pulsar-status { display:inline-flex; align-items:center; gap:.35rem; padding:.22rem .55rem; border-radius:999px; font-size:.72rem; font-weight:700; background:var(--color-primary-soft); color:var(--color-primary); }
+
+@media (max-width: 768px) {
+  :root { --header-height: 60px; }
+  .pulsar-surface { border-radius:11px; }
+}
