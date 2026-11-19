@@ -298,7 +298,7 @@ const hasStructuredResult = computed(() => Boolean(
 ))
 
 const plainLanguageSummary = computed(() => {
-  return result.value?.plain_language_summaries?.en || null
+  return result.value?.plain_language_summary || null
 })
 
 const requestOptions = computed(() => ({
