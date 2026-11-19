@@ -1,7 +1,9 @@
+
 <!-- ===============================================
 File: frontend/src/components/top_controls.vue
-Description: Fixed global PULSAR identity bar with centered page title and metadata-driven controls
-Change Date: 2026-10-23 15:00; Timezone: Asia/Baku
+Description: Fixed global PULSAR identity bar with system monitoring and metadata-driven controls
+Change Date: 2026-11-19
+Timezone: Asia/Baku
 Author: MHKolahi@gmail.com
 In collaboration with GPT4 Chat Assistant: Bahram
 =============================================== -->
@@ -111,6 +113,7 @@ In collaboration with GPT4 Chat Assistant: Bahram
 
       <!-- RIGHT ZONE -->
       <div class="ml-auto flex shrink-0 items-center gap-1.5 sm:gap-2">
+        <!-- Language -->
         <select
           v-if="activeLanguages.length"
           :value="language"
@@ -127,6 +130,58 @@ In collaboration with GPT4 Chat Assistant: Bahram
             {{ item.native_name || item.language_name }}
           </option>
         </select>
+
+        <!-- System Monitor -->
+        <div
+          v-if="isAuthenticated"
+          class="system-monitor"
+          :class="{ 'system-monitor-offline': !systemMetricsOnline }"
+          :title="systemMonitorTooltip"
+          aria-label="System Resource Monitor"
+          role="status"
+        >
+          <div class="system-monitor-item">
+            <span class="system-monitor-label">CPU</span>
+
+            <div class="system-monitor-track">
+              <div
+                class="system-monitor-fill"
+                :class="getMetricClass(systemMetrics.cpu)"
+                :style="{ width: `${systemMetrics.cpu}%` }"
+              ></div>
+            </div>
+
+            <span class="system-monitor-value">
+              {{ formatMetric(systemMetrics.cpu) }}
+            </span>
+          </div>
+
+          <div class="system-monitor-divider"></div>
+
+          <div class="system-monitor-item">
+            <span class="system-monitor-label">RAM</span>
+
+            <div class="system-monitor-track">
+              <div
+                class="system-monitor-fill"
+                :class="getMetricClass(systemMetrics.memory)"
+                :style="{ width: `${systemMetrics.memory}%` }"
+              ></div>
+            </div>
+
+            <span class="system-monitor-value">
+              {{ formatMetric(systemMetrics.memory) }}
+            </span>
+          </div>
+
+          <span
+            class="system-monitor-status"
+            :class="{
+              'system-monitor-status-online': systemMetricsOnline
+            }"
+          ></span>
+        </div>
+
         <!-- Source Trace -->
         <button
           v-if="isAuthenticated"
@@ -258,9 +313,8 @@ In collaboration with GPT4 Chat Assistant: Bahram
       </div>
     </div>
   </header>
-  <SourceTracePanel
-    v-model="sourceTraceOpen"
-  />
+
+  <SourceTracePanel v-model="sourceTraceOpen" />
 </template>
 
 <script setup>
@@ -269,12 +323,16 @@ import {
   computed,
   watch,
   onMounted,
+  onUnmounted,
   useAttrs,
   inject,
   nextTick
 } from 'vue'
-import SourceTracePanel from '@/components/tools/source_trace_panel.vue'
+
 import { useRoute } from 'vue-router'
+
+import SourceTracePanel from '@/components/tools/source_trace_panel.vue'
+import axiosInstance from '@/utils/axiosInstance'
 
 import {
   darkMode,
@@ -298,6 +356,11 @@ import {
   usePageContext
 } from '@/composables/usePageContext'
 
+
+// =================================================
+// Composables
+// =================================================
+
 const {
   activeLanguages,
   changeLanguage
@@ -308,6 +371,20 @@ const {
   canGoBack,
   goBack
 } = usePageNavigation()
+
+const {
+  collectPageContext,
+  clearPageContext
+} = usePageContext({
+  rootSelector: '.pulsar-shell'
+})
+
+const { translate } = useTranslation()
+
+
+// =================================================
+// Component Configuration
+// =================================================
 
 const props = defineProps({
   pageTitleKey: {
@@ -335,25 +412,42 @@ defineOptions({
 const attrs = useAttrs()
 const route = useRoute()
 
-const {
-  collectPageContext,
-  clearPageContext
-} = usePageContext({
-  rootSelector: '.pulsar-shell'
-})
-
 const aiAvatarWindow = inject('aiAvatarWindow')
 
 if (!aiAvatarWindow) {
   throw new Error('The global AI Avatar window provider is unavailable.')
 }
 
+
+// =================================================
+// Component State
+// =================================================
+
 const translatedPageTitle = ref('')
 const aiAvatarTitle = ref('AI Avatar')
 const sourceTraceOpen = ref(false)
+
 const colorIntensity = ref(
   Number(localStorage.getItem('colorIntensity')) || 3
 )
+
+const systemMetrics = ref({
+  cpu: 0,
+  memory: 0,
+  memoryUsed: 0,
+  memoryTotal: 0,
+  logicalCores: 0
+})
+
+const systemMetricsOnline = ref(false)
+
+let systemMetricsTimer = null
+let systemMetricsRequestPending = false
+
+
+// =================================================
+// Computed Properties
+// =================================================
 
 const userEmail = computed(() => {
   return userIdentity.value?.email || 'userid'
@@ -361,6 +455,7 @@ const userEmail = computed(() => {
 
 const isLoginRoute = computed(() => {
   const routeName = String(route.name || '').toLowerCase()
+
   const routeSegments = String(route.path || '')
     .toLowerCase()
     .split('/')
@@ -395,7 +490,123 @@ const userInitial = computed(() => {
   return userEmail.value.trim().charAt(0).toUpperCase()
 })
 
-const { translate } = useTranslation()
+const systemMonitorTooltip = computed(() => {
+  if (!systemMetricsOnline.value) {
+    return 'System monitoring unavailable'
+  }
+
+  return [
+    `CPU Usage: ${formatMetric(systemMetrics.value.cpu)}`,
+    `Logical Cores: ${systemMetrics.value.logicalCores}`,
+    `Memory Usage: ${formatMetric(systemMetrics.value.memory)}`,
+    `Memory Used: ${formatBytes(systemMetrics.value.memoryUsed)}`,
+    `Total Memory: ${formatBytes(systemMetrics.value.memoryTotal)}`
+  ].join('\n')
+})
+
+
+// =================================================
+// System Monitoring
+// =================================================
+
+function formatMetric(value) {
+  return `${Math.round(Number(value) || 0)}%`
+}
+
+function formatBytes(bytes) {
+  const value = Number(bytes) || 0
+
+  if (value < 1024) {
+    return `${value} B`
+  }
+
+  const units = ['KB', 'MB', 'GB', 'TB']
+
+  let size = value / 1024
+  let unitIndex = 0
+
+  while (size >= 1024 && unitIndex < units.length - 1) {
+    size /= 1024
+    unitIndex++
+  }
+
+  return `${size.toFixed(1)} ${units[unitIndex]}`
+}
+
+function getMetricClass(value) {
+  const usage = Number(value) || 0
+
+  if (usage >= 85) {
+    return 'system-monitor-fill-high'
+  }
+
+  if (usage >= 65) {
+    return 'system-monitor-fill-medium'
+  }
+
+  return 'system-monitor-fill-normal'
+}
+
+async function fetchSystemMetrics() {
+  if (!isAuthenticated.value || systemMetricsRequestPending) {
+    return
+  }
+
+  systemMetricsRequestPending = true
+
+  try {
+    const response = await axiosInstance.get('/admin/system/metrics')
+
+    const data = response.data
+
+    systemMetrics.value = {
+      cpu: Math.min(100, Math.max(0, Number(data.cpu?.percent) || 0)),
+      memory: Math.min(100, Math.max(0, Number(data.memory?.percent) || 0)),
+      memoryUsed: Number(data.memory?.used_bytes) || 0,
+      memoryTotal: Number(data.memory?.total_bytes) || 0,
+      logicalCores: Number(data.cpu?.logical_cores) || 0
+    }
+
+    systemMetricsOnline.value = true
+
+  } catch (error) {
+    systemMetricsOnline.value = false
+
+    console.warn(
+      '[PULSAR SYSTEM MONITOR] Metrics unavailable.',
+      error
+    )
+
+  } finally {
+    systemMetricsRequestPending = false
+  }
+}
+
+function startSystemMetrics() {
+  stopSystemMetrics()
+
+  if (!isAuthenticated.value) {
+    return
+  }
+
+  fetchSystemMetrics()
+
+  systemMetricsTimer = setInterval(() => {
+    fetchSystemMetrics()
+  }, 3000)
+}
+
+function stopSystemMetrics() {
+  if (systemMetricsTimer !== null) {
+    clearInterval(systemMetricsTimer)
+    systemMetricsTimer = null
+  }
+}
+
+
+// =================================================
+// Theme Management
+// =================================================
 
 function applyThemeLevel(value) {
   document.documentElement.style.setProperty(
@@ -409,6 +620,11 @@ function applyThemeLevel(value) {
 function toggleDarkMode() {
   darkMode.value = !darkMode.value
 }
+
+
+// =================================================
+// Page Title
+// =================================================
 
 async function updateTitle() {
   if (!props.pageTitleKey) {
@@ -426,6 +642,11 @@ async function updateTitle() {
     translatedPageTitle.value = props.pageTitleKey
   }
 }
+
+
+// =================================================
+// AI Avatar
+// =================================================
 
 async function updateAIAvatarTitle() {
   try {
@@ -447,7 +668,6 @@ function updateAIAvatarContext(authenticated, contextVariables) {
   }
 
   try {
-    
     const pageContext = collectPageContext({
       sourceContext:
         contextVariables &&
@@ -462,9 +682,10 @@ function updateAIAvatarContext(authenticated, contextVariables) {
     aiAvatarWindow.setContext(pageContext)
 
   } catch (error) {
-    // Keep the last valid context rather than replacing it with an empty object.
-    // A transient DOM/context collection failure must not erase a selected record.
-    console.error('[PALI PAGE CONTEXT] Collection failed; previous context retained.', error)
+    console.error(
+      '[PALI PAGE CONTEXT] Collection failed; previous context retained.',
+      error
+    )
   }
 }
 
@@ -475,6 +696,7 @@ async function toggleAIAvatar() {
   }
 
   await nextTick()
+
   updateAIAvatarContext(
     isAuthenticated.value,
     props.aiAvatarContextVariables
@@ -485,10 +707,25 @@ async function toggleAIAvatar() {
   }
 }
 
+
+// =================================================
+// Lifecycle
+// =================================================
+
 onMounted(() => {
   applyThemeLevel(colorIntensity.value)
   updateAIAvatarTitle()
+  startSystemMetrics()
 })
+
+onUnmounted(() => {
+  stopSystemMetrics()
+})
+
+
+// =================================================
+// Watchers
+// =================================================
 
 watch(colorIntensity, value => {
   applyThemeLevel(value)
@@ -529,6 +766,7 @@ watch(
   () => route.fullPath,
   async () => {
     await nextTick()
+
     updateAIAvatarContext(
       isAuthenticated.value,
       props.aiAvatarContextVariables
@@ -540,7 +778,10 @@ watch(
 )
 
 watch(
-  [isAuthenticated, () => props.aiAvatarDefinitionCode],
+  [
+    isAuthenticated,
+    () => props.aiAvatarDefinitionCode
+  ],
   ([authenticated, definitionCode]) => {
     aiAvatarWindow.setDefinitionCode(
       authenticated && typeof definitionCode === 'string'
@@ -556,6 +797,13 @@ watch(
 watch(
   isAuthenticated,
   authenticated => {
+    if (authenticated) {
+      startSystemMetrics()
+    } else {
+      stopSystemMetrics()
+      systemMetricsOnline.value = false
+    }
+
     if (!authenticated && aiAvatarWindow.isOpen.value) {
       aiAvatarWindow.toggle()
     }
@@ -567,6 +815,8 @@ watch(
 </script>
 
 <style scoped>
+/* Source Trace */
+
 .source-trace-trigger {
   color: var(--pulsar-level-accent);
   transition:
@@ -581,9 +831,15 @@ watch(
   background: var(--pulsar-level-accent-soft);
 }
 
+
+/* General Controls */
+
 button:focus {
   outline: none;
 }
+
+
+/* Page Level Indicator */
 
 .pulsar-level-indicator {
   display: flex;
@@ -618,6 +874,9 @@ button:focus {
   color: var(--pulsar-level-accent);
 }
 
+
+/* Language Selector */
+
 .pulsar-language-select {
   color-scheme: light;
 }
@@ -626,6 +885,9 @@ button:focus {
   background: var(--color-panel);
   color: var(--color-label);
 }
+
+
+/* AI Avatar */
 
 .ai-avatar-trigger {
   color: var(--pulsar-level-accent);
@@ -648,5 +910,102 @@ button:focus {
 :global(.dark) .pulsar-language-select option {
   background: var(--color-panel);
   color: var(--color-label);
+}
+
+
+/* System Resource Monitor */
+
+.system-monitor {
+  display: flex;
+  align-items: center;
+  gap: 9px;
+  height: 36px;
+  padding: 0 10px;
+  border: 1px solid var(--pulsar-level-border);
+  border-radius: 12px;
+  background: var(--pulsar-level-surface);
+  box-shadow: 0 1px 2px var(--pulsar-level-shadow);
+  transition:
+    border-color 0.2s ease,
+    background 0.2s ease,
+    opacity 0.2s ease;
+}
+
+.system-monitor:hover {
+  border-color: var(--pulsar-level-accent);
+  background: var(--pulsar-level-accent-soft);
+}
+
+.system-monitor-item {
+  display: flex;
+  align-items: center;
+  gap: 5px;
+}
+
+.system-monitor-label {
+  color: var(--color-muted);
+  font-size: 9px;
+  font-weight: 700;
+  letter-spacing: 0.04em;
+}
+
+.system-monitor-track {
+  width: 34px;
+  height: 4px;
+  overflow: hidden;
+  border-radius: 10px;
+  background: var(--pulsar-level-border);
+}
+
+.system-monitor-fill {
+  height: 100%;
+  border-radius: inherit;
+  transition:
+    width 0.5s ease,
+    background 0.3s ease;
+}
+
+.system-monitor-fill-normal {
+  background: #22c55e;
+}
+
+.system-monitor-fill-medium {
+  background: #eab308;
+}
+
+.system-monitor-fill-high {
+  background: #ef4444;
+}
+
+.system-monitor-value {
+  min-width: 29px;
+  color: var(--color-label);
+  font-size: 10px;
+  font-weight: 700;
+  font-variant-numeric: tabular-nums;
+  text-align: right;
+}
+
+.system-monitor-divider {
+  width: 1px;
+  height: 17px;
+  background: var(--pulsar-level-border);
+}
+
+.system-monitor-status {
+  width: 5px;
+  height: 5px;
+  flex-shrink: 0;
+  border-radius: 50%;
+  background: #ef4444;
+}
+
+.system-monitor-status-online {
+  background: #22c55e;
+  box-shadow: 0 0 6px rgba(34, 197, 94, 0.45);
+}
+
+.system-monitor-offline {
+  opacity: 0.65;
 }
 </style>
