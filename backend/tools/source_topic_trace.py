@@ -2129,8 +2129,8 @@ class TopicTracer:
             for tag in node["tags"]:
                 trace_categories[tag].append(node["id"])
 
-        return {
-            "version": "6.7",
+        result = {
+            "version": "6.8",
             "topic": topic,
             "repository": str(self.root),
             "options": {
@@ -2217,7 +2217,109 @@ class TopicTracer:
             ],
         }
 
+        result["plain_language_summary"] = (
+            build_plain_language_summary(result)
+        )
 
+        return result 
+
+def build_plain_language_summary(result: dict) -> dict:
+    """Build an evidence-based Persian summary of a trace report."""
+
+    stats = result["summary"]
+    nodes = result["nodes"]
+    edges = result["edges"]
+
+    def names_for(*kinds: str, limit: int = 5) -> list[str]:
+        values = []
+        for node in nodes:
+            if node["kind"] in kinds and node["name"] not in values:
+                values.append(node["name"])
+        return values[:limit]
+
+    def display_names(values: list[str]) -> str:
+        return "، ".join(values)
+
+    lines = [
+        f"موضوع بررسی «{result['topic']}» بوده است. "
+        f"ابزار {stats['files_scanned']} فایل را بررسی کرده و "
+        f"{stats['matched_nodes']} مورد مرتبط پیدا کرده است."
+    ]
+
+    if not stats["selected_seeds"]:
+        lines.append(
+            "هیچ نقطه شروع مناسبی برای ردیابی پیدا نشد."
+        )
+    else:
+        lines.append(
+            f"{stats['selected_seeds']} نقطه شروع انتخاب شده و "
+            f"{stats['trace_nodes']} عنصر با "
+            f"{stats['trace_edges']} ارتباط در گزارش ثبت شده است."
+        )
+
+    findings = []
+
+    api_nodes = names_for("api_endpoint", "api_reference")
+    functions = names_for("function")
+    sql_nodes = names_for("sql_statement")
+    tables = names_for(
+        "database_object_reference",
+        "database_object_definition",
+    )
+    columns = names_for(
+        "database_column_reference",
+        "database_column_definition",
+        limit=8,
+    )
+
+    if api_nodes:
+        findings.append("APIها: " + display_names(api_nodes))
+    if functions:
+        findings.append("توابع: " + display_names(functions))
+    if sql_nodes:
+        findings.append(f"{len(sql_nodes)} دستور SQL")
+    if tables:
+        findings.append("اشیای پایگاه داده: " + display_names(tables))
+    if columns:
+        findings.append("نمونه ستون‌ها: " + display_names(columns))
+
+    if findings:
+        lines.append(
+            "اجزای مهم شناسایی‌شده: " + "؛ ".join(findings) + "."
+        )
+
+    if edges:
+        relation_counts = {}
+        for edge in edges:
+            relation_counts[edge["relation"]] = (
+                relation_counts.get(edge["relation"], 0) + 1
+            )
+
+        relation_text = "، ".join(
+            f"{count} ارتباط از نوع {relation}"
+            for relation, count in sorted(relation_counts.items())
+        )
+        lines.append("ارتباطات استخراج‌شده: " + relation_text + ".")
+    else:
+        lines.append("ارتباط مستقیمی بین عناصر گزارش‌شده ثبت نشده است.")
+
+    if stats["traversal_truncated"] or stats["max_nodes_reached"]:
+        lines.append(
+            "محدودیت تعداد عناصر یا عمق ردیابی فعال شده است؛ "
+            "ممکن است تمام ارتباطات در گزارش دیده نشوند."
+        )
+
+    lines.append(
+        "این گزارش حاصل تحلیل ایستای سورس‌کد است و اجرای واقعی "
+        "مسیرهای شناسایی‌شده را اثبات نمی‌کند."
+    )
+
+    return {
+        "language": "fa",
+        "title": "خلاصه قابل فهم گزارش",
+        "text": "\n".join(lines),
+    }
+       
 def trace_source_topic(
     repository: str | Path,
     topic: str,
@@ -2288,6 +2390,9 @@ def main() -> None:
         print(f"{key.upper().replace('_', ' ')}: {value}")
 
     if args.summary:
+        print("\n" + result["plain_language_summary"]["title"])
+        print("-" * 60)
+        print(result["plain_language_summary"]["text"])
         return
 
     print("\nTRACE FILES:")
@@ -2328,6 +2433,9 @@ def main() -> None:
     else:
         print("\nNOTE: Static relationships are evidence-based candidates, not proof of runtime execution.")
 
+    print("\n" + result["plain_language_summary"]["title"])
+    print("-" * 60)
+    print(result["plain_language_summary"]["text"])
 
 if __name__ == "__main__":
     main()
