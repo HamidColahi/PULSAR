@@ -1,7 +1,7 @@
 <!--
 File: Pulsar/frontend/src/components/tools/source_trace_panel.vue
-Version: 1.1
-Modified: 2026-11-19 00:51 Asia/Baku
+Version: 1.2
+Modified: 2026-11-19 18:02 Asia/Baku
 In collaboration with GPT4 Chat Assistant: Bahram
 -->
 <template>
@@ -145,6 +145,21 @@ In collaboration with GPT4 Chat Assistant: Bahram
               </div>
 
               <div v-else class="min-h-0 flex-1 space-y-5 overflow-y-auto p-4">
+                <section
+                  v-if="result.plain_language_summary?.text"
+                  class="rounded-xl border border-border bg-panel p-4"
+                  dir="rtl"
+                  lang="fa"
+                  aria-label="Plain language summary"
+                >
+                  <h4 class="mb-3 text-sm font-semibold text-label">
+                    {{ result.plain_language_summary.title || 'خلاصه قابل فهم گزارش' }}
+                  </h4>
+                  <p class="whitespace-pre-line text-right text-sm leading-7 text-label">
+                    {{ result.plain_language_summary.text }}
+                  </p>
+                </section>
+
                 <div v-if="result.summary" class="grid grid-cols-2 gap-2 sm:grid-cols-3">
                   <div v-for="item in summaryItems" :key="item.key" class="trace-stat">
                     <span>{{ item.label }}</span>
