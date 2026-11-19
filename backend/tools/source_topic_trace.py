@@ -22,8 +22,8 @@ Static analysis discovers likely source relationships. It does not prove
 runtime execution. Dynamic dispatch, reflection, generated code, and database
 behavior may require runtime instrumentation or manual verification.
 
-Modified: 2026-11-19 (Asia/Baku)
-Version: 6.7
+Modified: 2026-11-20 00:11:01 (Asia/Baku)
+Version: 6.8
 
 In collaboration with GPT4 Chat Assistant: Bahram
 """
@@ -2218,13 +2218,13 @@ class TopicTracer:
         }
 
         result["plain_language_summary"] = (
-            build_plain_language_summary(result)
+            build_plain_language_summary_en(result)
         )
 
         return result 
 
-def build_plain_language_summary(result: dict) -> dict:
-    """Build an evidence-based Persian summary of a trace report."""
+def build_plain_language_summary_en(result: dict) -> dict:
+    """Build an evidence-based English summary of a trace report."""
 
     stats = result["summary"]
     nodes = result["nodes"]
@@ -2238,30 +2238,30 @@ def build_plain_language_summary(result: dict) -> dict:
         return values[:limit]
 
     def display_names(values: list[str]) -> str:
-        return "، ".join(values)
+        return ", ".join(values)
 
     lines = [
-        f"موضوع بررسی «{result['topic']}» بوده است. "
-        f"ابزار {stats['files_scanned']} فایل را بررسی کرده و "
-        f"{stats['matched_nodes']} مورد مرتبط پیدا کرده است."
+        f'The analysis topic was "{result["topic"]}". '
+        f'The tool scanned {stats["files_scanned"]} files and '
+        f'identified {stats["matched_nodes"]} matching items.'
     ]
 
     if not stats["selected_seeds"]:
-        lines.append(
-            "هیچ نقطه شروع مناسبی برای ردیابی پیدا نشد."
-        )
+        lines.append("No suitable starting points were found for tracing.")
     else:
         lines.append(
-            f"{stats['selected_seeds']} نقطه شروع انتخاب شده و "
-            f"{stats['trace_nodes']} عنصر با "
-            f"{stats['trace_edges']} ارتباط در گزارش ثبت شده است."
+            f'{stats["selected_seeds"]} starting points were selected, and '
+            f'{stats["trace_nodes"]} elements with '
+            f'{stats["trace_edges"]} relationships were included in the report.'
         )
 
     findings = []
 
     api_nodes = names_for("api_endpoint", "api_reference")
     functions = names_for("function")
-    sql_nodes = names_for("sql_statement")
+    sql_statement_count = sum(
+        1 for node in nodes if node["kind"] == "sql_statement"
+    )
     tables = names_for(
         "database_object_reference",
         "database_object_definition",
@@ -2273,53 +2273,56 @@ def build_plain_language_summary(result: dict) -> dict:
     )
 
     if api_nodes:
-        findings.append("APIها: " + display_names(api_nodes))
+        findings.append("APIs: " + display_names(api_nodes))
     if functions:
-        findings.append("توابع: " + display_names(functions))
-    if sql_nodes:
-        findings.append(f"{len(sql_nodes)} دستور SQL")
+        findings.append("Functions: " + display_names(functions))
+    if sql_statement_count:
+        findings.append(
+            f"{sql_statement_count} SQL statement"
+            + ("s" if sql_statement_count != 1 else "")
+        )
     if tables:
-        findings.append("اشیای پایگاه داده: " + display_names(tables))
+        findings.append("Database objects: " + display_names(tables))
     if columns:
-        findings.append("نمونه ستون‌ها: " + display_names(columns))
+        findings.append("Sample columns: " + display_names(columns))
 
     if findings:
-        lines.append(
-            "اجزای مهم شناسایی‌شده: " + "؛ ".join(findings) + "."
-        )
+        lines.append("Key identified components: " + "; ".join(findings) + ".")
 
     if edges:
         relation_counts = {}
         for edge in edges:
-            relation_counts[edge["relation"]] = (
-                relation_counts.get(edge["relation"], 0) + 1
-            )
+            relation = edge["relation"]
+            relation_counts[relation] = relation_counts.get(relation, 0) + 1
 
-        relation_text = "، ".join(
-            f"{count} ارتباط از نوع {relation}"
+        relation_text = ", ".join(
+            f"{count} {'relationship' if count == 1 else 'relationships'} "
+            f"of type {relation}"
             for relation, count in sorted(relation_counts.items())
         )
-        lines.append("ارتباطات استخراج‌شده: " + relation_text + ".")
+        lines.append("Extracted relationships: " + relation_text + ".")
     else:
-        lines.append("ارتباط مستقیمی بین عناصر گزارش‌شده ثبت نشده است.")
+        lines.append(
+            "No direct relationships between the reported elements were recorded."
+        )
 
     if stats["traversal_truncated"] or stats["max_nodes_reached"]:
         lines.append(
-            "محدودیت تعداد عناصر یا عمق ردیابی فعال شده است؛ "
-            "ممکن است تمام ارتباطات در گزارش دیده نشوند."
+            "A traversal depth or node-count limit was reached; "
+            "the report may not include every relationship."
         )
 
     lines.append(
-        "این گزارش حاصل تحلیل ایستای سورس‌کد است و اجرای واقعی "
-        "مسیرهای شناسایی‌شده را اثبات نمی‌کند."
+        "This report is based on static source-code analysis. "
+        "It does not prove that the identified paths execute at runtime."
     )
 
     return {
-        "language": "fa",
-        "title": "خلاصه قابل فهم گزارش",
+        "language": "en",
+        "title": "Plain Language Summary",
         "text": "\n".join(lines),
     }
-       
+
 def trace_source_topic(
     repository: str | Path,
     topic: str,

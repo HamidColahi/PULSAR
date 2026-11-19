@@ -1,7 +1,8 @@
+
 <!--
 File: Pulsar/frontend/src/components/tools/source_trace_panel.vue
-Version: 1.2
-Modified: 2026-11-19 18:02 Asia/Baku
+Version: 1.3
+Modified: 2026-11-19 23:50 Asia/Baku
 In collaboration with GPT4 Chat Assistant: Bahram
 -->
 <template>
@@ -146,17 +147,17 @@ In collaboration with GPT4 Chat Assistant: Bahram
 
               <div v-else class="min-h-0 flex-1 space-y-5 overflow-y-auto p-4">
                 <section
-                  v-if="result.plain_language_summary?.text"
+                  v-if="plainLanguageSummary?.text"
                   class="rounded-xl border border-border bg-panel p-4"
-                  dir="rtl"
-                  lang="fa"
+                  dir="ltr"
+                  lang="en"
                   aria-label="Plain language summary"
                 >
                   <h4 class="mb-3 text-sm font-semibold text-label">
-                    {{ result.plain_language_summary.title || 'خلاصه قابل فهم گزارش' }}
+                    {{ plainLanguageSummary.title || 'Plain Language Summary' }}
                   </h4>
-                  <p class="whitespace-pre-line text-right text-sm leading-7 text-label">
-                    {{ result.plain_language_summary.text }}
+                  <p class="whitespace-pre-line text-left text-sm leading-7 text-label">
+                    {{ plainLanguageSummary.text }}
                   </p>
                 </section>
 
@@ -291,9 +292,14 @@ const summaryItems = [
 ]
 
 const canRun = computed(() => Boolean(topic.value && scope.value.length && relations.value.length && !loading.value))
+
 const hasStructuredResult = computed(() => Boolean(
   result.value && (result.value.summary || result.value.files || result.value.nodes || result.value.edges)
 ))
+
+const plainLanguageSummary = computed(() => {
+  return result.value?.plain_language_summaries?.en || null
+})
 
 const requestOptions = computed(() => ({
   topic: topic.value,
