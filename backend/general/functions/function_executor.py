@@ -524,6 +524,8 @@ async def execute_panel_function(
         formatted_result["metadata"].update({
             "schema_name": schema_name,
             "function_name": db_function_name,
+            "return_type": return_type,
+            "result_kind": result_kind,
             "output_definition": definition["output_definition"],
             "renderer_key": effective_options.get("renderer_key"),
             "presentation_code": effective_options.get(
