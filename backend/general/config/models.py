@@ -12,6 +12,8 @@
 # ===============================================
 
 from sqlalchemy import (
+    ARRAY,
+    BigInteger,
     Boolean,
     CheckConstraint,
     Column,
@@ -51,6 +53,8 @@ class ComponentsConfig(Base):
     # UI control type, such as text, numeric, or date.
     # This is not the DDLB/DDDW domain control type.
     control_type = Column(Text, nullable=True)
+    accepted_mime_types = Column(ARRAY(Text), nullable=True)
+    max_file_size_bytes = Column(BigInteger, nullable=True)
 
     ordering_index = Column(Integer, nullable=True)
 
