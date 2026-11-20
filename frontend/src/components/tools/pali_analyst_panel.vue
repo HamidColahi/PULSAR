@@ -239,6 +239,7 @@ const storageKey = computed(() => (
 
 function currentReport() {
   return {
+    schema_name: metadata.value.schema_name || null,
     function_name: functionName.value,
     result_kind: metadata.value.result_kind || null,
     return_type: metadata.value.return_type || null,
@@ -455,6 +456,8 @@ async function analyzeCurrentSection() {
     const resources = await getFunctionOutputResources({
       output_config_id: outputConfigId.value,
       definition_code: definition.definition_code,
+      schema_name: metadata.value.schema_name,
+      function_name: functionName.value,
       search_text: buildSearchText(section.content),
       row_numbers: collectRowNumbers(section.content)
     })
