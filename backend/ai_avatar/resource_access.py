@@ -730,10 +730,25 @@ class FunctionOutputResourceService:
             )
             evidence["resources"].append("COLONY_RULE_SEARCH")
 
+        related_seed_rows = list(search_results)
+        if requested_rows and "COLONY_TABLE_1" in access_by_code:
+            table_access = access_by_code["COLONY_TABLE_1"]
+            explicit_rows, _ = await self._load_table_1(
+                table_access["access_options"],
+                requested_rows,
+            )
+            known_seed_rows = {
+                row["row_no"] for row in related_seed_rows
+            }
+            related_seed_rows.extend(
+                row for row in explicit_rows
+                if row["row_no"] not in known_seed_rows
+            )
+
         if "COLONY_RELATED_RULES" in access_by_code:
             access = access_by_code["COLONY_RELATED_RULES"]
             evidence["related_rules"] = await self._find_related_rules(
-                search_results,
+                related_seed_rows,
                 access["access_options"],
             )
             evidence["resources"].append("COLONY_RELATED_RULES")
