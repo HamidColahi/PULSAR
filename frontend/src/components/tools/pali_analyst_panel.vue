@@ -425,7 +425,11 @@ async function loadOrCreateSession() {
     try {
       const saved = await getSession(savedId)
       const savedResult = saved.report?.result
-      if (JSON.stringify(savedResult) === JSON.stringify(props.result)) {
+      if (
+        Number(saved.output_config_id) === outputConfigId.value &&
+        saved.definition_code === definition.definition_code &&
+        JSON.stringify(savedResult) === JSON.stringify(props.result)
+      ) {
         analysisSession.value = saved
         if (saved.status === 'READY') {
           await analyzeCurrentSection()
