@@ -217,7 +217,12 @@ const progress = computed(() => {
   const total = analysisSession.value?.sections?.length || 0
   if (!total) return 0
   if (analysisSession.value.status === 'COMPLETED') return 100
-  return Math.min(100, (analysisSession.value.current_section_index / total) * 100)
+
+  const completedSections = analysisSession.value.status === 'PAUSED'
+    ? analysisSession.value.current_section_index + 1
+    : analysisSession.value.current_section_index
+
+  return Math.min(100, (completedSections / total) * 100)
 })
 
 const activeSection = computed(() => {
