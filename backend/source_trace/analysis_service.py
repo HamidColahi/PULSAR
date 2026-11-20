@@ -4,7 +4,7 @@
 # Description:
 # Persistent interactive analysis sessions for P-ATVT Source Trace
 #
-# Change Date: 2026-11-20 18:15
+# Change Date: 2026-11-20 18:42
 # Timezone: Asia/Baku
 #
 # Author: MHKolahi@gmail.com
@@ -256,15 +256,6 @@ class SourceTraceAnalysisService:
                 f"A valid {label} is required.",
                 422,
             ) from exc
-
-    @staticmethod
-    def _json_value(value: Any, default: Any) -> Any:
-        if isinstance(value, str):
-            try:
-                return json.loads(value)
-            except json.JSONDecodeError:
-                return default
-        return value if value is not None else default
 
     def _encrypt_payload(
         self,
