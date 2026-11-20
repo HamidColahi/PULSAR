@@ -4,7 +4,7 @@
 # Description:
 # Persistent interactive analysis sessions for P-ATVT Source Trace
 #
-# Change Date: 2026-11-20 16:45
+# Change Date: 2026-11-20 17:55
 # Timezone: Asia/Baku
 #
 # Author: MHKolahi@gmail.com
@@ -224,21 +224,8 @@ def build_analysis_sections(report: dict) -> list[dict]:
                 {"items": chunk},
             )
 
-    categories = report.get("trace_categories")
-    if isinstance(categories, dict) and categories:
-        category_items = [
-            {"category": key, "node_ids": value}
-            for key, value in sorted(categories.items())
-        ]
-        for index, chunk in enumerate(
-            _chunk_items(category_items, MAX_SECTION_CHARS),
-            1,
-        ):
-            add_section(
-                "categories",
-                f"Trace Category Index · Part {index}",
-                {"items": chunk},
-            )
+    # Category indexes duplicate node tags and are intentionally omitted
+    # from the AI stream to avoid repeating large arrays of node identifiers.
 
     if not sections:
         add_section("overview", "Trace Overview", {"topic": report.get("topic")})
