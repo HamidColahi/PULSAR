@@ -297,9 +297,9 @@ class FunctionOutputResourceService:
         )
 
         tokens = [
-            token.strip()
+            cleaned
             for token in re.split(r"\s+", normalized_text)
-            if len(token.strip()) >= 2
+            if len(cleaned := re.sub(r"[^\w-]", "", token, flags=re.UNICODE)) >= 2
         ][:12]
 
         if not tokens:
