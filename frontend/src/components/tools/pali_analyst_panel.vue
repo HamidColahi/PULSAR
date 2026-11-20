@@ -752,6 +752,7 @@ async function continueAnalysis() {
     )
     applyCheckpointUpdate(updated)
     reviewNote.value = ''
+    userQuestion.value = ''
     if (updated.status === 'READY') {
       busy.value = false
       await analyzeCurrentSection()
