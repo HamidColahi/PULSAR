@@ -1,8 +1,8 @@
 
 <!--
 File: Pulsar/frontend/src/components/tools/source_trace_panel.vue
-Version: 1.3
-Modified: 2026-11-19 23:50 Asia/Baku
+Version: 1.4
+Modified: 2026-11-20 14:20 Asia/Baku
 In collaboration with GPT4 Chat Assistant: Bahram
 -->
 <template>
@@ -14,7 +14,7 @@ In collaboration with GPT4 Chat Assistant: Bahram
         @click.self="close"
       >
         <section
-          class="trace-panel flex max-h-[92vh] w-full max-w-6xl flex-col overflow-hidden rounded-2xl border border-border bg-panel shadow-2xl"
+          class="trace-panel flex max-h-[94vh] w-full max-w-[1600px] flex-col overflow-hidden rounded-2xl border border-border bg-panel shadow-2xl"
           dir="ltr"
           role="dialog"
           aria-modal="true"
@@ -39,14 +39,39 @@ In collaboration with GPT4 Chat Assistant: Bahram
               </div>
             </div>
 
-            <button type="button" class="trace-icon-button" title="Close" aria-label="Close" @click="close">
-              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" class="h-5 w-5">
-                <path d="m18 6-12 12M6 6l12 12" />
-              </svg>
-            </button>
+            <div class="flex items-center gap-2">
+              <button
+                type="button"
+                class="trace-tracer-button"
+                :class="{ 'trace-tracer-active': tracerEnabled }"
+                :disabled="!result || loading"
+                :title="tracerEnabled ? 'Hide Pali Tracer' : 'Activate Pali Tracer'"
+                :aria-label="tracerEnabled ? 'Hide Pali Tracer' : 'Activate Pali Tracer'"
+                :aria-pressed="tracerEnabled"
+                @click="toggleTracer"
+              >
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" class="h-4 w-4">
+                  <path d="M12 3v3M12 18v3M3 12h3M18 12h3" />
+                  <circle cx="12" cy="12" r="6" />
+                  <circle cx="12" cy="12" r="2" />
+                </svg>
+                <span>Pali Tracer</span>
+              </button>
+
+              <button type="button" class="trace-icon-button" title="Close" aria-label="Close" @click="close">
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" class="h-5 w-5">
+                  <path d="m18 6-12 12M6 6l12 12" />
+                </svg>
+              </button>
+            </div>
           </header>
 
-          <div class="grid min-h-0 flex-1 gap-5 overflow-y-auto p-5 lg:grid-cols-[280px_minmax(0,1fr)]">
+          <div
+            class="grid min-h-0 flex-1 gap-5 overflow-y-auto p-5"
+            :class="tracerEnabled
+              ? 'xl:grid-cols-[250px_minmax(0,1fr)_minmax(320px,0.85fr)]'
+              : 'lg:grid-cols-[280px_minmax(0,1fr)]'"
+          >
             <aside class="space-y-5">
               <div>
                 <label for="trace-topic" class="mb-2 block text-xs font-semibold uppercase tracking-wider text-muted">
@@ -235,6 +260,80 @@ In collaboration with GPT4 Chat Assistant: Bahram
                 <pre v-if="!hasStructuredResult" class="overflow-x-auto whitespace-pre-wrap text-xs text-label">{{ JSON.stringify(result, null, 2) }}</pre>
               </div>
             </section>
+
+            <section
+              v-if="tracerEnabled"
+              class="flex min-h-[360px] min-w-0 flex-col overflow-hidden rounded-xl border border-border bg-app"
+            >
+              <div class="flex items-center justify-between border-b border-border px-4 py-3">
+                <div class="min-w-0">
+                  <h3 class="text-sm font-semibold text-label">Pali Tracer</h3>
+                  <p class="truncate text-[11px] text-muted">
+                    {{ tracerDefinition?.title || 'Manager 4 · Source Analysis' }}
+                  </p>
+                </div>
+                <span v-if="tracerBusy" class="trace-meta">Thinking...</span>
+                <span v-else-if="tracerDefinition" class="trace-meta">Connected</span>
+              </div>
+
+              <div class="min-h-0 flex-1 space-y-3 overflow-y-auto p-3">
+                <div
+                  v-if="tracerMessages.length === 0 && !tracerBusy"
+                  class="flex h-full items-center justify-center text-center text-xs text-muted"
+                >
+                  Preparing Source Trace analysis...
+                </div>
+
+                <article
+                  v-for="(message, index) in tracerMessages"
+                  :key="index"
+                  class="rounded-xl border border-border p-3"
+                  :class="message.role === 'user' ? 'bg-panel' : 'bg-app'"
+                >
+                  <div class="mb-2 text-[10px] font-semibold uppercase tracking-wider text-muted">
+                    {{ message.role === 'user' ? 'You' : 'Pali Tracer' }}
+                  </div>
+                  <p class="whitespace-pre-wrap break-words text-xs leading-6 text-label">{{ message.content }}</p>
+                </article>
+
+                <div v-if="tracerBusy" class="rounded-xl border border-border p-3 text-xs text-muted">
+                  Pali Tracer is analyzing...
+                </div>
+
+                <p v-if="tracerError" role="alert" class="rounded-lg border border-red-500/30 bg-red-500/10 p-3 text-xs text-red-500">
+                  {{ tracerError }}
+                </p>
+              </div>
+
+              <form class="border-t border-border p-3" @submit.prevent="sendTracerFollowUp">
+                <label for="tracer-message" class="mb-2 block text-[10px] font-semibold uppercase tracking-wider text-muted">
+                  Ask Pali Tracer
+                </label>
+                <div class="flex items-end gap-2">
+                  <textarea
+                    id="tracer-message"
+                    v-model="tracerInput"
+                    rows="2"
+                    maxlength="100000"
+                    placeholder="Ask a follow-up question..."
+                    class="trace-input min-h-[64px] flex-1 resize-y py-2"
+                    :disabled="tracerBusy || !tracerDefinition"
+                  />
+                  <button
+                    type="submit"
+                    class="trace-send-button"
+                    :disabled="tracerBusy || !tracerInput.trim() || !tracerDefinition"
+                    title="Send message"
+                    aria-label="Send message"
+                  >
+                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" class="h-4 w-4">
+                      <path d="M22 2 11 13" />
+                      <path d="m22 2-7 20-4-9-9-4Z" />
+                    </svg>
+                  </button>
+                </div>
+              </form>
+            </section>
           </div>
 
           <footer class="flex items-center justify-between border-t border-border px-5 py-3">
@@ -249,6 +348,7 @@ In collaboration with GPT4 Chat Assistant: Bahram
 
 <script setup>
 import { computed, inject, ref, watch } from 'vue'
+import { useAIAvatar } from '@/composables/useAIAvatar'
 
 const props = defineProps({
   modelValue: {
@@ -260,6 +360,8 @@ const props = defineProps({
 const emit = defineEmits(['update:modelValue', 'trace-completed'])
 const sourceTraceRunner = inject('sourceTraceRunner', null)
 
+const { getDefaultAvatar, sendChatMessage } = useAIAvatar()
+
 const topic = ref('')
 const scope = ref(['frontend', 'backend', 'database'])
 const relations = ref(['calls', 'imports', 'api', 'references', 'sql'])
@@ -268,6 +370,14 @@ const loading = ref(false)
 const error = ref('')
 const result = ref(null)
 const copied = ref(false)
+
+const tracerEnabled = ref(false)
+const tracerDefinition = ref(null)
+const tracerMessages = ref([])
+const tracerInput = ref('')
+const tracerBusy = ref(false)
+const tracerError = ref('')
+const tracerInitialized = ref(false)
 
 const scopeOptions = [
   { label: 'Frontend', value: 'frontend' },
@@ -291,10 +401,20 @@ const summaryItems = [
   { key: 'files_in_trace', label: 'Related Files' }
 ]
 
-const canRun = computed(() => Boolean(topic.value && scope.value.length && relations.value.length && !loading.value))
+const canRun = computed(() => Boolean(
+  topic.value &&
+  scope.value.length &&
+  relations.value.length &&
+  !loading.value
+))
 
 const hasStructuredResult = computed(() => Boolean(
-  result.value && (result.value.summary || result.value.files || result.value.nodes || result.value.edges)
+  result.value && (
+    result.value.summary ||
+    result.value.files ||
+    result.value.nodes ||
+    result.value.edges
+  )
 ))
 
 const plainLanguageSummary = computed(() => {
@@ -311,6 +431,133 @@ const requestOptions = computed(() => ({
 
 function close() {
   emit('update:modelValue', false)
+}
+
+function toggleTracer() {
+  if (!result.value || loading.value) return
+
+  tracerEnabled.value = !tracerEnabled.value
+
+  if (tracerEnabled.value && !tracerInitialized.value) {
+    submitTraceToTracer(result.value)
+  }
+}
+
+async function initializeTracer() {
+  if (tracerDefinition.value) {
+    return tracerDefinition.value
+  }
+
+  const definition = await getDefaultAvatar(4)
+
+  if (Number(definition.avatar_manager_id) !== 4) {
+    throw new Error('The returned AI Avatar does not belong to Manager 4.')
+  }
+
+  if (
+    typeof definition.definition_code !== 'string' ||
+    !definition.definition_code.trim()
+  ) {
+    throw new Error('Pali Tracer definition code is missing.')
+  }
+
+  tracerDefinition.value = definition
+
+  return definition
+}
+
+async function submitTraceToTracer(payload) {
+  if (!payload || tracerBusy.value) return
+
+  tracerBusy.value = true
+  tracerError.value = ''
+
+  try {
+    const definition = await initializeTracer()
+
+    const traceMessage = JSON.stringify({
+      source: 'P-ATVT Source Trace',
+      trace_result: payload
+    })
+
+    if (traceMessage.length > 100000) {
+      throw new Error(
+        'The Source Trace result exceeds the maximum AI message size of 100000 characters.'
+      )
+    }
+
+    const response = await sendChatMessage({
+      definition_code: definition.definition_code,
+      message: traceMessage
+    })
+
+    tracerMessages.value.push({
+      role: 'assistant',
+      content: normalizeTracerResponse(response)
+    })
+
+    tracerInitialized.value = true
+  } catch (exception) {
+    tracerError.value = exception?.response?.data?.detail
+      || exception?.message
+      || 'Pali Tracer could not analyze the Source Trace result.'
+  } finally {
+    tracerBusy.value = false
+  }
+}
+
+async function sendTracerFollowUp() {
+  const message = tracerInput.value.trim()
+
+  if (
+    !message ||
+    tracerBusy.value ||
+    !tracerDefinition.value ||
+    !tracerInitialized.value
+  ) {
+    return
+  }
+
+  tracerInput.value = ''
+  tracerBusy.value = true
+  tracerError.value = ''
+
+  tracerMessages.value.push({
+    role: 'user',
+    content: message
+  })
+
+  try {
+    const response = await sendChatMessage({
+      definition_code: tracerDefinition.value.definition_code,
+      message
+    })
+
+    tracerMessages.value.push({
+      role: 'assistant',
+      content: normalizeTracerResponse(response)
+    })
+  } catch (exception) {
+    tracerError.value = exception?.response?.data?.detail
+      || exception?.message
+      || 'Pali Tracer could not process the message.'
+  } finally {
+    tracerBusy.value = false
+  }
+}
+
+function normalizeTracerResponse(response) {
+  const value = response?.response ?? response
+
+  if (typeof value === 'string') {
+    return value
+  }
+
+  if (value === null || value === undefined) {
+    return 'Pali Tracer returned an empty response.'
+  }
+
+  return JSON.stringify(value, null, 2)
 }
 
 async function runTrace() {
@@ -336,6 +583,10 @@ async function runTrace() {
 
     result.value = payload
     emit('trace-completed', payload)
+
+    if (tracerEnabled.value) {
+      submitTraceToTracer(payload)
+    }
   } catch (exception) {
     error.value = exception?.response?.data?.detail
       || exception?.message
@@ -448,6 +699,55 @@ watch(() => props.modelValue, opened => {
 .trace-copy-button:hover {
   border-color: var(--pulsar-level-accent);
   color: var(--pulsar-level-accent);
+}
+
+.trace-tracer-button {
+  display: flex;
+  height: 36px;
+  align-items: center;
+  justify-content: center;
+  gap: 7px;
+  border: 1px solid var(--color-border);
+  border-radius: 10px;
+  padding: 0 11px;
+  color: var(--color-muted);
+  font-size: 11px;
+  font-weight: 600;
+  transition: color .2s ease, border-color .2s ease, background .2s ease;
+}
+
+.trace-tracer-button:hover:not(:disabled),
+.trace-tracer-active {
+  border-color: var(--pulsar-level-accent);
+  background: var(--pulsar-level-accent-soft);
+  color: var(--pulsar-level-accent);
+}
+
+.trace-tracer-button:disabled {
+  cursor: not-allowed;
+  opacity: .4;
+}
+
+.trace-send-button {
+  display: flex;
+  width: 42px;
+  height: 42px;
+  flex-shrink: 0;
+  align-items: center;
+  justify-content: center;
+  border-radius: 10px;
+  background: var(--pulsar-level-accent);
+  color: white;
+  transition: opacity .2s ease, transform .2s ease;
+}
+
+.trace-send-button:hover:not(:disabled) {
+  transform: translateY(-1px);
+}
+
+.trace-send-button:disabled {
+  cursor: not-allowed;
+  opacity: .4;
 }
 
 .trace-stat {
