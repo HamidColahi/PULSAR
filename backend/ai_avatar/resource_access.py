@@ -14,6 +14,7 @@
 
 from __future__ import annotations
 
+import hashlib
 import io
 import json
 import logging
@@ -30,6 +31,8 @@ except ImportError:  # The runtime reports a controlled dependency error.
 
 
 logger = logging.getLogger(__name__)
+
+PDF_EXTRACTOR_VERSION = "PYPDF_1"
 
 
 class FunctionOutputResourceError(Exception):
@@ -341,12 +344,6 @@ class FunctionOutputResourceService:
         if not row_numbers:
             return []
 
-        if PdfReader is None:
-            raise FunctionOutputResourceError(
-                "PDF text extraction is unavailable. Install the configured pypdf dependency.",
-                503,
-            )
-
         max_pages = self._bounded_int(
             options.get("max_pages"),
             default=80,
@@ -365,7 +362,7 @@ class FunctionOutputResourceService:
                 """
                 SELECT row_no, guidance_pdf
                 FROM pulsar.table_1
-                WHERE row_no = ANY(:row_numbers)
+                WHERE row_no = ANY(CAST(:row_numbers AS integer[]))
                   AND guidance_pdf IS NOT NULL
                 ORDER BY row_no
                 """
@@ -373,59 +370,188 @@ class FunctionOutputResourceService:
             {"row_numbers": row_numbers[:50]},
         )
 
+        pdf_rows = result.mappings().all()
+        if not pdf_rows:
+            return []
+
+        cache_result = await self.session.execute(
+            text(
+                """
+                SELECT
+                    row_no,
+                    content_sha256,
+                    document_title,
+                    page_count,
+                    extraction_status,
+                    extracted_pages,
+                    extractor_version
+                FROM pulsar.t_colony_guidance_pdf_index
+                WHERE row_no = ANY(CAST(:row_numbers AS integer[]))
+                """
+            ),
+            {"row_numbers": [row["row_no"] for row in pdf_rows]},
+        )
+        cache_by_row = {
+            row["row_no"]: dict(row)
+            for row in cache_result.mappings().all()
+        }
+
         documents: list[dict[str, Any]] = []
         remaining_chars = max_text_chars
 
-        for row in result.mappings().all():
+        for row in pdf_rows:
             pdf_bytes = row["guidance_pdf"]
 
             if not isinstance(pdf_bytes, (bytes, bytearray, memoryview)):
                 continue
 
-            try:
-                reader = PdfReader(io.BytesIO(bytes(pdf_bytes)))
-                metadata = reader.metadata
-                title = (
-                    str(metadata.title).strip()
-                    if metadata and metadata.title
-                    else f"Table 1 Rule {row['row_no']}"
+            raw_pdf = bytes(pdf_bytes)
+            content_hash = hashlib.sha256(raw_pdf).hexdigest()
+            cached = cache_by_row.get(row["row_no"])
+
+            cache_is_current = bool(
+                cached
+                and cached["content_sha256"] == content_hash
+                and cached["extractor_version"] == PDF_EXTRACTOR_VERSION
+            )
+
+            if cache_is_current:
+                document_title = cached["document_title"]
+                page_count = int(cached["page_count"] or 0)
+                extraction_status = cached["extraction_status"]
+                extracted_pages = cached["extracted_pages"]
+                if isinstance(extracted_pages, str):
+                    try:
+                        extracted_pages = json.loads(extracted_pages)
+                    except (TypeError, ValueError):
+                        extracted_pages = []
+                if not isinstance(extracted_pages, list):
+                    extracted_pages = []
+            else:
+                if PdfReader is None:
+                    raise FunctionOutputResourceError(
+                        "PDF text extraction is unavailable. Install the configured pypdf dependency.",
+                        503,
+                    )
+
+                try:
+                    reader = PdfReader(io.BytesIO(raw_pdf))
+                    metadata = reader.metadata
+                    document_title = (
+                        str(metadata.title).strip()
+                        if metadata and metadata.title
+                        else f"Table 1 Rule {row['row_no']}"
+                    )
+                    page_count = len(reader.pages)
+                    extracted_pages = []
+                    cache_remaining_chars = 500000
+
+                    for page_index, page in enumerate(reader.pages[:300]):
+                        if cache_remaining_chars <= 0:
+                            break
+
+                        extracted = (page.extract_text() or "").strip()
+                        if not extracted:
+                            continue
+
+                        page_text = extracted[:cache_remaining_chars]
+                        cache_remaining_chars -= len(page_text)
+                        extracted_pages.append({
+                            "page_number": page_index + 1,
+                            "text": page_text,
+                        })
+
+                    extraction_status = (
+                        "EXTRACTED" if extracted_pages else "OCR_REQUIRED"
+                    )
+
+                except Exception:
+                    logger.exception(
+                        "Colony guidance PDF extraction failed for Table 1 row %s.",
+                        row["row_no"],
+                    )
+                    document_title = f"Table 1 Rule {row['row_no']}"
+                    page_count = 0
+                    extraction_status = "EXTRACTION_FAILED"
+                    extracted_pages = []
+
+                await self.session.execute(
+                    text(
+                        """
+                        INSERT INTO pulsar.t_colony_guidance_pdf_index (
+                            row_no,
+                            content_sha256,
+                            document_title,
+                            page_count,
+                            extraction_status,
+                            extracted_pages,
+                            extractor_version,
+                            extracted_at,
+                            updated_at
+                        )
+                        VALUES (
+                            :row_no,
+                            :content_sha256,
+                            :document_title,
+                            :page_count,
+                            :extraction_status,
+                            CAST(:extracted_pages AS jsonb),
+                            :extractor_version,
+                            CURRENT_TIMESTAMP,
+                            CURRENT_TIMESTAMP
+                        )
+                        ON CONFLICT (row_no)
+                        DO UPDATE SET
+                            content_sha256 = EXCLUDED.content_sha256,
+                            document_title = EXCLUDED.document_title,
+                            page_count = EXCLUDED.page_count,
+                            extraction_status = EXCLUDED.extraction_status,
+                            extracted_pages = EXCLUDED.extracted_pages,
+                            extractor_version = EXCLUDED.extractor_version,
+                            extracted_at = CURRENT_TIMESTAMP,
+                            updated_at = CURRENT_TIMESTAMP
+                        """
+                    ),
+                    {
+                        "row_no": row["row_no"],
+                        "content_sha256": content_hash,
+                        "document_title": document_title,
+                        "page_count": page_count,
+                        "extraction_status": extraction_status,
+                        "extracted_pages": json.dumps(
+                            extracted_pages,
+                            ensure_ascii=False,
+                        ),
+                        "extractor_version": PDF_EXTRACTOR_VERSION,
+                    },
                 )
 
-                pages: list[dict[str, Any]] = []
-                for page_index, page in enumerate(reader.pages[:max_pages]):
-                    if remaining_chars <= 0:
-                        break
+            output_pages: list[dict[str, Any]] = []
+            for page in extracted_pages[:max_pages]:
+                if remaining_chars <= 0:
+                    break
+                if not isinstance(page, dict):
+                    continue
 
-                    extracted = (page.extract_text() or "").strip()
-                    if not extracted:
-                        continue
+                page_text = str(page.get("text") or "")
+                if not page_text:
+                    continue
 
-                    page_text = extracted[:remaining_chars]
-                    remaining_chars -= len(page_text)
-                    pages.append({
-                        "page_number": page_index + 1,
-                        "text": page_text,
-                    })
-
-                documents.append({
-                    "row_no": row["row_no"],
-                    "document_title": title,
-                    "page_count": len(reader.pages),
-                    "status": "EXTRACTED" if pages else "OCR_REQUIRED",
-                    "pages": pages,
+                bounded_text = page_text[:remaining_chars]
+                remaining_chars -= len(bounded_text)
+                output_pages.append({
+                    "page_number": page.get("page_number"),
+                    "text": bounded_text,
                 })
 
-            except Exception:
-                logger.exception(
-                    "Colony guidance PDF extraction failed for Table 1 row %s.",
-                    row["row_no"],
-                )
-                documents.append({
-                    "row_no": row["row_no"],
-                    "document_title": f"Table 1 Rule {row['row_no']}",
-                    "status": "EXTRACTION_FAILED",
-                    "pages": [],
-                })
+            documents.append({
+                "row_no": row["row_no"],
+                "document_title": document_title,
+                "page_count": page_count,
+                "status": extraction_status,
+                "pages": output_pages,
+                "cached": cache_is_current,
+            })
 
         return documents
 
