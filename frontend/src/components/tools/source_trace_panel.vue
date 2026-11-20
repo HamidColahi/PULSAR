@@ -619,7 +619,7 @@ async function submitTraceToTracer(report) {
     storeSessionId(session.analysis_session_id)
     reviewNote.value = ''
 
-    await analyzeCurrentSection()
+    await analyzeCurrentSection(true)
   } catch (exception) {
     tracerError.value = exception?.response?.data?.detail
       || exception?.message
@@ -704,14 +704,14 @@ function buildDecisionState(decision, note) {
   }
 }
 
-async function analyzeCurrentSection() {
+async function analyzeCurrentSection(force = false) {
   const session = analysisSession.value
   const section = activeSection.value
 
   if (
     !session ||
     !section ||
-    tracerBusy.value ||
+    (tracerBusy.value && !force) ||
     session.status === 'COMPLETED' ||
     session.status === 'STOPPED' ||
     section.status === 'ANALYZED' ||
@@ -820,7 +820,7 @@ async function continueAnalysis() {
     reviewNote.value = ''
 
     if (updated.status === 'READY') {
-      await analyzeCurrentSection()
+      await analyzeCurrentSection(true)
     }
   } catch (exception) {
     tracerError.value = exception?.response?.data?.detail
@@ -850,7 +850,7 @@ async function reviseAnalysis() {
     )
 
     reviewNote.value = ''
-    await analyzeCurrentSection()
+    await analyzeCurrentSection(true)
   } catch (exception) {
     tracerError.value = exception?.response?.data?.detail
       || exception?.message
