@@ -1,8 +1,8 @@
 
 <!--
 File: Pulsar/frontend/src/components/tools/source_trace_panel.vue
-Version: 2.1
-Modified: 2026-11-20 19:35 Asia/Baku
+Version: 2.2
+Modified: 2026-11-20 19:50 Asia/Baku
 In collaboration with GPT4 Chat Assistant: Bahram
 -->
 <template>
@@ -731,6 +731,34 @@ function buildAnalysisState(analysis, paliStatus, section) {
   }
 }
 
+function applyCheckpointUpdate(update) {
+  const current = analysisSession.value
+  if (!current || !update) return
+
+  const sections = [...(current.sections || [])]
+  const updatedSection = update.updated_section
+
+  if (
+    updatedSection &&
+    Number.isInteger(updatedSection.order) &&
+    updatedSection.order >= 0 &&
+    updatedSection.order < sections.length
+  ) {
+    sections[updatedSection.order] = updatedSection
+  }
+
+  const {
+    updated_section: ignoredUpdatedSection,
+    ...metadata
+  } = update
+
+  analysisSession.value = {
+    ...current,
+    ...metadata,
+    sections
+  }
+}
+
 function buildDecisionState(decision, note) {
   const previous = analysisSession.value?.analysis_state || {}
   const decisions = Array.isArray(previous.programmer_decisions)
@@ -822,7 +850,7 @@ async function analyzeCurrentSection(force = false) {
       section
     )
 
-    analysisSession.value = await saveCheckpoint(
+    const checkpoint = await saveCheckpoint(
       session.analysis_session_id,
       {
         section_index: session.current_section_index,
@@ -833,6 +861,7 @@ async function analyzeCurrentSection(force = false) {
         conversation_id: conversationId
       }
     )
+    applyCheckpointUpdate(checkpoint)
   } catch (exception) {
     tracerError.value = exception?.response?.data?.detail
       || exception?.message
@@ -864,7 +893,7 @@ async function continueAnalysis() {
       }
     )
 
-    analysisSession.value = updated
+    applyCheckpointUpdate(updated)
     reviewNote.value = ''
 
     if (updated.status === 'READY') {
@@ -887,7 +916,7 @@ async function reviseAnalysis() {
 
   try {
     const note = reviewNote.value.trim()
-    analysisSession.value = await saveCheckpoint(
+    const updated = await saveCheckpoint(
       analysisSession.value.analysis_session_id,
       {
         section_index: analysisSession.value.current_section_index,
@@ -896,6 +925,7 @@ async function reviseAnalysis() {
         analysis_state: buildDecisionState('REVISE', note)
       }
     )
+    applyCheckpointUpdate(updated)
 
     reviewNote.value = ''
     await analyzeCurrentSection(true)
@@ -916,7 +946,7 @@ async function stopAnalysis() {
 
   try {
     const note = reviewNote.value.trim()
-    analysisSession.value = await saveCheckpoint(
+    const updated = await saveCheckpoint(
       analysisSession.value.analysis_session_id,
       {
         section_index: analysisSession.value.current_section_index,
@@ -925,6 +955,7 @@ async function stopAnalysis() {
         analysis_state: buildDecisionState('STOP', note)
       }
     )
+    applyCheckpointUpdate(updated)
     reviewNote.value = ''
   } catch (exception) {
     tracerError.value = exception?.response?.data?.detail
@@ -950,8 +981,7 @@ async function resumeStoppedAnalysis() {
         analysis_state: buildDecisionState('RESUME', '')
       }
     )
-
-    analysisSession.value = updated
+    applyCheckpointUpdate(updated)
 
     if (updated.status === 'READY') {
       await analyzeCurrentSection(true)
