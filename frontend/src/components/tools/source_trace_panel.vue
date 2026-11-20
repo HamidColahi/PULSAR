@@ -366,9 +366,10 @@ In collaboration with GPT4 Chat Assistant: Bahram
                           v-model="reviewNote"
                           rows="3"
                           maxlength="4000"
-                          placeholder="Add a correction or instruction before continuing..."
+                          placeholder="Add a correction or instruction before continuing... (Ctrl+Enter to continue)"
                           class="trace-input min-h-[76px] resize-y py-2"
                           :disabled="tracerBusy"
+                          @keydown.ctrl.enter.prevent="continueAnalysis"
                         />
                       </div>
                       <div class="grid grid-cols-1 gap-2 sm:grid-cols-3">
