@@ -8,10 +8,10 @@ In collaboration with GPT4 Chat Assistant: Bahram
   <aside class="pali-analyst-panel" dir="ltr">
     <header class="pali-header">
       <div class="min-w-0">
-        <h3 class="pali-title">{{ managerDescription || 'AI Analysis' }}</h3>
+        <h3 class="pali-title">{{ managerDescription || t('aiAnalysis') }}</h3>
         <p class="pali-subtitle">
           {{ analysisSession
-            ? `Section ${Math.min(analysisSession.current_section_index + 1, analysisSession.sections.length)} of ${analysisSession.sections.length} · ${analysisSession.status}`
+            ? `${t('section')} ${Math.min(analysisSession.current_section_index + 1, analysisSession.sections.length)} ${t('of')} ${analysisSession.sections.length} · ${analysisSession.status}`
             : t('subtitle') }}
         </p>
       </div>
@@ -156,6 +156,9 @@ const { translate, currentLanguage } = useTranslation()
 
 const translationFallbacks = {
   subtitle: 'Evidence-based Function output analysis',
+  aiAnalysis: 'AI Analysis',
+  section: 'Section',
+  of: 'of',
   close: 'Close analysis',
   preparing: 'Preparing analysis...',
   allReviewed: 'All sections reviewed',
