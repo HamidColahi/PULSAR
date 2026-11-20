@@ -4,7 +4,7 @@
 # Description:
 # Central registry and validation for internal PULSAR Source Trace APIs
 #
-# Change Date: 2026-11-19 01:20
+# Change Date: 2026-11-20 17:00
 # Timezone: Asia/Baku
 #
 # Author: MHKolahi@gmail.com
@@ -39,6 +39,27 @@ _ENDPOINTS = (
         description=(
             "Execute a static source trace for a topic in the PULSAR repository."
         ),
+    ),
+    APIEndpointDefinition(
+        api_code="SOURCE_TRACE_ANALYSIS_SESSION_CREATE",
+        http_method="POST",
+        path="/source-trace/analysis-sessions",
+        handler_name="create_source_trace_analysis_session",
+        description="Create a persistent interactive analysis session from a complete Source Trace report.",
+    ),
+    APIEndpointDefinition(
+        api_code="SOURCE_TRACE_ANALYSIS_SESSION_GET",
+        http_method="GET",
+        path="/source-trace/analysis-sessions/{session_id}",
+        handler_name="get_source_trace_analysis_session",
+        description="Retrieve an authenticated user's Source Trace analysis session and checkpoint.",
+    ),
+    APIEndpointDefinition(
+        api_code="SOURCE_TRACE_ANALYSIS_CHECKPOINT",
+        http_method="PATCH",
+        path="/source-trace/analysis-sessions/{session_id}/checkpoint",
+        handler_name="save_source_trace_analysis_checkpoint",
+        description="Persist Pali findings and programmer decisions for the active Source Trace section.",
     ),
 )
 
