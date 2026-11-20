@@ -1,8 +1,8 @@
 
 <!--
 File: Pulsar/frontend/src/components/tools/source_trace_panel.vue
-Version: 1.4
-Modified: 2026-11-20 17:45 Asia/Baku
+Version: 1.5
+Modified: 2026-11-20 18:30 Asia/Baku
 In collaboration with GPT4 Chat Assistant: Bahram
 -->
 <template>
