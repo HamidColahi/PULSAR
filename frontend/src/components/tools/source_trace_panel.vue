@@ -1,8 +1,8 @@
 
 <!--
 File: Pulsar/frontend/src/components/tools/source_trace_panel.vue
-Version: 2.0
-Modified: 2026-11-20 19:30 Asia/Baku
+Version: 2.1
+Modified: 2026-11-20 19:35 Asia/Baku
 In collaboration with GPT4 Chat Assistant: Bahram
 -->
 <template>
@@ -710,7 +710,7 @@ function buildAnalysisState(analysis, paliStatus, section) {
   const fallbackRunningSummary = [
     previous.running_summary || '',
     checkpointSummary
-  ].filter(Boolean).join('\\n').slice(-5000)
+  ].filter(Boolean).join('\n').slice(-5000)
 
   summaries.push({
     section_id: section.section_id,
