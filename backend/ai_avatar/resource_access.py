@@ -237,7 +237,7 @@ class FunctionOutputResourceService:
                 f"""
                 SELECT {self.RULE_COLUMNS}
                 FROM pulsar.table_1
-                WHERE row_no = ANY(:row_numbers)
+                WHERE row_no = ANY(CAST(:row_numbers AS integer[]))
                 ORDER BY row_no
                 LIMIT :row_limit
                 """
@@ -292,25 +292,39 @@ class FunctionOutputResourceService:
             maximum=100,
         )
 
-        conditions = " OR ".join(
-            f"COALESCE({field}::text, '') ILIKE :search_pattern"
-            for field in fields
-        )
+        tokens = [
+            token.strip()
+            for token in re.split(r"\\s+", normalized_text)
+            if len(token.strip()) >= 2
+        ][:12]
+
+        if not tokens:
+            return []
+
+        conditions = []
+        bind_values: dict[str, Any] = {"result_limit": limit}
+
+        for index, token in enumerate(tokens):
+            bind_key = f"search_{index}"
+            bind_values[bind_key] = f"%{token[:100]}%"
+            conditions.append(
+                "(" + " OR ".join(
+                    f"COALESCE({field}::text, '') ILIKE :{bind_key}"
+                    for field in fields
+                ) + ")"
+            )
 
         result = await self.session.execute(
             text(
                 f"""
                 SELECT {self.RULE_COLUMNS}
                 FROM pulsar.table_1
-                WHERE {conditions}
+                WHERE {" OR ".join(conditions)}
                 ORDER BY row_no
                 LIMIT :result_limit
                 """
             ),
-            {
-                "search_pattern": f"%{normalized_text[:500]}%",
-                "result_limit": limit,
-            },
+            bind_values,
         )
 
         return [
@@ -491,29 +505,25 @@ class FunctionOutputResourceService:
             evidence["related_rules"] = related_results
             evidence["resources"].append("COLONY_RELATED_RULES")
 
-        if "COLONY_TABLE_1" in access_by_code:
-            access = access_by_code["COLONY_TABLE_1"]
-            rows, total_count = await self._load_table_1(
-                access["access_options"],
-                list(dict.fromkeys(
-                    requested_rows
-                    + [row["row_no"] for row in search_results]
-                    + [row["row_no"] for row in evidence["related_rules"]]
-                )),
-            )
-            evidence["table_1"] = {
-                "rows": rows,
-                "total_count": total_count,
-                "returned_count": len(rows),
-                "truncated": total_count > len(rows),
-            }
-            evidence["resources"].append("COLONY_TABLE_1")
-
         selected_row_numbers = list(dict.fromkeys(
             requested_rows
             + [row["row_no"] for row in search_results]
             + [row["row_no"] for row in evidence["related_rules"]]
         ))
+
+        if "COLONY_TABLE_1" in access_by_code:
+            access = access_by_code["COLONY_TABLE_1"]
+            rows, total_count = await self._load_table_1(
+                access["access_options"],
+                selected_row_numbers,
+            )
+            evidence["table_1"] = {
+                "rows": rows,
+                "total_count": total_count,
+                "returned_count": len(rows),
+                "truncated": len(selected_row_numbers) > len(rows),
+            }
+            evidence["resources"].append("COLONY_TABLE_1")
 
         if "COLONY_GUIDANCE_PDF" in access_by_code:
             access = access_by_code["COLONY_GUIDANCE_PDF"]
