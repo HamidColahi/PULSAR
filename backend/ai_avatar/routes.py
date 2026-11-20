@@ -35,6 +35,10 @@ from ai_avatar.resource_access import (
     FunctionOutputResourceError,
     FunctionOutputResourceService,
 )
+from ai_avatar.function_output_analysis_service import (
+    PaliAnalystAnalysisError,
+    PaliAnalystAnalysisService,
+)
 
 logger = logging.getLogger(__name__)
 
@@ -85,6 +89,27 @@ class FunctionOutputResourceRequest(BaseModel):
     definition_code: str = Field(..., min_length=1, max_length=100)
     search_text: str = Field(default="", max_length=4000)
     row_numbers: list[int] = Field(default_factory=list, max_length=50)
+
+
+class FunctionOutputAnalysisSessionRequest(BaseModel):
+    """Validate a Function output submitted for interactive Pali Analyst review."""
+
+    output_config_id: int = Field(..., ge=1)
+    definition_code: str = Field(..., min_length=1, max_length=100)
+    report: dict[str, Any] = Field(...)
+
+
+class FunctionOutputAnalysisCheckpointRequest(BaseModel):
+    """Validate one Pali Analyst result or programmer checkpoint decision."""
+
+    section_index: int = Field(..., ge=0)
+    analysis: str | None = Field(default=None, max_length=30000)
+    pali_status: str | None = Field(default=None, max_length=20)
+    decision: str | None = Field(default=None, max_length=20)
+    note: str | None = Field(default=None, max_length=4000)
+    analysis_state: dict[str, Any] | None = None
+    definition_code: str | None = Field(default=None, max_length=100)
+    conversation_id: str | None = Field(default=None, max_length=36)
 
 
 class AvatarDefinitionResponse(BaseModel):
@@ -360,6 +385,125 @@ async def get_function_output_resources(
         raise HTTPException(
             status_code=500,
             detail="The authorized Function output resources could not be retrieved. Verify that function_output_access_schema.sql has been applied.",
+        ) from exc
+
+
+@router.post(
+    API_REGISTRY["AI_AVATAR_FUNCTION_OUTPUT_ANALYSIS_CREATE"].path,
+)
+async def create_function_output_analysis_session(
+    payload: FunctionOutputAnalysisSessionRequest,
+    current_user: UserProfileResponse = Depends(get_current_user),
+    session: AsyncSession = Depends(get_async_session),
+):
+    """Create an encrypted, user-owned Pali Analyst session."""
+
+    if not current_user.is_active:
+        raise HTTPException(
+            status_code=403,
+            detail="Your account is inactive.",
+        )
+
+    service = PaliAnalystAnalysisService(session)
+
+    try:
+        return await service.create_session(
+            user_id=str(current_user.id),
+            report=payload.report,
+            definition_code=_validate_definition_code(payload.definition_code),
+            output_config_id=payload.output_config_id,
+        )
+    except PaliAnalystAnalysisError as exc:
+        raise HTTPException(
+            status_code=exc.status_code,
+            detail=exc.message,
+        ) from exc
+    except Exception as exc:
+        logger.exception("Pali Analyst session creation failed.")
+        raise HTTPException(
+            status_code=500,
+            detail="The Pali Analyst session could not be saved. Verify that function_output_analysis_schema.sql has been applied.",
+        ) from exc
+
+
+@router.get(
+    API_REGISTRY["AI_AVATAR_FUNCTION_OUTPUT_ANALYSIS_GET"].path,
+)
+async def get_function_output_analysis_session(
+    session_id: str,
+    current_user: UserProfileResponse = Depends(get_current_user),
+    session: AsyncSession = Depends(get_async_session),
+):
+    """Retrieve an encrypted Pali Analyst session owned by the current user."""
+
+    if not current_user.is_active:
+        raise HTTPException(
+            status_code=403,
+            detail="Your account is inactive.",
+        )
+
+    service = PaliAnalystAnalysisService(session)
+
+    try:
+        return await service.get_session(
+            user_id=str(current_user.id),
+            session_id=session_id,
+        )
+    except PaliAnalystAnalysisError as exc:
+        raise HTTPException(
+            status_code=exc.status_code,
+            detail=exc.message,
+        ) from exc
+    except Exception as exc:
+        logger.exception("Pali Analyst session retrieval failed.")
+        raise HTTPException(
+            status_code=500,
+            detail="The saved Pali Analyst session could not be retrieved.",
+        ) from exc
+
+
+@router.patch(
+    API_REGISTRY["AI_AVATAR_FUNCTION_OUTPUT_ANALYSIS_CHECKPOINT"].path,
+)
+async def save_function_output_analysis_checkpoint(
+    session_id: str,
+    payload: FunctionOutputAnalysisCheckpointRequest,
+    current_user: UserProfileResponse = Depends(get_current_user),
+    session: AsyncSession = Depends(get_async_session),
+):
+    """Persist Pali Analyst findings and programmer review decisions."""
+
+    if not current_user.is_active:
+        raise HTTPException(
+            status_code=403,
+            detail="Your account is inactive.",
+        )
+
+    service = PaliAnalystAnalysisService(session)
+
+    try:
+        return await service.save_checkpoint(
+            user_id=str(current_user.id),
+            session_id=session_id,
+            section_index=payload.section_index,
+            analysis=payload.analysis,
+            pali_status=payload.pali_status,
+            decision=payload.decision,
+            note=payload.note,
+            analysis_state=payload.analysis_state,
+            definition_code=payload.definition_code,
+            conversation_id=payload.conversation_id,
+        )
+    except PaliAnalystAnalysisError as exc:
+        raise HTTPException(
+            status_code=exc.status_code,
+            detail=exc.message,
+        ) from exc
+    except Exception as exc:
+        logger.exception("Pali Analyst checkpoint update failed.")
+        raise HTTPException(
+            status_code=500,
+            detail="The Pali Analyst checkpoint could not be saved.",
         ) from exc
 
 
