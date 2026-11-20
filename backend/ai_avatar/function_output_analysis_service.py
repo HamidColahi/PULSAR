@@ -134,6 +134,8 @@ def build_analysis_sections(report: dict) -> list[dict]:
         "overview",
         "Function Output Overview",
         {
+            "schema_name": report.get("schema_name")
+                or display_metadata.get("schema_name"),
             "function_name": function_name,
             "return_type": report.get("return_type"),
             "result_kind": report.get("result_kind"),
@@ -338,11 +340,15 @@ class PaliAnalystAnalysisService:
         if not isinstance(function_name, str) or not function_name.strip() or len(function_name.strip()) > 200:
             raise PaliAnalystAnalysisError("A valid Function name is required.", 422)
 
+        display = report.get("display")
+        display_metadata = display.get("metadata", {}) if isinstance(display, dict) else {}
+        schema_name = report.get("schema_name") or display_metadata.get("schema_name")
+        if not isinstance(schema_name, str) or not schema_name.strip() or len(schema_name.strip()) > 128:
+            raise PaliAnalystAnalysisError("A valid Function schema name is required.", 422)
+
         if type(output_config_id) is not int or output_config_id < 1:
             raise PaliAnalystAnalysisError("A valid Function output configuration ID is required.", 422)
 
-        display = report.get("display")
-        display_metadata = display.get("metadata", {}) if isinstance(display, dict) else {}
         report_config_id = report.get("output_config_id") or display_metadata.get("output_config_id")
         if report_config_id is not None and (
             type(report_config_id) is not int
@@ -364,6 +370,8 @@ class PaliAnalystAnalysisService:
             await FunctionOutputResourceService(self.session)._resolve_authorization(
                 output_config_id=output_config_id,
                 definition_code=definition_code.strip(),
+                schema_name=schema_name.strip(),
+                function_name=function_name.strip(),
             )
         except AIAvatarServiceError as exc:
             raise PaliAnalystAnalysisError(
@@ -383,6 +391,8 @@ class PaliAnalystAnalysisService:
         session_id = str(uuid.uuid4())
         payload = {
             "report": report,
+            "schema_name": schema_name.strip(),
+            "function_name": function_name.strip(),
             "sections": sections,
             "analysis_state": {},
         }
