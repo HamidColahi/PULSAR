@@ -2,7 +2,7 @@
 /*
 File: frontend/src/composables/useAIAvatar.js
 Description: API composable for the metadata-driven AI Avatar runtime
-Change Date: 2026-11-20 13:00; Timezone: Asia/Baku
+Change Date: 2026-11-20 17:20; Timezone: Asia/Baku
 Author: MHKolahi@gmail.com
 In collaboration with GPT4 Chat Assistant: Bahram
 */
@@ -209,7 +209,10 @@ export function useAIAvatar() {
         data: {
           definition_code: payload.definition_code.trim(),
           message: payload.message,
-          context_variables: payload.context_variables || {}
+          context_variables: payload.context_variables || {},
+          conversation_id: payload.conversation_id || null,
+          new_conversation: payload.new_conversation === true,
+          include_history: payload.include_history !== false
         },
         timeout: 120000
       })
