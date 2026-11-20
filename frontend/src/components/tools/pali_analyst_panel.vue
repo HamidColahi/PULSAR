@@ -426,6 +426,24 @@ function buildAnalysisState(analysis, paliStatus, section) {
   }
 }
 
+function buildDecisionState(decision, note = '') {
+  const previous = analysisSession.value?.analysis_state || {}
+  const decisions = Array.isArray(previous.programmer_decisions)
+    ? [...previous.programmer_decisions]
+    : []
+
+  decisions.push({
+    section_id: activeSection.value?.section_id || null,
+    decision,
+    note: note ? note.slice(0, 200) : null
+  })
+
+  return {
+    ...previous,
+    programmer_decisions: decisions.slice(-20)
+  }
+}
+
 function applyCheckpointUpdate(update) {
   if (!analysisSession.value) return
 
@@ -741,13 +759,7 @@ async function continueAnalysis() {
         section_index: analysisSession.value.current_section_index,
         decision: 'CONTINUE',
         note,
-        analysis_state: {
-          ...(analysisSession.value.analysis_state || {}),
-          programmer_decisions: [
-            ...(analysisSession.value.analysis_state?.programmer_decisions || []),
-            { section_id: activeSection.value.section_id, decision: 'CONTINUE', note }
-          ].slice(-20)
-        }
+        analysis_state: buildDecisionState('CONTINUE', note)
       }
     )
     applyCheckpointUpdate(updated)
@@ -777,7 +789,7 @@ async function reviseAnalysis() {
         section_index: analysisSession.value.current_section_index,
         decision: 'REVISE',
         note,
-        analysis_state: analysisSession.value.analysis_state || {}
+        analysis_state: buildDecisionState('REVISE', note)
       }
     )
     applyCheckpointUpdate(updated)
@@ -803,7 +815,7 @@ async function stopAnalysis() {
         section_index: analysisSession.value.current_section_index,
         decision: 'STOP',
         note: reviewNote.value.trim(),
-        analysis_state: analysisSession.value.analysis_state || {}
+        analysis_state: buildDecisionState('STOP', reviewNote.value.trim())
       }
     )
     applyCheckpointUpdate(updated)
@@ -825,7 +837,7 @@ async function resumeStoppedAnalysis() {
       {
         section_index: analysisSession.value.current_section_index,
         decision: 'RESUME',
-        analysis_state: analysisSession.value.analysis_state || {}
+        analysis_state: buildDecisionState('RESUME')
       }
     )
     applyCheckpointUpdate(updated)
