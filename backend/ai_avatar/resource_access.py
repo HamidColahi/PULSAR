@@ -349,6 +349,78 @@ class FunctionOutputResourceService:
             for row in result.mappings().all()
         ]
 
+    async def _find_related_rules(
+        self,
+        seed_rows: list[dict[str, Any]],
+        options: dict[str, Any],
+    ) -> list[dict[str, Any]]:
+        if not seed_rows:
+            return []
+
+        rp_values = list(dict.fromkeys(
+            str(row["rp"]).strip()
+            for row in seed_rows
+            if row.get("rp") is not None and str(row["rp"]).strip()
+        ))
+        pbi_values = list(dict.fromkeys(
+            str(row["pbi_sbi"]).strip()
+            for row in seed_rows
+            if row.get("pbi_sbi") is not None and str(row["pbi_sbi"]).strip()
+        ))
+        event_values = list(dict.fromkeys(
+            str(row["event"]).strip()
+            for row in seed_rows
+            if row.get("event") is not None and str(row["event"]).strip()
+        ))
+        excluded_rows = list(dict.fromkeys(
+            int(row["row_no"])
+            for row in seed_rows
+            if row.get("row_no") is not None
+        ))
+
+        conditions = []
+        bind_values: dict[str, Any] = {
+            "excluded_rows": excluded_rows,
+            "result_limit": self._bounded_int(
+                options.get("max_results"),
+                default=20,
+                minimum=1,
+                maximum=100,
+            ),
+        }
+
+        if rp_values:
+            conditions.append("rp = ANY(CAST(:rp_values AS text[]))")
+            bind_values["rp_values"] = rp_values
+        if pbi_values:
+            conditions.append("pbi_sbi = ANY(CAST(:pbi_values AS text[]))")
+            bind_values["pbi_values"] = pbi_values
+        if event_values:
+            conditions.append("event = ANY(CAST(:event_values AS text[]))")
+            bind_values["event_values"] = event_values
+
+        if not conditions:
+            return []
+
+        result = await self.session.execute(
+            text(
+                f"""
+                SELECT {self.RULE_COLUMNS}
+                FROM pulsar.table_1
+                WHERE ({" OR ".join(conditions)})
+                  AND NOT (row_no = ANY(CAST(:excluded_rows AS integer[])))
+                ORDER BY row_no
+                LIMIT :result_limit
+                """
+            ),
+            bind_values,
+        )
+
+        return [
+            dict(row)
+            for row in result.mappings().all()
+        ]
+
     async def _load_guidance_pdfs(
         self,
         row_numbers: list[int],
@@ -655,11 +727,10 @@ class FunctionOutputResourceService:
 
         if "COLONY_RELATED_RULES" in access_by_code:
             access = access_by_code["COLONY_RELATED_RULES"]
-            related_results = await self._search_rules(
-                search_text,
+            evidence["related_rules"] = await self._find_related_rules(
+                search_results,
                 access["access_options"],
             )
-            evidence["related_rules"] = related_results
             evidence["resources"].append("COLONY_RELATED_RULES")
 
         selected_row_numbers = list(dict.fromkeys(
