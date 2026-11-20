@@ -4,7 +4,7 @@
 # Description:
 # Persistent interactive analysis sessions for P-ATVT Source Trace
 #
-# Change Date: 2026-11-20 17:55
+# Change Date: 2026-11-20 18:15
 # Timezone: Asia/Baku
 #
 # Author: MHKolahi@gmail.com
@@ -19,6 +19,8 @@ from typing import Any
 
 from sqlalchemy import text
 from sqlalchemy.ext.asyncio import AsyncSession
+
+from ai_avatar.service import AIAvatarService, AIAvatarServiceError
 
 
 MAX_SECTION_CHARS = 18000
@@ -243,6 +245,7 @@ class SourceTraceAnalysisService:
 
     def __init__(self, session: AsyncSession):
         self.session = session
+        self.avatar_service = AIAvatarService(session)
 
     @staticmethod
     def _uuid(value: str, label: str) -> str:
@@ -263,27 +266,72 @@ class SourceTraceAnalysisService:
                 return default
         return value if value is not None else default
 
+    def _encrypt_payload(
+        self,
+        payload: dict,
+        user_id: str,
+        definition_id: str,
+        session_id: str,
+    ) -> dict[str, bytes | str]:
+        try:
+            return self.avatar_service._encrypt_content(
+                content=json.dumps(payload, ensure_ascii=False),
+                user_id=user_id,
+                definition_id=definition_id,
+                conversation_id=session_id,
+                role="source_trace_analysis_session",
+            )
+        except AIAvatarServiceError as exc:
+            raise SourceTraceAnalysisError(
+                exc.message,
+                exc.status_code,
+            ) from exc
+
     @staticmethod
-    def _serialize(row: Any) -> dict:
-        sections = SourceTraceAnalysisService._json_value(
-            row["c_sections"],
-            [],
-        )
-        report = SourceTraceAnalysisService._json_value(
-            row["c_report"],
-            {},
-        )
-        analysis_state = SourceTraceAnalysisService._json_value(
-            row["c_analysis_state"],
-            {},
-        )
+    def _decrypt_payload(row: Any) -> dict:
+        encrypted_row = {
+            "c_user_id": row["c_user_id"],
+            "c_ai_definition_id": row["c_ai_definition_id"],
+            "c_conversation_id": row["c_analysis_session_id"],
+            "c_role": "source_trace_analysis_session",
+            "c_content_ciphertext": row["c_payload_ciphertext"],
+            "c_encryption_nonce": row["c_encryption_nonce"],
+            "c_encryption_tag": row["c_encryption_tag"],
+            "c_encryption_key_ref": row["c_encryption_key_ref"],
+            "c_encryption_key_version": row["c_encryption_key_version"],
+        }
+
+        try:
+            decoded = AIAvatarService._decrypt_content(encrypted_row)
+            payload = json.loads(decoded)
+        except AIAvatarServiceError as exc:
+            raise SourceTraceAnalysisError(
+                exc.message,
+                exc.status_code,
+            ) from exc
+        except (TypeError, ValueError, json.JSONDecodeError) as exc:
+            raise SourceTraceAnalysisError(
+                "The stored Source Trace analysis payload is invalid.",
+                500,
+            ) from exc
+
+        if not isinstance(payload, dict):
+            raise SourceTraceAnalysisError(
+                "The stored Source Trace analysis payload is invalid.",
+                500,
+            )
+
+        return payload
+
+    def _serialize(self, row: Any) -> dict:
+        payload = self._decrypt_payload(row)
 
         return {
             "analysis_session_id": str(row["c_analysis_session_id"]),
             "topic": row["c_topic"],
-            "report": report,
-            "sections": sections,
-            "analysis_state": analysis_state,
+            "report": payload.get("report", {}),
+            "sections": payload.get("sections", []),
+            "analysis_state": payload.get("analysis_state", {}),
             "current_section_index": row["c_current_section_index"],
             "status": row["c_status"],
             "definition_code": row["c_definition_code"],
@@ -302,6 +350,7 @@ class SourceTraceAnalysisService:
         user_id: str,
         topic: str,
         report: dict,
+        definition_code: str,
     ) -> dict:
         owner_id = self._uuid(user_id, "authenticated user ID")
         normalized_topic = topic.strip() if isinstance(topic, str) else ""
@@ -315,8 +364,41 @@ class SourceTraceAnalysisService:
                 422,
             )
 
+        if not isinstance(definition_code, str) or not definition_code.strip():
+            raise SourceTraceAnalysisError(
+                "The Pali Tracer definition code is required.",
+                422,
+            )
+
+        try:
+            resolved = await self.avatar_service.resolve(definition_code.strip())
+        except AIAvatarServiceError as exc:
+            raise SourceTraceAnalysisError(
+                exc.message,
+                exc.status_code,
+            ) from exc
+
+        definition = resolved["definition"]
+        if int(definition["c_avatar_manager_id"]) != 4:
+            raise SourceTraceAnalysisError(
+                "Interactive Source Trace analysis requires an AI Avatar assigned to Manager 4.",
+                409,
+            )
+
+        definition_id = str(definition["c_ai_definition_id"])
         sections = build_analysis_sections(report)
         session_id = str(uuid.uuid4())
+        payload = {
+            "report": report,
+            "sections": sections,
+            "analysis_state": {},
+        }
+        encrypted = self._encrypt_payload(
+            payload,
+            owner_id,
+            definition_id,
+            session_id,
+        )
 
         await self.session.execute(
             text(
@@ -324,10 +406,14 @@ class SourceTraceAnalysisService:
                 INSERT INTO pulsar.t_source_trace_analysis_session (
                     c_analysis_session_id,
                     c_user_id,
+                    c_ai_definition_id,
+                    c_definition_code,
                     c_topic,
-                    c_report,
-                    c_sections,
-                    c_analysis_state,
+                    c_payload_ciphertext,
+                    c_encryption_nonce,
+                    c_encryption_tag,
+                    c_encryption_key_ref,
+                    c_encryption_key_version,
                     c_current_section_index,
                     c_status,
                     c_expires_at
@@ -335,10 +421,14 @@ class SourceTraceAnalysisService:
                 VALUES (
                     CAST(:session_id AS uuid),
                     CAST(:user_id AS uuid),
+                    CAST(:definition_id AS uuid),
+                    :definition_code,
                     :topic,
-                    CAST(:report AS jsonb),
-                    CAST(:sections AS jsonb),
-                    '{}'::jsonb,
+                    :ciphertext,
+                    :nonce,
+                    :tag,
+                    :key_ref,
+                    :key_version,
                     0,
                     'READY',
                     CURRENT_TIMESTAMP + INTERVAL '30 days'
@@ -348,9 +438,14 @@ class SourceTraceAnalysisService:
             {
                 "session_id": session_id,
                 "user_id": owner_id,
+                "definition_id": definition_id,
+                "definition_code": definition_code.strip(),
                 "topic": normalized_topic,
-                "report": json.dumps(report, ensure_ascii=False),
-                "sections": json.dumps(sections, ensure_ascii=False),
+                "ciphertext": encrypted["ciphertext"],
+                "nonce": encrypted["nonce"],
+                "tag": encrypted["tag"],
+                "key_ref": encrypted["key_ref"],
+                "key_version": encrypted["key_version"],
             },
         )
         await self.session.commit()
@@ -469,8 +564,9 @@ class SourceTraceAnalysisService:
                 404,
             )
 
-        sections = self._json_value(row["c_sections"], [])
-        state = self._json_value(row["c_analysis_state"], {})
+        payload = self._decrypt_payload(row)
+        sections = payload.get("sections", [])
+        state = payload.get("analysis_state", {})
         current_index = row["c_current_section_index"]
         status = row["c_status"]
 
@@ -524,12 +620,24 @@ class SourceTraceAnalysisService:
         if analysis_state is not None:
             state = analysis_state
 
+        payload["sections"] = sections
+        payload["analysis_state"] = state
+        encrypted = self._encrypt_payload(
+            payload,
+            owner_id,
+            str(row["c_ai_definition_id"]),
+            normalized_id,
+        )
+
         await self.session.execute(
             text(
                 """
                 UPDATE pulsar.t_source_trace_analysis_session
-                SET c_sections = CAST(:sections AS jsonb),
-                    c_analysis_state = CAST(:analysis_state AS jsonb),
+                SET c_payload_ciphertext = :ciphertext,
+                    c_encryption_nonce = :nonce,
+                    c_encryption_tag = :tag,
+                    c_encryption_key_ref = :key_ref,
+                    c_encryption_key_version = :key_version,
                     c_current_section_index = :current_index,
                     c_status = :status,
                     c_definition_code = COALESCE(:definition_code, c_definition_code),
@@ -543,8 +651,11 @@ class SourceTraceAnalysisService:
                 """
             ),
             {
-                "sections": json.dumps(sections, ensure_ascii=False),
-                "analysis_state": json.dumps(state, ensure_ascii=False),
+                "ciphertext": encrypted["ciphertext"],
+                "nonce": encrypted["nonce"],
+                "tag": encrypted["tag"],
+                "key_ref": encrypted["key_ref"],
+                "key_version": encrypted["key_version"],
                 "current_index": current_index,
                 "status": status,
                 "definition_code": definition_code,
