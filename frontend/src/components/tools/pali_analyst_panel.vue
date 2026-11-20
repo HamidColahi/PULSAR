@@ -12,14 +12,14 @@ In collaboration with GPT4 Chat Assistant: Bahram
         <p class="pali-subtitle">
           {{ analysisSession
             ? `Section ${Math.min(analysisSession.current_section_index + 1, analysisSession.sections.length)} of ${analysisSession.sections.length} · ${analysisSession.status}`
-            : 'Evidence-based Function output analysis' }}
+            : t('subtitle') }}
         </p>
       </div>
       <button
         type="button"
         class="pali-close"
-        title="Close analysis"
-        aria-label="Close analysis"
+        :title="t('close')"
+        :aria-label="t('close')"
         @click="emit('update:modelValue', false)"
       >
         ×
@@ -45,7 +45,7 @@ In collaboration with GPT4 Chat Assistant: Bahram
           <div class="pali-progress-value" :style="{ width: `${progress}%` }"></div>
         </div>
         <p class="pali-hint">
-          The complete Function output is preserved. Only the active logical section and its authorized evidence are sent to Pali.
+          {{ t('evidenceHint') }}
         </p>
       </div>
 
@@ -62,7 +62,7 @@ In collaboration with GPT4 Chat Assistant: Bahram
 
         <div v-if="activeSection.analysis" class="pali-analysis">
           <div class="pali-analysis-heading">
-            <strong>Pali Analysis</strong>
+            <strong>{{ t('paliAnalysis') }}</strong>
             <span :class="['pali-status-tag', `status-${activeSection.pali_status || 'CONTINUE'}`]">
               {{ activeSection.pali_status || 'CONTINUE' }}
             </span>
@@ -71,13 +71,13 @@ In collaboration with GPT4 Chat Assistant: Bahram
         </div>
 
         <div v-if="activeSection.status !== 'APPROVED' && analysisSession.status !== 'COMPLETED' && analysisSession.status !== 'STOPPED'" class="pali-review">
-          <label for="pali-review-note">Programmer review note</label>
+          <label for="pali-review-note">{{ t('reviewNote') }}</label>
           <textarea
             id="pali-review-note"
             v-model="reviewNote"
             rows="3"
             maxlength="4000"
-            placeholder="Add a clarification or request a focused revision..."
+            :placeholder="t('reviewPlaceholder')"
           ></textarea>
         </div>
       </section>
@@ -90,7 +90,7 @@ In collaboration with GPT4 Chat Assistant: Bahram
           :disabled="busy || !activeSection"
           @click="continueAnalysis"
         >
-          Continue
+          {{ t('continue') }}
         </button>
         <button
           v-if="analysisSession.status === 'PAUSED'"
@@ -99,7 +99,7 @@ In collaboration with GPT4 Chat Assistant: Bahram
           :disabled="busy || !activeSection"
           @click="reviseAnalysis"
         >
-          Revise
+          {{ t('revise') }}
         </button>
         <button
           v-if="analysisSession.status === 'READY'"
@@ -108,7 +108,7 @@ In collaboration with GPT4 Chat Assistant: Bahram
           :disabled="busy"
           @click="resumeAnalysis"
         >
-          Resume Analysis
+          {{ t('resumeAnalysis') }}
         </button>
         <button
           v-if="!['COMPLETED', 'STOPPED'].includes(analysisSession.status)"
@@ -117,7 +117,7 @@ In collaboration with GPT4 Chat Assistant: Bahram
           :disabled="busy"
           @click="stopAnalysis"
         >
-          Stop
+          {{ t('stop') }}
         </button>
         <button
           v-if="analysisSession.status === 'STOPPED'"
@@ -126,10 +126,10 @@ In collaboration with GPT4 Chat Assistant: Bahram
           :disabled="busy"
           @click="resumeStoppedAnalysis"
         >
-          Resume
+          {{ t('resume') }}
         </button>
         <span v-if="analysisSession.status === 'COMPLETED'" class="pali-complete">
-          Analysis completed
+          {{ t('completed') }}
         </span>
       </footer>
     </template>
@@ -139,6 +139,7 @@ In collaboration with GPT4 Chat Assistant: Bahram
 <script setup>
 import { computed, ref, watch } from 'vue'
 import { useAIAvatar } from '@/composables/useAIAvatar'
+import { useTranslation } from '@/composables/useTranslation'
 import { usePaliAnalystAnalysis } from '@/composables/usePaliAnalystAnalysis'
 
 const props = defineProps({
@@ -151,8 +152,56 @@ const emit = defineEmits(['update:modelValue'])
 const { getDefaultAvatar, getFunctionOutputResources, sendChatMessage } = useAIAvatar()
 const { createSession, getSession, saveCheckpoint } = usePaliAnalystAnalysis()
 
+const { translate, currentLanguage } = useTranslation()
+
+const translationFallbacks = {
+  subtitle: 'Evidence-based Function output analysis',
+  close: 'Close analysis',
+  preparing: 'Preparing analysis...',
+  allReviewed: 'All sections reviewed',
+  stopped: 'Analysis stopped',
+  interactiveReview: 'Interactive review',
+  evidenceHint: 'The complete Function output is preserved. Only the active logical section and its authorized evidence are sent to Pali.',
+  paliAnalysis: 'Pali Analysis',
+  reviewNote: 'Programmer review note',
+  reviewPlaceholder: 'Add a clarification or request a focused revision...',
+  continue: 'Continue',
+  revise: 'Revise',
+  resumeAnalysis: 'Resume Analysis',
+  stop: 'Stop',
+  resume: 'Resume',
+  completed: 'Analysis completed'
+}
+
+const translations = ref({})
+
+async function loadTranslations() {
+  const languageCode = currentLanguage.value
+  const loaded = {}
+
+  await Promise.all(
+    Object.entries(translationFallbacks).map(async ([key]) => {
+      const translationKey = `pulsar.pali_analyst.${key}`
+      const translated = await translate(translationKey, languageCode)
+      loaded[key] = translated === translationKey
+        ? translationFallbacks[key]
+        : translated
+    })
+  )
+
+  if (languageCode === currentLanguage.value) {
+    translations.value = loaded
+  }
+}
+
+function t(key) {
+  return translations.value[key] || translationFallbacks[key] || key
+}
+
+watch(currentLanguage, loadTranslations, { immediate: true })
+
 const busy = ref(false)
-const busyLabel = ref('Preparing analysis...')
+const busyLabel = ref('')
 const error = ref('')
 const analystDefinition = ref(null)
 const analysisSession = ref(null)
@@ -179,9 +228,9 @@ const activeSection = computed(() => {
 })
 
 const progressLabel = computed(() => {
-  if (analysisSession.value?.status === 'COMPLETED') return 'All sections reviewed'
-  if (analysisSession.value?.status === 'STOPPED') return 'Analysis stopped'
-  return 'Interactive review'
+  if (analysisSession.value?.status === 'COMPLETED') return t('allReviewed')
+  if (analysisSession.value?.status === 'STOPPED') return t('stopped')
+  return t('interactiveReview')
 })
 
 const storageKey = computed(() => (
@@ -398,7 +447,7 @@ async function analyzeCurrentSection() {
   if (!section) return
 
   busy.value = true
-  busyLabel.value = 'Retrieving authorized evidence and analyzing the active section...'
+  busyLabel.value = t('preparing')
   error.value = ''
 
   try {
