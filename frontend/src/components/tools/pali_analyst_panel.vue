@@ -226,6 +226,28 @@ function collectRowNumbers(value, output = new Set()) {
   return [...output].slice(0, 50)
 }
 
+function buildSearchText(value, output = []) {
+  if (Array.isArray(value)) {
+    value.forEach(item => buildSearchText(item, output))
+    return output.join(' ').slice(0, 4000)
+  }
+
+  if (value && typeof value === 'object') {
+    for (const [key, item] of Object.entries(value)) {
+      if (key === 'row_no') continue
+      if (typeof item === 'string' && item.trim()) {
+        output.push(item.trim())
+      } else if (item && typeof item === 'object') {
+        buildSearchText(item, output)
+      }
+    }
+  } else if (typeof value === 'string' && value.trim()) {
+    output.push(value.trim())
+  }
+
+  return output.join(' ').slice(0, 4000)
+}
+
 function normalizeResponse(response) {
   const value = response?.response ?? response
   if (typeof value === 'string') return value
@@ -384,7 +406,7 @@ async function analyzeCurrentSection() {
     const resources = await getFunctionOutputResources({
       output_config_id: outputConfigId.value,
       definition_code: definition.definition_code,
-      search_text: JSON.stringify(section.content),
+      search_text: buildSearchText(section.content),
       row_numbers: collectRowNumbers(section.content)
     })
 
