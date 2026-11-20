@@ -1,8 +1,8 @@
 
 <!--
 File: Pulsar/frontend/src/components/tools/source_trace_panel.vue
-Version: 1.6
-Modified: 2026-11-20 18:50 Asia/Baku
+Version: 1.7
+Modified: 2026-11-20 19:00 Asia/Baku
 In collaboration with GPT4 Chat Assistant: Bahram
 -->
 <template>
@@ -420,6 +420,14 @@ In collaboration with GPT4 Chat Assistant: Bahram
                     class="rounded-xl border border-border p-4 text-xs leading-6 text-muted"
                   >
                     Analysis was stopped at the programmer's request. All previous findings and decisions are preserved.
+                    <button
+                      type="button"
+                      class="trace-run-button mt-3"
+                      :disabled="tracerBusy"
+                      @click="resumeStoppedAnalysis"
+                    >
+                      Resume from This Checkpoint
+                    </button>
                   </div>
                 </template>
 
@@ -896,6 +904,36 @@ async function stopAnalysis() {
     tracerError.value = exception?.response?.data?.detail
       || exception?.message
       || 'The analysis could not be stopped.'
+  } finally {
+    tracerBusy.value = false
+  }
+}
+
+async function resumeStoppedAnalysis() {
+  if (!analysisSession.value || !activeSection.value || tracerBusy.value) return
+
+  tracerBusy.value = true
+  tracerError.value = ''
+
+  try {
+    const updated = await saveCheckpoint(
+      analysisSession.value.analysis_session_id,
+      {
+        section_index: analysisSession.value.current_section_index,
+        decision: 'RESUME',
+        analysis_state: buildDecisionState('RESUME', '')
+      }
+    )
+
+    analysisSession.value = updated
+
+    if (updated.status === 'READY') {
+      await analyzeCurrentSection(true)
+    }
+  } catch (exception) {
+    tracerError.value = exception?.response?.data?.detail
+      || exception?.message
+      || 'The stopped analysis could not be resumed.'
   } finally {
     tracerBusy.value = false
   }
