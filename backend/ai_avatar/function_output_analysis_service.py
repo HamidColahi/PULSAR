@@ -147,65 +147,71 @@ def build_analysis_sections(report: dict) -> list[dict]:
 
     result = report.get("result")
 
-    if isinstance(result, list):
-        normalized_items = [
-            item if isinstance(item, dict) else {"value": item}
-            for item in result
-        ]
-        for index, chunk in enumerate(
-            _chunk_items(normalized_items, MAX_SECTION_CHARS),
-            1,
-        ):
-            add_section(
-                "result_rows",
-                f"Function Result Rows · Part {index}",
-                {"items": chunk},
-            )
+    def add_result_value(path: str, value: Any) -> None:
+        if isinstance(value, dict):
+            candidate = {"field": path, "value": value}
+            if _json_size(candidate) <= MAX_SECTION_CHARS:
+                add_section(
+                    "result_field",
+                    f"Result Field · {path}",
+                    candidate,
+                )
+                return
 
-    elif isinstance(result, dict):
-        for key in sorted(result):
-            value = result[key]
+            for child_key, child_value in value.items():
+                add_result_value(f"{path}.{child_key}", child_value)
+            return
 
-            if isinstance(value, list):
-                normalized_items = [
-                    item if isinstance(item, dict) else {"value": item}
-                    for item in value
-                ]
+        if isinstance(value, list):
+            normalized_items = [
+                item if isinstance(item, dict) else {"value": item}
+                for item in value
+            ]
+
+            oversized_items = [
+                index for index, item in enumerate(normalized_items)
+                if _json_size(item) > MAX_SECTION_CHARS
+            ]
+
+            if not oversized_items:
                 for index, chunk in enumerate(
                     _chunk_items(normalized_items, MAX_SECTION_CHARS),
                     1,
                 ):
                     add_section(
                         "result_collection",
-                        f"Result Field · {key} · Part {index}",
-                        {"field": key, "items": chunk},
+                        f"Result Field · {path} · Part {index}",
+                        {"field": path, "items": chunk},
                     )
-            else:
-                item = {"field": key, "value": value}
-                if _json_size(item) > MAX_SECTION_CHARS:
-                    raise PaliAnalystAnalysisError(
-                        f"Function result field '{key}' exceeds the analysis section size limit.",
-                        413,
-                    )
-                add_section(
-                    "result_field",
-                    f"Result Field · {key}",
-                    item,
-                )
+                return
 
-    else:
+            for index, item in enumerate(value):
+                add_result_value(f"{path}[{index}]", item)
+            return
+
+        candidate = {"field": path, "value": value}
+        if _json_size(candidate) > MAX_SECTION_CHARS:
+            raise PaliAnalystAnalysisError(
+                f"Function result field '{path}' exceeds the analysis section size limit.",
+                413,
+            )
+
         add_section(
-            "result_value",
-            "Function Result Value",
-            {"value": result},
+            "result_field",
+            f"Result Field · {path}",
+            candidate,
         )
+
+    if isinstance(result, list):
+        add_result_value("result", result)
+    elif isinstance(result, dict):
+        for key, value in result.items():
+            add_result_value(str(key), value)
+    else:
+        add_result_value("result", result)
 
     if len(sections) == 1:
-        add_section(
-            "result_value",
-            "Function Result Value",
-            {"value": result},
-        )
+        add_result_value("result", result)
 
     total = len(sections)
     for index, section in enumerate(sections):
