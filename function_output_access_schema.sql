@@ -115,7 +115,9 @@ BEGIN
     IF NOT EXISTS (
         SELECT 1
         FROM pulsar.t_function_output_config
-        WHERE config_code = 'COLONY_GUIDANCE_JSON'
+        WHERE schema_name = 'pulsar'
+          AND function_name = 'fn_colony_guidance'
+          AND config_code = 'COLONY_GUIDANCE_JSON'
           AND is_active = TRUE
     ) THEN
         RAISE EXCEPTION
@@ -178,7 +180,9 @@ CROSS JOIN (
     is_active,
     priority
 )
-WHERE config.config_code = 'COLONY_GUIDANCE_JSON'
+WHERE config.schema_name = 'pulsar'
+  AND config.function_name = 'fn_colony_guidance'
+  AND config.config_code = 'COLONY_GUIDANCE_JSON'
   AND config.is_active = TRUE
 ON CONFLICT (output_config_id, resource_code)
 DO UPDATE SET
