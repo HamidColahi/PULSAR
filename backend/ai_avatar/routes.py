@@ -112,6 +112,7 @@ class FunctionOutputAnalysisCheckpointRequest(BaseModel):
     analysis_state: dict[str, Any] | None = None
     definition_code: str | None = Field(default=None, max_length=100)
     conversation_id: str | None = Field(default=None, max_length=36)
+    interaction: dict[str, Any] | None = None
 
 
 class AvatarDefinitionResponse(BaseModel):
@@ -326,6 +327,7 @@ async def chat_with_avatar(
             user_id=str(current_user.id),
             context_variables=payload.context_variables,
             conversation_id=payload.conversation_id,
+            interaction=payload.interaction,
             new_conversation=payload.new_conversation,
             include_history=payload.include_history,
         )
