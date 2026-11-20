@@ -24,7 +24,7 @@ const API_ENDPOINTS = Object.freeze({
 })
 
 export function useSourceTraceAnalysis() {
-  async function createSession(report) {
+  async function createSession(report, definitionCode) {
     if (!report || typeof report !== 'object' || Array.isArray(report)) {
       throw new Error('A valid Source Trace report is required.')
     }
@@ -37,11 +37,16 @@ export function useSourceTraceAnalysis() {
       throw new Error('The Source Trace topic is missing.')
     }
 
+    if (typeof definitionCode !== 'string' || !definitionCode.trim()) {
+      throw new Error('The Pali Tracer definition code is required.')
+    }
+
     const response = await axios.request({
       method: API_ENDPOINTS.CREATE.method,
       url: API_ENDPOINTS.CREATE.path,
       data: {
         topic,
+        definition_code: definitionCode.trim(),
         report
       },
       timeout: 120000
