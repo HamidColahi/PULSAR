@@ -59,6 +59,27 @@ _ENDPOINTS = (
         handler_name="get_function_output_resources",
         description="Retrieve metadata-authorized resources for a Function output Avatar.",
     ),
+    APIEndpointDefinition(
+        api_code="AI_AVATAR_FUNCTION_OUTPUT_ANALYSIS_CREATE",
+        http_method="POST",
+        path="/ai-avatar/function-output-analysis-sessions",
+        handler_name="create_function_output_analysis_session",
+        description="Create a persistent Pali Analyst session for a Function output.",
+    ),
+    APIEndpointDefinition(
+        api_code="AI_AVATAR_FUNCTION_OUTPUT_ANALYSIS_GET",
+        http_method="GET",
+        path="/ai-avatar/function-output-analysis-sessions/{session_id}",
+        handler_name="get_function_output_analysis_session",
+        description="Retrieve an authenticated user's Pali Analyst session and checkpoint.",
+    ),
+    APIEndpointDefinition(
+        api_code="AI_AVATAR_FUNCTION_OUTPUT_ANALYSIS_CHECKPOINT",
+        http_method="PATCH",
+        path="/ai-avatar/function-output-analysis-sessions/{session_id}/checkpoint",
+        handler_name="save_function_output_analysis_checkpoint",
+        description="Persist Pali Analyst findings and programmer decisions for the active section.",
+    ),
 )
 
 
