@@ -4,7 +4,7 @@
 # Description:
 # Persistent interactive analysis sessions for P-ATVT Source Trace
 #
-# Change Date: 2026-11-20 18:42
+# Change Date: 2026-11-20 18:55
 # Timezone: Asia/Baku
 #
 # Author: MHKolahi@gmail.com
@@ -39,6 +39,7 @@ VALID_DECISIONS = {
     "CONTINUE",
     "REVISE",
     "STOP",
+    "RESUME",
 }
 
 
@@ -607,6 +608,15 @@ class SourceTraceAnalysisService:
             section["decision"] = decision
             section["status"] = "STOPPED"
             status = "STOPPED"
+
+        elif decision == "RESUME":
+            section["decision"] = decision
+            if section.get("analysis"):
+                section["status"] = "ANALYZED"
+                status = "PAUSED"
+            else:
+                section["status"] = "PENDING"
+                status = "READY"
 
         if analysis_state is not None:
             state = analysis_state
