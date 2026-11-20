@@ -2,7 +2,7 @@
 /*
 File: frontend/src/composables/useAIAvatar.js
 Description: API composable for the metadata-driven AI Avatar runtime
-Change Date: 2026-11-20 17:20; Timezone: Asia/Baku
+Change Date: 2026-11-21 04:00; Timezone: Asia/Baku
 Author: MHKolahi@gmail.com
 In collaboration with GPT4 Chat Assistant: Bahram
 */
@@ -21,6 +21,10 @@ const API_ENDPOINTS = Object.freeze({
   AI_AVATAR_CHAT: Object.freeze({
     method: 'post',
     path: '/ai-avatar/chat'
+  }),
+  AI_AVATAR_FUNCTION_OUTPUT_RESOURCES: Object.freeze({
+    method: 'post',
+    path: '/ai-avatar/function-output-resources'
   })
 })
 
@@ -234,10 +238,43 @@ export function useAIAvatar() {
     })
   }
 
+  async function getFunctionOutputResources(payload) {
+    if (!payload || typeof payload !== 'object' || Array.isArray(payload)) {
+      throw new Error('A valid Function output resource request is required.')
+    }
+
+    if (!Number.isInteger(Number(payload.output_config_id)) || Number(payload.output_config_id) < 1) {
+      throw new Error('A valid Function output configuration ID is required.')
+    }
+
+    if (typeof payload.definition_code !== 'string' || !payload.definition_code.trim()) {
+      throw new Error('AI Avatar definition code is required.')
+    }
+
+    const response = await axios.request({
+      method: API_ENDPOINTS.AI_AVATAR_FUNCTION_OUTPUT_RESOURCES.method,
+      url: API_ENDPOINTS.AI_AVATAR_FUNCTION_OUTPUT_RESOURCES.path,
+      data: {
+        output_config_id: Number(payload.output_config_id),
+        definition_code: payload.definition_code.trim(),
+        search_text: typeof payload.search_text === 'string'
+          ? payload.search_text
+          : '',
+        row_numbers: Array.isArray(payload.row_numbers)
+          ? payload.row_numbers
+          : []
+      },
+      timeout: 120000
+    })
+
+    return response.data
+  }
+
   return {
     getDefaultAvatar,
     getAvatarDefinition,
     getIntroduction,
-    sendChatMessage
+    sendChatMessage,
+    getFunctionOutputResources
   }
 }
