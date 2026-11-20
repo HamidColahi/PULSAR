@@ -4,7 +4,7 @@
 # Description:
 # Metadata-registered API routes for PULSAR Source Trace
 #
-# Change Date: 2026-11-20 18:55
+# Change Date: 2026-11-20 19:05
 # Timezone: Asia/Baku
 #
 # Author: MHKolahi@gmail.com
@@ -81,7 +81,7 @@ class SourceTraceAnalysisCheckpointRequest(BaseModel):
         "ROOT_CAUSE",
         "CONTINUE",
     ] | None = None
-    decision: Literal["CONTINUE", "REVISE", "STOP"] | None = None
+    decision: Literal["CONTINUE", "REVISE", "STOP", "RESUME"] | None = None
     note: str | None = Field(default=None, max_length=4000)
     analysis_state: dict | None = None
     definition_code: str | None = Field(default=None, max_length=100)
