@@ -714,6 +714,7 @@ async function initializeSession() {
   if (initializing.value || busy.value || analysisSession.value) return
 
   initializing.value = true
+  busyLabel.value = t('preparing')
   error.value = ''
 
   try {
