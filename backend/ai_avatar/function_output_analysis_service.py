@@ -1,10 +1,10 @@
 # ===============================================
-# File: Pulsar/backend/source_trace/analysis_service.py
+# File: Pulsar/backend/ai_avatar/function_output_analysis_service.py
 #
 # Description:
 # Persistent interactive analysis sessions for P-ATVT Pali Analyst
 #
-# Change Date: 2026-11-20 19:45
+# Change Date: 2026-11-21 04:00
 # Timezone: Asia/Baku
 #
 # Author: MHKolahi@gmail.com
