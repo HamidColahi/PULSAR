@@ -338,6 +338,21 @@ function formatJson(value) {
   }
 }
 
+function compactSection(section) {
+  const interactions = Array.isArray(section?.interactions)
+    ? section.interactions.slice(-5).map(item => ({
+        question: String(item.question || '').slice(0, 2000),
+        answer: String(item.answer || '').slice(0, 2000),
+        created_at: item.created_at || null
+      }))
+    : []
+
+  return {
+    ...section,
+    interactions
+  }
+}
+
 function collectRowNumbers(value, output = new Set()) {
   if (Array.isArray(value)) {
     value.forEach(item => collectRowNumbers(item, output))
@@ -586,7 +601,7 @@ async function analyzeCurrentSection() {
       section.note || reviewNote.value || 'None',
       '',
       'ACTIVE SECTION:',
-      JSON.stringify(section, null, 2),
+      JSON.stringify(compactSection(section), null, 2),
       '',
       'AUTHORIZED RESOURCE EVIDENCE:',
       JSON.stringify(resources, null, 2)
@@ -670,7 +685,7 @@ async function askQuestion() {
       }, null, 2),
       '',
       'ACTIVE SECTION:',
-      JSON.stringify(section, null, 2),
+      JSON.stringify(compactSection(section), null, 2),
       '',
       'PREVIOUS ANALYSIS CHECKPOINT:',
       section.analysis || 'This section has not yet been analyzed.',
