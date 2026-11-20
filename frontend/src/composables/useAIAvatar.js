@@ -251,12 +251,22 @@ export function useAIAvatar() {
       throw new Error('AI Avatar definition code is required.')
     }
 
+    if (typeof payload.schema_name !== 'string' || !payload.schema_name.trim()) {
+      throw new Error('Function schema name is required.')
+    }
+
+    if (typeof payload.function_name !== 'string' || !payload.function_name.trim()) {
+      throw new Error('Function name is required.')
+    }
+
     const response = await axios.request({
       method: API_ENDPOINTS.AI_AVATAR_FUNCTION_OUTPUT_RESOURCES.method,
       url: API_ENDPOINTS.AI_AVATAR_FUNCTION_OUTPUT_RESOURCES.path,
       data: {
         output_config_id: Number(payload.output_config_id),
         definition_code: payload.definition_code.trim(),
+        schema_name: payload.schema_name.trim(),
+        function_name: payload.function_name.trim(),
         search_text: typeof payload.search_text === 'string'
           ? payload.search_text
           : '',
