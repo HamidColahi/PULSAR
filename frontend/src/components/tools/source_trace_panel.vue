@@ -337,6 +337,13 @@ In collaboration with GPT4 Chat Assistant: Bahram
                     </div>
 
                     <div
+                      v-if="activeSection.pali_status === 'ROOT_CAUSE'"
+                      class="rounded-xl border border-amber-500/30 bg-amber-500/5 p-3 text-xs leading-5 text-label"
+                    >
+                      Pali has marked this checkpoint as a possible root cause. Review the cited evidence before deciding whether to stop or inspect more sections.
+                    </div>
+
+                    <div
                       v-if="analysisSession.status === 'READY' && activeSection.status === 'PENDING'"
                       class="rounded-xl border border-border p-3"
                     >
