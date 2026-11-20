@@ -4,7 +4,7 @@
 # Description:
 # Metadata-registered API routes for PULSAR Source Trace
 #
-# Change Date: 2026-11-19 00:35
+# Change Date: 2026-11-20 17:10
 # Timezone: Asia/Baku
 #
 # Author: MHKolahi@gmail.com
@@ -18,6 +18,9 @@ from typing import Literal
 
 from fastapi import APIRouter, Depends, HTTPException
 from pydantic import BaseModel, Field, field_validator
+from sqlalchemy.ext.asyncio import AsyncSession
+
+from core.database import get_async_session
 
 from general.auth.dependencies import get_current_user
 from general.user.schemas.user import UserProfileResponse
@@ -27,6 +30,10 @@ from source_trace.api_registry import (
 )
 from source_trace.service import (
     source_trace_service,
+)
+from source_trace.analysis_service import (
+    SourceTraceAnalysisError,
+    SourceTraceAnalysisService,
 )
 
 logger = logging.getLogger(__name__)
@@ -44,6 +51,40 @@ SourceRelation = Literal[
     "references",
     "sql",
 ]
+
+
+class SourceTraceAnalysisSessionRequest(BaseModel):
+    """Validate a complete report submitted for interactive analysis."""
+
+    topic: str = Field(..., min_length=1, max_length=200)
+    report: dict = Field(...)
+
+    @field_validator("topic")
+    @classmethod
+    def validate_topic(cls, value: str) -> str:
+        value = value.strip()
+        if not value:
+            raise ValueError("Topic must not be empty.")
+        return value
+
+
+class SourceTraceAnalysisCheckpointRequest(BaseModel):
+    """Validate one Pali result or programmer checkpoint decision."""
+
+    section_index: int = Field(..., ge=0)
+    analysis: str | None = Field(default=None, max_length=30000)
+    pali_status: Literal[
+        "FINDING",
+        "QUESTION",
+        "CONFLICT",
+        "ROOT_CAUSE",
+        "CONTINUE",
+    ] | None = None
+    decision: Literal["CONTINUE", "REVISE", "STOP"] | None = None
+    note: str | None = Field(default=None, max_length=4000)
+    analysis_state: dict | None = None
+    definition_code: str | None = Field(default=None, max_length=100)
+    conversation_id: str | None = Field(default=None, max_length=36)
 
 
 class SourceTraceRequest(BaseModel):
@@ -137,6 +178,106 @@ async def run_source_trace(
         raise HTTPException(
             status_code=500,
             detail="The Source Trace request could not be completed.",
+        ) from exc
+
+
+@router.post(
+    API_REGISTRY["SOURCE_TRACE_ANALYSIS_SESSION_CREATE"].path,
+)
+async def create_source_trace_analysis_session(
+    payload: SourceTraceAnalysisSessionRequest,
+    current_user: UserProfileResponse = Depends(get_current_user),
+    session: AsyncSession = Depends(get_async_session),
+):
+    """Create a durable, user-owned analysis session for a complete trace report."""
+
+    if not current_user.is_active:
+        raise HTTPException(
+            status_code=403,
+            detail="Your account is inactive.",
+        )
+
+    service = SourceTraceAnalysisService(session)
+
+    try:
+        return await service.create_session(
+            user_id=str(current_user.id),
+            topic=payload.topic,
+            report=payload.report,
+        )
+    except SourceTraceAnalysisError as exc:
+        raise HTTPException(
+            status_code=exc.status_code,
+            detail=exc.message,
+        ) from exc
+
+
+@router.get(
+    API_REGISTRY["SOURCE_TRACE_ANALYSIS_SESSION_GET"].path,
+)
+async def get_source_trace_analysis_session(
+    session_id: str,
+    current_user: UserProfileResponse = Depends(get_current_user),
+    session: AsyncSession = Depends(get_async_session),
+):
+    """Load an analysis session owned by the authenticated user."""
+
+    if not current_user.is_active:
+        raise HTTPException(
+            status_code=403,
+            detail="Your account is inactive.",
+        )
+
+    service = SourceTraceAnalysisService(session)
+
+    try:
+        return await service.get_session(
+            user_id=str(current_user.id),
+            session_id=session_id,
+        )
+    except SourceTraceAnalysisError as exc:
+        raise HTTPException(
+            status_code=exc.status_code,
+            detail=exc.message,
+        ) from exc
+
+
+@router.patch(
+    API_REGISTRY["SOURCE_TRACE_ANALYSIS_CHECKPOINT"].path,
+)
+async def save_source_trace_analysis_checkpoint(
+    session_id: str,
+    payload: SourceTraceAnalysisCheckpointRequest,
+    current_user: UserProfileResponse = Depends(get_current_user),
+    session: AsyncSession = Depends(get_async_session),
+):
+    """Save Pali findings, compact analysis state, and programmer decisions."""
+
+    if not current_user.is_active:
+        raise HTTPException(
+            status_code=403,
+            detail="Your account is inactive.",
+        )
+
+    service = SourceTraceAnalysisService(session)
+
+    try:
+        return await service.save_checkpoint(
+            user_id=str(current_user.id),
+            session_id=session_id,
+            section_index=payload.section_index,
+            analysis=payload.analysis,
+            pali_status=payload.pali_status,
+            decision=payload.decision,
+            note=payload.note,
+            analysis_state=payload.analysis_state,
+            definition_code=payload.definition_code,
+            conversation_id=payload.conversation_id,
+        )
+    except SourceTraceAnalysisError as exc:
+        raise HTTPException(
+            status_code=exc.status_code,
+            detail=exc.message,
         ) from exc
 
 
