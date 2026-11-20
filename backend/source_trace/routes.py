@@ -4,7 +4,7 @@
 # Description:
 # Metadata-registered API routes for PULSAR Source Trace
 #
-# Change Date: 2026-11-20 17:10
+# Change Date: 2026-11-20 18:25
 # Timezone: Asia/Baku
 #
 # Author: MHKolahi@gmail.com
@@ -57,6 +57,7 @@ class SourceTraceAnalysisSessionRequest(BaseModel):
     """Validate a complete report submitted for interactive analysis."""
 
     topic: str = Field(..., min_length=1, max_length=200)
+    definition_code: str = Field(..., min_length=1, max_length=100)
     report: dict = Field(...)
 
     @field_validator("topic")
@@ -204,6 +205,7 @@ async def create_source_trace_analysis_session(
             user_id=str(current_user.id),
             topic=payload.topic,
             report=payload.report,
+            definition_code=payload.definition_code,
         )
     except SourceTraceAnalysisError as exc:
         raise HTTPException(
