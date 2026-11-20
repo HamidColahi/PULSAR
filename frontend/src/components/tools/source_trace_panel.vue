@@ -611,9 +611,12 @@ async function submitTraceToTracer(report) {
   tracerError.value = ''
 
   try {
-    await initializeTracer()
+    const definition = await initializeTracer()
 
-    const session = await createSession(report)
+    const session = await createSession(
+      report,
+      definition.definition_code
+    )
 
     analysisSession.value = session
     storeSessionId(session.analysis_session_id)
