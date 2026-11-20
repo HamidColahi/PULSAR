@@ -1,8 +1,8 @@
 
 <!--
 File: Pulsar/frontend/src/components/tools/source_trace_panel.vue
-Version: 1.9
-Modified: 2026-11-20 19:20 Asia/Baku
+Version: 2.0
+Modified: 2026-11-20 19:30 Asia/Baku
 In collaboration with GPT4 Chat Assistant: Bahram
 -->
 <template>
@@ -973,15 +973,23 @@ async function loadSavedSession() {
 
   try {
     const session = await getSession(sessionId)
+    const definition = await initializeTracer()
+
+    if (definition.definition_code !== session.definition_code) {
+      throw new Error(
+        'The saved analysis session belongs to a different Pali Tracer definition.'
+      )
+    }
 
     analysisSession.value = session
     result.value = session.report
     topic.value = session.topic
     tracerEnabled.value = true
-
-    await initializeTracer()
   } catch (exception) {
-    storeSessionId(null)
+    if (exception?.response?.status === 404) {
+      storeSessionId(null)
+    }
+
     tracerError.value = exception?.response?.data?.detail
       || exception?.message
       || 'The saved Source Trace analysis session could not be restored.'
