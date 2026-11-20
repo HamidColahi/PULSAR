@@ -2,7 +2,7 @@
 <!--
 File: Pulsar/frontend/src/components/tools/source_trace_panel.vue
 Version: 1.4
-Modified: 2026-11-20 14:20 Asia/Baku
+Modified: 2026-11-20 17:45 Asia/Baku
 In collaboration with GPT4 Chat Assistant: Bahram
 -->
 <template>
@@ -267,72 +267,162 @@ In collaboration with GPT4 Chat Assistant: Bahram
             >
               <div class="flex items-center justify-between border-b border-border px-4 py-3">
                 <div class="min-w-0">
-                  <h3 class="text-sm font-semibold text-label">Pali Tracer</h3>
+                  <h3 class="text-sm font-semibold text-label">Pali Tracer · Interactive Analysis</h3>
                   <p class="truncate text-[11px] text-muted">
                     {{ tracerDefinition?.title || 'Manager 4 · Source Analysis' }}
+                    <span v-if="analysisSession">
+                      · {{ analysisSession.status }}
+                    </span>
                   </p>
                 </div>
-                <span v-if="tracerBusy" class="trace-meta">Thinking...</span>
+                <span v-if="tracerBusy" class="trace-meta">Analyzing...</span>
                 <span v-else-if="tracerDefinition" class="trace-meta">Connected</span>
               </div>
 
               <div class="min-h-0 flex-1 space-y-3 overflow-y-auto p-3">
                 <div
-                  v-if="tracerMessages.length === 0 && !tracerBusy"
+                  v-if="!analysisSession && !tracerBusy"
                   class="flex h-full items-center justify-center text-center text-xs text-muted"
                 >
-                  Preparing Source Trace analysis...
+                  Start an interactive analysis to review the Trace report section by section.
                 </div>
 
-                <article
-                  v-for="(message, index) in tracerMessages"
-                  :key="index"
-                  class="rounded-xl border border-border p-3"
-                  :class="message.role === 'user' ? 'bg-panel' : 'bg-app'"
-                >
-                  <div class="mb-2 text-[10px] font-semibold uppercase tracking-wider text-muted">
-                    {{ message.role === 'user' ? 'You' : 'Pali Tracer' }}
+                <template v-if="analysisSession">
+                  <div class="rounded-xl border border-border bg-panel p-3">
+                    <div class="flex items-center justify-between gap-3 text-[11px]">
+                      <span class="font-semibold text-label">
+                        {{ analysisSession.status === 'COMPLETED'
+                          ? 'Analysis completed'
+                          : analysisSession.status === 'STOPPED'
+                            ? 'Analysis stopped'
+                            : `Section ${Math.min(analysisSession.current_section_index + 1, analysisSession.sections.length)} of ${analysisSession.sections.length}` }}
+                      </span>
+                      <span class="text-muted">{{ Math.round(analysisProgress) }}%</span>
+                    </div>
+                    <div class="mt-2 h-1.5 overflow-hidden rounded-full bg-app">
+                      <div
+                        class="h-full rounded-full transition-all"
+                        style="background:var(--pulsar-level-accent)"
+                        :style="{ width: `${analysisProgress}%` }"
+                      ></div>
+                    </div>
+                    <p class="mt-2 text-[10px] leading-4 text-muted">
+                      The complete Trace report is preserved. Only the active logical section is sent to Pali.
+                    </p>
                   </div>
-                  <p class="whitespace-pre-wrap break-words text-xs leading-6 text-label">{{ message.content }}</p>
-                </article>
+
+                  <div
+                    v-if="activeSection"
+                    class="space-y-3"
+                  >
+                    <div class="rounded-xl border border-border p-3">
+                      <div class="mb-2 flex flex-wrap items-center justify-between gap-2">
+                        <h4 class="text-xs font-semibold text-label">
+                          {{ activeSection.title }}
+                        </h4>
+                        <span class="trace-meta">{{ activeSection.status }}</span>
+                      </div>
+                      <pre class="max-h-64 overflow-auto whitespace-pre-wrap break-words rounded-lg bg-panel p-3 text-[10px] leading-5 text-label">{{ JSON.stringify(activeSection.content, null, 2) }}</pre>
+                    </div>
+
+                    <div
+                      v-if="activeSection.analysis"
+                      class="rounded-xl border border-border p-3"
+                    >
+                      <div class="mb-2 flex items-center justify-between gap-2">
+                        <h4 class="text-xs font-semibold text-label">Pali's Analysis</h4>
+                        <span class="trace-meta">{{ activeSection.pali_status || 'CONTINUE' }}</span>
+                      </div>
+                      <p class="whitespace-pre-wrap break-words text-xs leading-6 text-label">{{ activeSection.analysis }}</p>
+                    </div>
+
+                    <div
+                      v-if="analysisSession.status === 'READY' && activeSection.status === 'PENDING'"
+                      class="rounded-xl border border-border p-3"
+                    >
+                      <p class="text-xs leading-5 text-muted">
+                        This checkpoint is ready. Continue the analysis when you are ready.
+                      </p>
+                      <button
+                        type="button"
+                        class="trace-run-button mt-3"
+                        :disabled="tracerBusy"
+                        @click="resumeAnalysis"
+                      >
+                        Analyze Current Section
+                      </button>
+                    </div>
+
+                    <div
+                      v-if="activeSection.status === 'ANALYZED' && analysisSession.status === 'PAUSED'"
+                      class="space-y-3 rounded-xl border border-border p-3"
+                    >
+                      <div>
+                        <label for="tracer-review-note" class="mb-2 block text-[10px] font-semibold uppercase tracking-wider text-muted">
+                          Programmer Review / Guidance
+                        </label>
+                        <textarea
+                          id="tracer-review-note"
+                          v-model="reviewNote"
+                          rows="3"
+                          maxlength="4000"
+                          placeholder="Add a correction or instruction before continuing..."
+                          class="trace-input min-h-[76px] resize-y py-2"
+                          :disabled="tracerBusy"
+                        />
+                      </div>
+                      <div class="grid grid-cols-1 gap-2 sm:grid-cols-3">
+                        <button
+                          type="button"
+                          class="trace-run-button"
+                          :disabled="tracerBusy"
+                          @click="continueAnalysis"
+                        >
+                          Review & Continue
+                        </button>
+                        <button
+                          type="button"
+                          class="trace-secondary-button"
+                          :disabled="tracerBusy"
+                          @click="reviseAnalysis"
+                        >
+                          Revise Section
+                        </button>
+                        <button
+                          type="button"
+                          class="trace-secondary-button"
+                          :disabled="tracerBusy"
+                          @click="stopAnalysis"
+                        >
+                          Stop Analysis
+                        </button>
+                      </div>
+                    </div>
+                  </div>
+
+                  <div
+                    v-else-if="analysisSession.status === 'COMPLETED'"
+                    class="rounded-xl border border-emerald-500/30 bg-emerald-500/5 p-4 text-xs leading-6 text-label"
+                  >
+                    Pali has completed all available sections. The full report and every reviewed checkpoint remain saved.
+                  </div>
+
+                  <div
+                    v-else-if="analysisSession.status === 'STOPPED'"
+                    class="rounded-xl border border-border p-4 text-xs leading-6 text-muted"
+                  >
+                    Analysis was stopped at the programmer's request. All previous findings and decisions are preserved.
+                  </div>
+                </template>
 
                 <div v-if="tracerBusy" class="rounded-xl border border-border p-3 text-xs text-muted">
-                  Pali Tracer is analyzing...
+                  Pali is analyzing the active section...
                 </div>
 
                 <p v-if="tracerError" role="alert" class="rounded-lg border border-red-500/30 bg-red-500/10 p-3 text-xs text-red-500">
                   {{ tracerError }}
                 </p>
               </div>
-
-              <form class="border-t border-border p-3" @submit.prevent="sendTracerFollowUp">
-                <label for="tracer-message" class="mb-2 block text-[10px] font-semibold uppercase tracking-wider text-muted">
-                  Ask Pali Tracer
-                </label>
-                <div class="flex items-end gap-2">
-                  <textarea
-                    id="tracer-message"
-                    v-model="tracerInput"
-                    rows="2"
-                    maxlength="100000"
-                    placeholder="Ask a follow-up question..."
-                    class="trace-input min-h-[64px] flex-1 resize-y py-2"
-                    :disabled="tracerBusy || !tracerDefinition"
-                  />
-                  <button
-                    type="submit"
-                    class="trace-send-button"
-                    :disabled="tracerBusy || !tracerInput.trim() || !tracerDefinition"
-                    title="Send message"
-                    aria-label="Send message"
-                  >
-                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" class="h-4 w-4">
-                      <path d="M22 2 11 13" />
-                      <path d="m22 2-7 20-4-9-9-4Z" />
-                    </svg>
-                  </button>
-                </div>
-              </form>
             </section>
           </div>
 
@@ -349,6 +439,7 @@ In collaboration with GPT4 Chat Assistant: Bahram
 <script setup>
 import { computed, inject, ref, watch } from 'vue'
 import { useAIAvatar } from '@/composables/useAIAvatar'
+import { useSourceTraceAnalysis } from '@/composables/useSourceTraceAnalysis'
 
 const props = defineProps({
   modelValue: {
@@ -361,6 +452,14 @@ const emit = defineEmits(['update:modelValue', 'trace-completed'])
 const sourceTraceRunner = inject('sourceTraceRunner', null)
 
 const { getDefaultAvatar, sendChatMessage } = useAIAvatar()
+const {
+  createSession,
+  getSession,
+  saveCheckpoint
+} = useSourceTraceAnalysis()
+
+const ACTIVE_SESSION_STORAGE_KEY = 'pulsar.sourceTrace.analysisSessionId'
+const MAX_ANALYSIS_MESSAGE_CHARS = 90000
 
 const topic = ref('')
 const scope = ref(['frontend', 'backend', 'database'])
@@ -373,11 +472,10 @@ const copied = ref(false)
 
 const tracerEnabled = ref(false)
 const tracerDefinition = ref(null)
-const tracerMessages = ref([])
-const tracerInput = ref('')
+const analysisSession = ref(null)
+const reviewNote = ref('')
 const tracerBusy = ref(false)
 const tracerError = ref('')
-const tracerInitialized = ref(false)
 
 const scopeOptions = [
   { label: 'Frontend', value: 'frontend' },
@@ -429,17 +527,47 @@ const requestOptions = computed(() => ({
   max_nodes: 160
 }))
 
+const activeSection = computed(() => {
+  if (!analysisSession.value) return null
+
+  return analysisSession.value.sections?.[
+    analysisSession.value.current_section_index
+  ] || null
+})
+
+const analysisProgress = computed(() => {
+  const session = analysisSession.value
+
+  if (!session?.sections?.length) return 0
+  if (session.status === 'COMPLETED') return 100
+
+  return Math.min(
+    100,
+    (session.current_section_index / session.sections.length) * 100
+  )
+})
+
 function close() {
   emit('update:modelValue', false)
 }
 
-function toggleTracer() {
-  if (!result.value || loading.value) return
+function getStoredSessionId() {
+  try {
+    return window.localStorage.getItem(ACTIVE_SESSION_STORAGE_KEY)
+  } catch {
+    return null
+  }
+}
 
-  tracerEnabled.value = !tracerEnabled.value
-
-  if (tracerEnabled.value && !tracerInitialized.value) {
-    submitTraceToTracer(result.value)
+function storeSessionId(sessionId) {
+  try {
+    if (sessionId) {
+      window.localStorage.setItem(ACTIVE_SESSION_STORAGE_KEY, sessionId)
+    } else {
+      window.localStorage.removeItem(ACTIVE_SESSION_STORAGE_KEY)
+    }
+  } catch (exception) {
+    console.warn('Source Trace session ID could not be stored locally.', exception)
   }
 }
 
@@ -466,81 +594,36 @@ async function initializeTracer() {
   return definition
 }
 
-async function submitTraceToTracer(payload) {
-  if (!payload || tracerBusy.value) return
+async function toggleTracer() {
+  if (!result.value || loading.value || tracerBusy.value) return
 
-  tracerBusy.value = true
-  tracerError.value = ''
+  tracerEnabled.value = !tracerEnabled.value
 
-  try {
-    const definition = await initializeTracer()
-
-    const traceMessage = JSON.stringify({
-      source: 'P-ATVT Source Trace',
-      trace_result: payload
-    })
-
-    if (traceMessage.length > 100000) {
-      throw new Error(
-        'The Source Trace result exceeds the maximum AI message size of 100000 characters.'
-      )
-    }
-
-    const response = await sendChatMessage({
-      definition_code: definition.definition_code,
-      message: traceMessage
-    })
-
-    tracerMessages.value.push({
-      role: 'assistant',
-      content: normalizeTracerResponse(response)
-    })
-
-    tracerInitialized.value = true
-  } catch (exception) {
-    tracerError.value = exception?.response?.data?.detail
-      || exception?.message
-      || 'Pali Tracer could not analyze the Source Trace result.'
-  } finally {
-    tracerBusy.value = false
+  if (tracerEnabled.value && !analysisSession.value) {
+    await submitTraceToTracer(result.value)
   }
 }
 
-async function sendTracerFollowUp() {
-  const message = tracerInput.value.trim()
+async function submitTraceToTracer(report) {
+  if (!report || tracerBusy.value) return
 
-  if (
-    !message ||
-    tracerBusy.value ||
-    !tracerDefinition.value ||
-    !tracerInitialized.value
-  ) {
-    return
-  }
-
-  tracerInput.value = ''
   tracerBusy.value = true
   tracerError.value = ''
 
-  tracerMessages.value.push({
-    role: 'user',
-    content: message
-  })
-
   try {
-    const response = await sendChatMessage({
-      definition_code: tracerDefinition.value.definition_code,
-      message
-    })
+    await initializeTracer()
 
-    tracerMessages.value.push({
-      role: 'assistant',
-      content: normalizeTracerResponse(response)
-    })
+    const session = await createSession(report)
+
+    analysisSession.value = session
+    storeSessionId(session.analysis_session_id)
+    reviewNote.value = ''
+
+    await analyzeCurrentSection()
   } catch (exception) {
     tracerError.value = exception?.response?.data?.detail
       || exception?.message
-      || 'Pali Tracer could not process the message.'
+      || 'Pali Tracer could not create the analysis session.'
   } finally {
     tracerBusy.value = false
   }
@@ -560,6 +643,273 @@ function normalizeTracerResponse(response) {
   return JSON.stringify(value, null, 2)
 }
 
+function parsePaliStatus(value) {
+  const match = String(value).match(
+    /STATUS\s*:\s*(FINDING|QUESTION|CONFLICT|ROOT_CAUSE|CONTINUE)/i
+  )
+
+  return match ? match[1].toUpperCase() : 'CONTINUE'
+}
+
+function extractCheckpointSummary(value) {
+  const text = String(value)
+  const match = text.match(
+    /CHECKPOINT SUMMARY\s*:\s*([\s\S]*?)(?=\n[A-Z][A-Z _-]{2,}:|$)/i
+  )
+
+  const summary = (match?.[1] || text).trim()
+
+  return summary.slice(0, 1200)
+}
+
+function buildAnalysisState(analysis, paliStatus, section) {
+  const previous = analysisSession.value?.analysis_state || {}
+  const summaries = Array.isArray(previous.section_summaries)
+    ? [...previous.section_summaries]
+    : []
+
+  summaries.push({
+    section_id: section.section_id,
+    section_title: section.title,
+    status: paliStatus,
+    summary: extractCheckpointSummary(analysis)
+  })
+
+  return {
+    version: 1,
+    last_section_id: section.section_id,
+    last_status: paliStatus,
+    section_summaries: summaries.slice(-12),
+    programmer_decisions: Array.isArray(previous.programmer_decisions)
+      ? previous.programmer_decisions
+      : []
+  }
+}
+
+function buildDecisionState(decision, note) {
+  const previous = analysisSession.value?.analysis_state || {}
+  const decisions = Array.isArray(previous.programmer_decisions)
+    ? [...previous.programmer_decisions]
+    : []
+
+  decisions.push({
+    section_id: activeSection.value?.section_id || null,
+    decision,
+    note: note || null
+  })
+
+  return {
+    ...previous,
+    programmer_decisions: decisions.slice(-30)
+  }
+}
+
+async function analyzeCurrentSection() {
+  const session = analysisSession.value
+  const section = activeSection.value
+
+  if (
+    !session ||
+    !section ||
+    tracerBusy.value ||
+    session.status === 'COMPLETED' ||
+    session.status === 'STOPPED' ||
+    section.status === 'ANALYZED' ||
+    section.status === 'APPROVED'
+  ) {
+    return
+  }
+
+  tracerBusy.value = true
+  tracerError.value = ''
+
+  try {
+    const definition = await initializeTracer()
+    const message = JSON.stringify({
+      source: 'P-ATVT_INTERACTIVE_SOURCE_TRACE_ANALYSIS',
+      instructions: [
+        'You are Pali Tracer, analyzing a static Source Trace report section by section.',
+        'Analyze only the current section and the supplied compact checkpoint state.',
+        'Treat node IDs, file paths, line numbers, edge evidence, and report values as evidence.',
+        'Do not claim runtime execution from static relationships alone.',
+        'Separate verified findings, unresolved questions, conflicts, and hypotheses.',
+        'Do not invent source evidence or conclusions that are absent from the supplied section.',
+        'A ROOT_CAUSE status is allowed only when the current evidence is sufficient and directly supports it.',
+        'At the end, output STATUS: FINDING, QUESTION, CONFLICT, ROOT_CAUSE, or CONTINUE.',
+        'Then output CHECKPOINT SUMMARY: with a concise summary of the verified evidence and unresolved items, maximum 1200 characters.',
+        'Keep the response focused so the programmer can review this checkpoint before continuing.'
+      ],
+      session: {
+        analysis_session_id: session.analysis_session_id,
+        topic: session.topic,
+        section_index: session.current_section_index,
+        section_count: session.sections.length
+      },
+      previous_checkpoint: session.analysis_state || {},
+      programmer_review_note: section.note || null,
+      current_section: section
+    })
+
+    if (message.length > MAX_ANALYSIS_MESSAGE_CHARS) {
+      throw new Error('The active Trace section exceeds the safe AI message size.')
+    }
+
+    const response = await sendChatMessage({
+      definition_code: definition.definition_code,
+      message,
+      conversation_id: session.conversation_id,
+      new_conversation: !session.conversation_id,
+      include_history: false
+    })
+
+    const analysis = normalizeTracerResponse(response)
+    const paliStatus = parsePaliStatus(analysis)
+    const conversationId = response?.conversation_id
+      || session.conversation_id
+      || null
+
+    const checkpointState = buildAnalysisState(
+      analysis,
+      paliStatus,
+      section
+    )
+
+    analysisSession.value = await saveCheckpoint(
+      session.analysis_session_id,
+      {
+        section_index: session.current_section_index,
+        analysis,
+        pali_status: paliStatus,
+        analysis_state: checkpointState,
+        definition_code: definition.definition_code,
+        conversation_id: conversationId
+      }
+    )
+  } catch (exception) {
+    tracerError.value = exception?.response?.data?.detail
+      || exception?.message
+      || 'Pali Tracer could not analyze the active section.'
+  } finally {
+    tracerBusy.value = false
+  }
+}
+
+async function resumeAnalysis() {
+  await analyzeCurrentSection()
+}
+
+async function continueAnalysis() {
+  if (!analysisSession.value || !activeSection.value || tracerBusy.value) return
+
+  tracerBusy.value = true
+  tracerError.value = ''
+
+  try {
+    const note = reviewNote.value.trim()
+    const updated = await saveCheckpoint(
+      analysisSession.value.analysis_session_id,
+      {
+        section_index: analysisSession.value.current_section_index,
+        decision: 'CONTINUE',
+        note,
+        analysis_state: buildDecisionState('CONTINUE', note)
+      }
+    )
+
+    analysisSession.value = updated
+    reviewNote.value = ''
+
+    if (updated.status === 'READY') {
+      await analyzeCurrentSection()
+    }
+  } catch (exception) {
+    tracerError.value = exception?.response?.data?.detail
+      || exception?.message
+      || 'The analysis checkpoint could not be continued.'
+  } finally {
+    tracerBusy.value = false
+  }
+}
+
+async function reviseAnalysis() {
+  if (!analysisSession.value || !activeSection.value || tracerBusy.value) return
+
+  tracerBusy.value = true
+  tracerError.value = ''
+
+  try {
+    const note = reviewNote.value.trim()
+    analysisSession.value = await saveCheckpoint(
+      analysisSession.value.analysis_session_id,
+      {
+        section_index: analysisSession.value.current_section_index,
+        decision: 'REVISE',
+        note,
+        analysis_state: buildDecisionState('REVISE', note)
+      }
+    )
+
+    reviewNote.value = ''
+    await analyzeCurrentSection()
+  } catch (exception) {
+    tracerError.value = exception?.response?.data?.detail
+      || exception?.message
+      || 'The current section could not be revised.'
+  } finally {
+    tracerBusy.value = false
+  }
+}
+
+async function stopAnalysis() {
+  if (!analysisSession.value || !activeSection.value || tracerBusy.value) return
+
+  tracerBusy.value = true
+  tracerError.value = ''
+
+  try {
+    const note = reviewNote.value.trim()
+    analysisSession.value = await saveCheckpoint(
+      analysisSession.value.analysis_session_id,
+      {
+        section_index: analysisSession.value.current_section_index,
+        decision: 'STOP',
+        note,
+        analysis_state: buildDecisionState('STOP', note)
+      }
+    )
+    reviewNote.value = ''
+  } catch (exception) {
+    tracerError.value = exception?.response?.data?.detail
+      || exception?.message
+      || 'The analysis could not be stopped.'
+  } finally {
+    tracerBusy.value = false
+  }
+}
+
+async function loadSavedSession() {
+  if (analysisSession.value) return
+
+  const sessionId = getStoredSessionId()
+  if (!sessionId) return
+
+  try {
+    const session = await getSession(sessionId)
+
+    analysisSession.value = session
+    result.value = session.report
+    topic.value = session.topic
+    tracerEnabled.value = true
+
+    await initializeTracer()
+  } catch (exception) {
+    storeSessionId(null)
+    tracerError.value = exception?.response?.data?.detail
+      || exception?.message
+      || 'The saved Source Trace analysis session could not be restored.'
+  }
+}
+
 async function runTrace() {
   if (!canRun.value) return
 
@@ -572,6 +922,11 @@ async function runTrace() {
   error.value = ''
   result.value = null
   copied.value = false
+  analysisSession.value = null
+  tracerEnabled.value = false
+  tracerError.value = ''
+  reviewNote.value = ''
+  storeSessionId(null)
 
   try {
     const response = await sourceTraceRunner(requestOptions.value)
@@ -583,10 +938,6 @@ async function runTrace() {
 
     result.value = payload
     emit('trace-completed', payload)
-
-    if (tracerEnabled.value) {
-      submitTraceToTracer(payload)
-    }
   } catch (exception) {
     error.value = exception?.response?.data?.detail
       || exception?.message
@@ -616,6 +967,7 @@ watch(() => props.modelValue, opened => {
   if (opened) {
     error.value = ''
     copied.value = false
+    loadSavedSession()
   }
 })
 </script>
