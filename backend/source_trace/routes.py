@@ -4,7 +4,7 @@
 # Description:
 # Metadata-registered API routes for PULSAR Source Trace
 #
-# Change Date: 2026-11-20 18:25
+# Change Date: 2026-11-20 18:40
 # Timezone: Asia/Baku
 #
 # Author: MHKolahi@gmail.com
@@ -212,6 +212,12 @@ async def create_source_trace_analysis_session(
             status_code=exc.status_code,
             detail=exc.message,
         ) from exc
+    except Exception as exc:
+        logger.exception("Source Trace analysis session creation failed.")
+        raise HTTPException(
+            status_code=500,
+            detail="The analysis session could not be saved. Verify that source_trace_analysis_schema.sql has been applied.",
+        ) from exc
 
 
 @router.get(
@@ -241,6 +247,12 @@ async def get_source_trace_analysis_session(
         raise HTTPException(
             status_code=exc.status_code,
             detail=exc.message,
+        ) from exc
+    except Exception as exc:
+        logger.exception("Source Trace analysis session retrieval failed.")
+        raise HTTPException(
+            status_code=500,
+            detail="The saved Source Trace analysis session could not be retrieved.",
         ) from exc
 
 
@@ -280,6 +292,12 @@ async def save_source_trace_analysis_checkpoint(
         raise HTTPException(
             status_code=exc.status_code,
             detail=exc.message,
+        ) from exc
+    except Exception as exc:
+        logger.exception("Source Trace analysis checkpoint update failed.")
+        raise HTTPException(
+            status_code=500,
+            detail="The Source Trace analysis checkpoint could not be saved.",
         ) from exc
 
 
