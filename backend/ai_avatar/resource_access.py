@@ -117,13 +117,18 @@ class FunctionOutputResourceService:
             text(
                 """
                 SELECT
-                    output_config_id,
-                    schema_name,
-                    function_name,
-                    c_avatar_manager_id
-                FROM pulsar.t_function_output_config
-                WHERE output_config_id = :output_config_id
-                  AND is_active = TRUE
+                    oc.output_config_id,
+                    oc.schema_name,
+                    oc.function_name,
+                    oc.c_avatar_manager_id
+                FROM pulsar.t_function_output_config oc
+                JOIN pulsar.t_function_definition fd
+                  ON fd.schema_name = oc.schema_name
+                 AND fd.function_name = oc.function_name
+                WHERE oc.output_config_id = :output_config_id
+                  AND oc.is_active = TRUE
+                  AND fd.is_active = TRUE
+                  AND fd.state = 'ACTIVE'
                 LIMIT 1
                 """
             ),
