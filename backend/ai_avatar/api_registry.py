@@ -52,6 +52,13 @@ _ENDPOINTS = (
         handler_name="chat_with_avatar",
         description="Execute an authenticated AI Avatar chat request.",
     ),
+    APIEndpointDefinition(
+        api_code="AI_AVATAR_FUNCTION_OUTPUT_RESOURCES",
+        http_method="POST",
+        path="/ai-avatar/function-output-resources",
+        handler_name="get_function_output_resources",
+        description="Retrieve metadata-authorized resources for a Function output Avatar.",
+    ),
 )
 
 
