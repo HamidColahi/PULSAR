@@ -2,7 +2,7 @@
 /*
 File: frontend/src/composables/useAIAvatar.js
 Description: API composable for the metadata-driven AI Avatar runtime
-Change Date: 2026-10-22 15:30; Timezone: Asia/Baku
+Change Date: 2026-11-20 13:00; Timezone: Asia/Baku
 Author: MHKolahi@gmail.com
 In collaboration with GPT4 Chat Assistant: Bahram
 */
@@ -25,14 +25,26 @@ const API_ENDPOINTS = Object.freeze({
 })
 
 export function useAIAvatar() {
- 
-  async function requestAvatarDefinition() {
+
+  async function requestAvatarDefinition(avatarManagerId = 3) {
+    const normalizedManagerId = Number(avatarManagerId)
+
+    if (
+      !Number.isInteger(normalizedManagerId) ||
+      normalizedManagerId < 1
+    ) {
+      throw new Error('A valid AI Avatar manager ID is required.')
+    }
+
     const endpoint = API_ENDPOINTS.AI_AVATAR_DEFAULT
 
     try {
       const response = await axios.request({
         method: endpoint.method,
-        url: endpoint.path
+        url: endpoint.path,
+        params: {
+          avatar_manager_id: normalizedManagerId
+        }
       })
 
       const data = response.data
@@ -42,6 +54,15 @@ export function useAIAvatar() {
       }
 
       const definition = normalizeAvatarDefinition(data)
+
+      if (
+        definition.avatar_manager_id !== undefined &&
+        Number(definition.avatar_manager_id) !== normalizedManagerId
+      ) {
+        throw new Error(
+          `The requested manager ID ${normalizedManagerId} does not match the returned avatar definition.`
+        )
+      }
 
       return definition
     } catch (error) {
@@ -53,11 +74,13 @@ export function useAIAvatar() {
     }
   }
 
-  async function getDefaultAvatar() {
-    console.info('[Avatar Trace 2] getDefaultAvatar: START')
+  async function getDefaultAvatar(avatarManagerId = 3) {
+    console.info(
+      `[Avatar Trace 2] getDefaultAvatar: START (Manager ${avatarManagerId})`
+    )
 
     try {
-      const definition = await requestAvatarDefinition()
+      const definition = await requestAvatarDefinition(avatarManagerId)
 
       return definition
     } catch (error) {
@@ -69,7 +92,7 @@ export function useAIAvatar() {
     }
   }
 
-  async function getAvatarDefinition(definitionCode) {
+  async function getAvatarDefinition(definitionCode, avatarManagerId = 3) {
     const normalizedCode = typeof definitionCode === 'string'
       ? definitionCode.trim()
       : ''
@@ -78,7 +101,7 @@ export function useAIAvatar() {
       throw new Error('AI Avatar definition code is required.')
     }
 
-    const definition = await requestAvatarDefinition()
+    const definition = await requestAvatarDefinition(avatarManagerId)
 
     if (definition.definition_code !== normalizedCode) {
       throw new Error(

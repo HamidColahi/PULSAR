@@ -1,8 +1,11 @@
+// PULSAR JavaScript Configuration
+// Defines project-wide import aliases for VS Code and JavaScript tooling.
+// The "@" alias points to the frontend source directory.
+// File: Pulsar/jsconfig.json
 {
   "compilerOptions": {
-    "baseUrl": ".",
     "paths": {
-      "@/*": ["src/*"]
+      "@/*": ["./src/*"]
     }
   },
   "exclude": ["node_modules", "dist"]

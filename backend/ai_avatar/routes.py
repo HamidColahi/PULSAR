@@ -5,7 +5,7 @@
 # Description:
 # Metadata-registered AI Avatar API routes with authenticated chat access
 #
-# Change Date: 2026-10-22 21:20
+# Change Date: 2026-11-20 13:53
 # Timezone: Asia/Baku
 #
 # Author: MHKolahi@gmail.com
@@ -16,7 +16,7 @@ import logging
 import re
 from typing import Any
 
-from fastapi import APIRouter, Depends, HTTPException
+from fastapi import APIRouter, Depends, HTTPException, Query
 from pydantic import BaseModel, Field
 from sqlalchemy.ext.asyncio import AsyncSession
 
@@ -121,17 +121,23 @@ def _validate_definition_code(value: str) -> str:
     response_model=AvatarDefinitionResponse,
 )
 async def get_default_avatar(
+    avatar_manager_id: int = Query(
+        default=3,
+        ge=1,
+    ),
     session: AsyncSession = Depends(get_async_session),
 ):
     """
     Return the unique active Avatar definition and its default presentation
-    for the global Avatar Manager.
+    for the requested Avatar Manager.
     """
 
     service = AIAvatarService(session)
 
     try:
-        definition = await service.get_active_definition()
+        definition = await service.get_active_definition(
+            avatar_manager_id=avatar_manager_id
+        )
 
         resolved = await service.resolve(
             definition["c_definition_code"]
