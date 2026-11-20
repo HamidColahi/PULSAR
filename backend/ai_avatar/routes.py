@@ -5,7 +5,7 @@
 # Description:
 # Metadata-registered AI Avatar API routes with authenticated chat access
 #
-# Change Date: 2026-11-20 13:53
+# Change Date: 2026-11-20 16:18
 # Timezone: Asia/Baku
 #
 # Author: MHKolahi@gmail.com
@@ -55,6 +55,12 @@ class AvatarChatRequest(BaseModel):
     context_variables: dict[str, Any] = Field(
         default_factory=dict,
     )
+    conversation_id: str | None = Field(
+        default=None,
+        max_length=36,
+    )
+    new_conversation: bool = False
+    include_history: bool = True
 
 
 class AvatarChatResponse(BaseModel):
@@ -65,6 +71,7 @@ class AvatarChatResponse(BaseModel):
     model_code: str
     presentation_code: str
     response: Any
+    conversation_id: str | None = None
 
 
 class AvatarDefinitionResponse(BaseModel):
@@ -278,6 +285,9 @@ async def chat_with_avatar(
             user_message=payload.message,
             user_id=str(current_user.id),
             context_variables=payload.context_variables,
+            conversation_id=payload.conversation_id,
+            new_conversation=payload.new_conversation,
+            include_history=payload.include_history,
         )
 
         return AvatarChatResponse(**result)
