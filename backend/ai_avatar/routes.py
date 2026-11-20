@@ -327,7 +327,6 @@ async def chat_with_avatar(
             user_id=str(current_user.id),
             context_variables=payload.context_variables,
             conversation_id=payload.conversation_id,
-            interaction=payload.interaction,
             new_conversation=payload.new_conversation,
             include_history=payload.include_history,
         )
@@ -503,6 +502,7 @@ async def save_function_output_analysis_checkpoint(
             analysis_state=payload.analysis_state,
             definition_code=payload.definition_code,
             conversation_id=payload.conversation_id,
+            interaction=payload.interaction,
         )
     except PaliAnalystAnalysisError as exc:
         raise HTTPException(
