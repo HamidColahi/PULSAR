@@ -153,19 +153,22 @@ async def _load_output_configuration(
     query = text(
         """
         SELECT
-            output_config_id,
-            output_type_code,
-            renderer_key,
-            presentation_code,
-            display_options,
-            is_default,
-            priority,
-            config_code,
-            c_avatar_manager_id
-        FROM pulsar.t_function_output_config
-        WHERE schema_name = :schema_name
-          AND function_name = :function_name
-          AND is_active = TRUE
+            oc.output_config_id,
+            oc.output_type_code,
+            oc.renderer_key,
+            oc.presentation_code,
+            oc.display_options,
+            oc.is_default,
+            oc.priority,
+            oc.config_code,
+            oc.c_avatar_manager_id,
+            am.c_avatar_manager_desc
+        FROM pulsar.t_function_output_config oc
+        LEFT JOIN pulsar.t_avatar_manager am
+          ON am.c_avatar_manager_id = oc.c_avatar_manager_id
+        WHERE oc.schema_name = :schema_name
+          AND oc.function_name = :function_name
+          AND oc.is_active = TRUE
         ORDER BY
             is_default DESC,
             priority ASC,
@@ -233,6 +236,7 @@ async def _load_output_configuration(
             "priority": config["priority"],
             "config_code": config["config_code"],
             "avatar_manager_id": config["c_avatar_manager_id"],
+            "avatar_manager_desc": config["c_avatar_manager_desc"],
         })
 
     if not allowed_types:
@@ -260,6 +264,7 @@ async def _load_output_configuration(
             selected_options["config_code"] = config["config_code"]
             selected_options["output_config_id"] = config["output_config_id"]
             selected_options["avatar_manager_id"] = config["avatar_manager_id"]
+            selected_options["avatar_manager_desc"] = config["avatar_manager_desc"]
             break
 
     if not selected_options:
@@ -276,6 +281,7 @@ async def _load_output_configuration(
         selected_options["config_code"] = first_config["config_code"]
         selected_options["output_config_id"] = first_config["output_config_id"]
         selected_options["avatar_manager_id"] = first_config["avatar_manager_id"]
+        selected_options["avatar_manager_desc"] = first_config["avatar_manager_desc"]
 
     return allowed_types, selected_options
 
@@ -504,6 +510,9 @@ async def execute_panel_function(
         effective_options["avatar_manager_id"] = configured_options.get(
             "avatar_manager_id"
         )
+        effective_options["avatar_manager_desc"] = configured_options.get(
+            "avatar_manager_desc"
+        )
 
         formatted_result = format_function_result(
             result=output,
@@ -523,6 +532,7 @@ async def execute_panel_function(
             "config_code": effective_options.get("config_code"),
             "output_config_id": effective_options.get("output_config_id"),
             "avatar_manager_id": effective_options.get("avatar_manager_id"),
+            "avatar_manager_desc": effective_options.get("avatar_manager_desc"),
         })
 
         response_payload = {
