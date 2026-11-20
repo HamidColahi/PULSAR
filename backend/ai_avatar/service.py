@@ -4,7 +4,7 @@
 # Description:
 # Metadata-driven AI Avatar runtime with encrypted conversation persistence
 #
-# Change Date: 2026-10-23 15:00
+# Change Date: 2026-11-20 15:32
 # Timezone: Asia/Baku
 #
 # Author: MHKolahi@gmail.com
@@ -484,6 +484,7 @@ class AIAvatarService:
             """
             SELECT
                 d.c_ai_definition_id,
+                d.c_avatar_manager_id,
                 d.c_definition_code,
                 d.c_default_language,
                 d.c_introduction_enabled,
@@ -579,12 +580,14 @@ class AIAvatarService:
                         c_assignment_id,
                         c_user_id,
                         c_ai_definition_id,
+                        c_avatar_manager_id,
                         c_state
                     )
                     VALUES (
                         gen_random_uuid(),
                         CAST(:user_id AS uuid),
                         CAST(:definition_id AS uuid),
+                        :avatar_manager_id,
                         'active'
                     )
                     ON CONFLICT (c_user_id, c_ai_definition_id)
@@ -594,6 +597,7 @@ class AIAvatarService:
                 {
                     "user_id": user_id,
                     "definition_id": definition_id,
+                    "avatar_manager_id": definition["c_avatar_manager_id"],
                 },
             )
 
@@ -643,6 +647,7 @@ class AIAvatarService:
                 d.c_title,
                 d.c_description,
                 d.c_default_language,
+                d.c_avatar_manager_id,
                 d.c_enabled,
                 d.c_state
             FROM pulsar.t_ai_definition d
@@ -1176,6 +1181,7 @@ class AIAvatarService:
         self,
         user_id: str,
         definition_id: str,
+        avatar_manager_id: int,
         history_retention_days: int,
     ) -> str:
         await self.session.execute(
@@ -1185,12 +1191,14 @@ class AIAvatarService:
                     c_assignment_id,
                     c_user_id,
                     c_ai_definition_id,
+                    c_avatar_manager_id,
                     c_state
                 )
                 VALUES (
                     gen_random_uuid(),
                     CAST(:user_id AS uuid),
                     CAST(:definition_id AS uuid),
+                    :avatar_manager_id,
                     'active'
                 )
                 ON CONFLICT (c_user_id, c_ai_definition_id)
@@ -1200,6 +1208,7 @@ class AIAvatarService:
             {
                 "user_id": user_id,
                 "definition_id": definition_id,
+                "avatar_manager_id": avatar_manager_id,
             },
         )
 
@@ -2218,6 +2227,7 @@ class AIAvatarService:
         conversation_id = await self._get_or_create_conversation(
             user_id=user_id,
             definition_id=definition_id,
+            avatar_manager_id=definition["c_avatar_manager_id"],
             history_retention_days=history_retention_days,
         )
 
