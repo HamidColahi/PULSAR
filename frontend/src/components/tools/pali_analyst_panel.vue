@@ -276,24 +276,20 @@ function buildAnalysisState(analysis, paliStatus, section) {
 function applyCheckpointUpdate(update) {
   if (!analysisSession.value) return
 
-  analysisSession.value = {
-    ...analysisSession.value,
-    ...update,
-    sections: analysisSession.value.sections.map((section, index) => (
-      index === update.current_section_index ||
-      index === analysisSession.value.current_section_index
-        ? { ...section, ...(update.updated_section || {}) }
-        : section
-    ))
-  }
-
+  const sections = [...analysisSession.value.sections]
   if (update.updated_section) {
-    const index = analysisSession.value.sections.findIndex(
+    const index = sections.findIndex(
       section => section.section_id === update.updated_section.section_id
     )
     if (index >= 0) {
-      analysisSession.value.sections[index] = update.updated_section
+      sections[index] = update.updated_section
     }
+  }
+
+  analysisSession.value = {
+    ...analysisSession.value,
+    ...update,
+    sections
   }
 }
 
@@ -338,7 +334,12 @@ async function initializeAnalyst() {
 
 async function loadOrCreateSession() {
   const definition = await initializeAnalyst()
-  const savedId = localStorage.getItem(storageKey.value)
+  let savedId = null
+  try {
+    savedId = localStorage.getItem(storageKey.value)
+  } catch (exception) {
+    console.warn('Pali Analyst session storage is unavailable.', exception)
+  }
 
   if (savedId) {
     try {
