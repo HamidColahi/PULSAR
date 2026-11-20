@@ -3,7 +3,7 @@ File: Pulsar/frontend/src/components/common/function_result_viewer.vue
 Description: Generic metadata-driven renderer for PostgreSQL Panel Function results.
 Author: MHKolahi@gmail.com
 In collaboration with GPT4 Chat Assistant: Bahram
-Last Modified: 2026-10-09 01:00 (Asia/Baku)
+Last Modified: 2026-11-21 04:00 (Asia/Baku)
 -->
 
 <template>
@@ -41,6 +41,23 @@ Last Modified: 2026-10-09 01:00 (Asia/Baku)
         >
           RTL
         </button>
+
+        <button
+          v-if="hasPaliAnalyst"
+          type="button"
+          class="direction-button pali-analyst-toggle"
+          :class="{ 'direction-active': paliAnalystEnabled }"
+          :aria-pressed="paliAnalystEnabled"
+          :title="avatarManagerDescription"
+          @click="paliAnalystEnabled = !paliAnalystEnabled"
+        >
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" aria-hidden="true">
+            <path d="M12 3v3M12 18v3M3 12h3M18 12h3" />
+            <circle cx="12" cy="12" r="6" />
+            <circle cx="12" cy="12" r="2" />
+          </svg>
+          <span>{{ avatarManagerDescription || 'AI Analyst' }}</span>
+        </button>
       </div>
 
       <span v-if="loading" class="result-status">
@@ -48,7 +65,11 @@ Last Modified: 2026-10-09 01:00 (Asia/Baku)
       </span>
     </header>
 
-    <div class="result-viewport">
+    <div
+      class="result-analysis-layout"
+      :class="{ 'pali-analysis-open': paliAnalystEnabled }"
+    >
+      <div class="result-viewport">
       <div v-if="loading" class="result-state" role="status">
         {{ translated('pulsar.function_result.loading') }}
       </div>
@@ -284,6 +305,15 @@ Last Modified: 2026-10-09 01:00 (Asia/Baku)
           {{ translated('pulsar.function_result.unsupported_display_type') }}
         </div>
       </template>
+      </div>
+
+      <PaliAnalystPanel
+        v-if="paliAnalystEnabled"
+        :model-value="true"
+        :result="props.result"
+        :display="props.display"
+        @update:model-value="paliAnalystEnabled = $event"
+      />
     </div>
   </section>
 </template>
@@ -298,6 +328,7 @@ import {
 } from 'vue'
 import { useTranslation } from '@/composables/useTranslation'
 import { languageMeta } from '@/stores/uiStore'
+import PaliAnalystPanel from '@/components/tools/pali_analyst_panel.vue'
 
 const { translate, currentLanguage } = useTranslation()
 
@@ -322,6 +353,26 @@ const props = defineProps({
     type: String,
     default: ''
   }
+})
+
+const paliAnalystEnabled = ref(false)
+
+const hasPaliAnalyst = computed(() => {
+  const managerId = Number(props.display?.metadata?.avatar_manager_id)
+  const outputConfigId = Number(props.display?.metadata?.output_config_id)
+
+  return Number.isInteger(managerId) &&
+    managerId > 0 &&
+    Number.isInteger(outputConfigId) &&
+    outputConfigId > 0
+})
+
+const avatarManagerDescription = computed(() => (
+  props.display?.metadata?.avatar_manager_desc || ''
+))
+
+watch(hasPaliAnalyst, enabled => {
+  if (!enabled) paliAnalystEnabled.value = false
 })
 
 const SUPPORTED_DISPLAY_TYPES = new Set([
@@ -921,6 +972,36 @@ const TreeNode = defineComponent({
   width: 100%;
   min-width: 0;
   color: var(--text-primary, #1f2937);
+}
+
+.result-analysis-layout {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr);
+  gap: 1rem;
+  min-width: 0;
+  align-items: stretch;
+}
+
+.result-analysis-layout.pali-analysis-open {
+  grid-template-columns: minmax(0, 1.1fr) minmax(320px, 0.9fr);
+}
+
+.pali-analyst-toggle {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.4rem;
+}
+
+.pali-analyst-toggle svg {
+  width: 1rem;
+  height: 1rem;
+  flex: 0 0 auto;
+}
+
+@media (max-width: 960px) {
+  .result-analysis-layout.pali-analysis-open {
+    grid-template-columns: minmax(0, 1fr);
+  }
 }
 
 /* Keep the report title and direction controls outside the scrolling area. */
