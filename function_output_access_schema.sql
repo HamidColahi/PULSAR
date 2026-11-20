@@ -68,6 +68,48 @@ CREATE INDEX IF NOT EXISTS ix_function_output_access_active
     ON pulsar.t_function_output_access
        (output_config_id, is_active, priority);
 
+CREATE TABLE IF NOT EXISTS pulsar.t_colony_guidance_pdf_index
+(
+    row_no integer NOT NULL,
+    content_sha256 varchar(64) NOT NULL,
+    document_title text,
+    page_count integer NOT NULL DEFAULT 0,
+    extraction_status varchar(30) NOT NULL,
+    extracted_pages jsonb NOT NULL DEFAULT '[]'::jsonb,
+    extractor_version varchar(30) NOT NULL DEFAULT 'PYPDF_1',
+    extracted_at timestamptz NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    updated_at timestamptz NOT NULL DEFAULT CURRENT_TIMESTAMP,
+
+    CONSTRAINT pk_colony_guidance_pdf_index
+        PRIMARY KEY (row_no),
+
+    CONSTRAINT ck_colony_guidance_pdf_index_hash
+        CHECK (length(content_sha256) = 64),
+
+    CONSTRAINT ck_colony_guidance_pdf_index_page_count
+        CHECK (page_count >= 0),
+
+    CONSTRAINT ck_colony_guidance_pdf_index_status
+        CHECK (extraction_status IN ('EXTRACTED', 'OCR_REQUIRED', 'EXTRACTION_FAILED')),
+
+    CONSTRAINT ck_colony_guidance_pdf_index_pages
+        CHECK (jsonb_typeof(extracted_pages) = 'array'),
+
+    CONSTRAINT fk_colony_guidance_pdf_index_rule
+        FOREIGN KEY (row_no)
+        REFERENCES pulsar.table_1 (row_no)
+        ON DELETE CASCADE
+);
+
+COMMENT ON TABLE pulsar.t_colony_guidance_pdf_index IS
+    'Rebuildable text extraction cache for Table 1 guidance PDFs / نمایه قابل بازسازی متن PDFهای راهنمای Table 1';
+
+COMMENT ON COLUMN pulsar.t_colony_guidance_pdf_index.content_sha256 IS
+    'SHA-256 fingerprint of the source guidance_pdf bytes / اثرانگشت محتوای PDF اصلی';
+
+COMMENT ON COLUMN pulsar.t_colony_guidance_pdf_index.extracted_pages IS
+    'Page-preserving extracted PDF text / متن استخراج‌شده با حفظ شماره صفحات';
+
 INSERT INTO pulsar.t_function_output_access
 (
     output_config_id,
