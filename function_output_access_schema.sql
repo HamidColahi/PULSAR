@@ -110,6 +110,20 @@ COMMENT ON COLUMN pulsar.t_colony_guidance_pdf_index.content_sha256 IS
 COMMENT ON COLUMN pulsar.t_colony_guidance_pdf_index.extracted_pages IS
     'Page-preserving extracted PDF text / متن استخراج‌شده با حفظ شماره صفحات';
 
+DO $$
+BEGIN
+    IF NOT EXISTS (
+        SELECT 1
+        FROM pulsar.t_function_output_config
+        WHERE config_code = 'COLONY_GUIDANCE_JSON'
+          AND is_active = TRUE
+    ) THEN
+        RAISE EXCEPTION
+            'Active Function output configuration COLONY_GUIDANCE_JSON was not found.';
+    END IF;
+END;
+$$;
+
 INSERT INTO pulsar.t_function_output_access
 (
     output_config_id,
@@ -119,39 +133,53 @@ INSERT INTO pulsar.t_function_output_access
     is_active,
     priority
 )
-VALUES
-(
-    6,
-    'COLONY_TABLE_1',
-    'READ',
-    '{"max_rows": 250, "include_guidance_metadata": true}'::jsonb,
-    true,
-    10
-),
-(
-    6,
-    'COLONY_GUIDANCE_PDF',
-    'READ',
-    '{"max_pages": 80, "max_text_chars": 30000}'::jsonb,
-    true,
-    20
-),
-(
-    6,
-    'COLONY_RULE_SEARCH',
-    'SEARCH',
-    '{"search_fields": ["inquiry", "reaction", "event", "action", "rp", "pbi_sbi"], "max_results": 20, "cross_backlog": true}'::jsonb,
-    true,
-    30
-),
-(
-    6,
-    'COLONY_RELATED_RULES',
-    'SEARCH',
-    '{"max_results": 20, "cross_backlog": true}'::jsonb,
-    true,
-    40
+SELECT
+    config.output_config_id,
+    resource.resource_code,
+    resource.access_mode,
+    resource.access_options,
+    resource.is_active,
+    resource.priority
+FROM pulsar.t_function_output_config config
+CROSS JOIN (
+    VALUES
+    (
+        'COLONY_TABLE_1',
+        'READ',
+        '{"max_rows": 50, "include_guidance_metadata": true}'::jsonb,
+        true,
+        10
+    ),
+    (
+        'COLONY_GUIDANCE_PDF',
+        'READ',
+        '{"max_pages": 80, "max_text_chars": 30000}'::jsonb,
+        true,
+        20
+    ),
+    (
+        'COLONY_RULE_SEARCH',
+        'SEARCH',
+        '{"search_fields": ["inquiry", "reaction", "event", "action", "rp", "pbi_sbi"], "max_results": 20, "cross_backlog": true}'::jsonb,
+        true,
+        30
+    ),
+    (
+        'COLONY_RELATED_RULES',
+        'SEARCH',
+        '{"search_fields": ["inquiry", "reaction", "event", "action", "rp", "pbi_sbi"], "max_results": 20, "cross_backlog": true}'::jsonb,
+        true,
+        40
+    )
+) AS resource (
+    resource_code,
+    access_mode,
+    access_options,
+    is_active,
+    priority
 )
+WHERE config.config_code = 'COLONY_GUIDANCE_JSON'
+  AND config.is_active = TRUE
 ON CONFLICT (output_config_id, resource_code)
 DO UPDATE SET
     access_mode = EXCLUDED.access_mode,
