@@ -1,8 +1,8 @@
 
 <!--
 File: Pulsar/frontend/src/components/tools/source_trace_panel.vue
-Version: 1.5
-Modified: 2026-11-20 18:30 Asia/Baku
+Version: 1.6
+Modified: 2026-11-20 18:50 Asia/Baku
 In collaboration with GPT4 Chat Assistant: Bahram
 -->
 <template>
@@ -549,9 +549,12 @@ const analysisProgress = computed(() => {
   if (!session?.sections?.length) return 0
   if (session.status === 'COMPLETED') return 100
 
+  const reviewedSections = session.current_section_index
+    + (activeSection.value?.status === 'ANALYZED' ? 1 : 0)
+
   return Math.min(
     100,
-    (session.current_section_index / session.sections.length) * 100
+    (reviewedSections / session.sections.length) * 100
   )
 })
 
