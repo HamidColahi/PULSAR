@@ -659,7 +659,7 @@ function extractCheckpointSummary(value) {
 
   const summary = (match?.[1] || text).trim()
 
-  return summary.slice(0, 1200)
+  return summary.slice(0, 600)
 }
 
 function buildAnalysisState(analysis, paliStatus, section) {
@@ -679,7 +679,7 @@ function buildAnalysisState(analysis, paliStatus, section) {
     version: 1,
     last_section_id: section.section_id,
     last_status: paliStatus,
-    section_summaries: summaries.slice(-12),
+    section_summaries: summaries.slice(-8),
     programmer_decisions: Array.isArray(previous.programmer_decisions)
       ? previous.programmer_decisions
       : []
@@ -695,7 +695,7 @@ function buildDecisionState(decision, note) {
   decisions.push({
     section_id: activeSection.value?.section_id || null,
     decision,
-    note: note || null
+    note: note ? note.slice(0, 300) : null
   })
 
   return {
