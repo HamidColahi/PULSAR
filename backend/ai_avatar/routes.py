@@ -5,7 +5,7 @@
 # Description:
 # Metadata-registered AI Avatar API routes with authenticated chat access
 #
-# Change Date: 2026-11-20 16:18
+# Change Date: 2026-11-21 04:00
 # Timezone: Asia/Baku
 #
 # Author: MHKolahi@gmail.com
@@ -30,6 +30,10 @@ from ai_avatar.api_registry import (
 from ai_avatar.service import (
     AIAvatarService,
     AIAvatarServiceError,
+)
+from ai_avatar.resource_access import (
+    FunctionOutputResourceError,
+    FunctionOutputResourceService,
 )
 
 logger = logging.getLogger(__name__)
@@ -72,6 +76,15 @@ class AvatarChatResponse(BaseModel):
     presentation_code: str
     response: Any
     conversation_id: str | None = None
+
+
+class FunctionOutputResourceRequest(BaseModel):
+    """Validate a metadata-authorized Function output resource request."""
+
+    output_config_id: int = Field(..., ge=1)
+    definition_code: str = Field(..., min_length=1, max_length=100)
+    search_text: str = Field(default="", max_length=4000)
+    row_numbers: list[int] = Field(default_factory=list, max_length=50)
 
 
 class AvatarDefinitionResponse(BaseModel):
@@ -306,6 +319,47 @@ async def chat_with_avatar(
         raise HTTPException(
             status_code=500,
             detail="The AI Avatar request could not be completed.",
+        ) from exc
+
+
+@router.post(
+    API_REGISTRY["AI_AVATAR_FUNCTION_OUTPUT_RESOURCES"].path,
+)
+async def get_function_output_resources(
+    payload: FunctionOutputResourceRequest,
+    current_user: UserProfileResponse = Depends(get_current_user),
+    session: AsyncSession = Depends(get_async_session),
+):
+    """Retrieve only the resources granted to the selected output configuration."""
+
+    if not current_user.is_active:
+        raise HTTPException(
+            status_code=403,
+            detail="Your account is inactive.",
+        )
+
+    service = FunctionOutputResourceService(session)
+
+    try:
+        return await service.retrieve(
+            output_config_id=payload.output_config_id,
+            definition_code=_validate_definition_code(payload.definition_code),
+            search_text=payload.search_text,
+            row_numbers=payload.row_numbers,
+        )
+    except FunctionOutputResourceError as exc:
+        raise HTTPException(
+            status_code=exc.status_code,
+            detail=exc.message,
+        ) from exc
+    except Exception as exc:
+        logger.exception(
+            "Function output resource retrieval failed for output config %s.",
+            payload.output_config_id,
+        )
+        raise HTTPException(
+            status_code=500,
+            detail="The authorized Function output resources could not be retrieved. Verify that function_output_access_schema.sql has been applied.",
         ) from exc
 
 
