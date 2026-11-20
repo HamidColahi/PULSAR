@@ -215,12 +215,13 @@ class FunctionOutputResourceService:
     async def _load_table_1(
         self,
         options: dict[str, Any],
+        row_numbers: list[int],
     ) -> tuple[list[dict[str, Any]], int]:
         limit = self._bounded_int(
             options.get("max_rows"),
-            default=250,
+            default=50,
             minimum=1,
-            maximum=1000,
+            maximum=250,
         )
 
         count_result = await self.session.execute(
@@ -228,16 +229,23 @@ class FunctionOutputResourceService:
         )
         total_count = int(count_result.scalar_one() or 0)
 
+        if not row_numbers:
+            return [], total_count
+
         result = await self.session.execute(
             text(
                 f"""
                 SELECT {self.RULE_COLUMNS}
                 FROM pulsar.table_1
+                WHERE row_no = ANY(:row_numbers)
                 ORDER BY row_no
                 LIMIT :row_limit
                 """
             ),
-            {"row_limit": limit},
+            {
+                "row_numbers": row_numbers[:limit],
+                "row_limit": limit,
+            },
         )
 
         return [
@@ -486,7 +494,12 @@ class FunctionOutputResourceService:
         if "COLONY_TABLE_1" in access_by_code:
             access = access_by_code["COLONY_TABLE_1"]
             rows, total_count = await self._load_table_1(
-                access["access_options"]
+                access["access_options"],
+                list(dict.fromkeys(
+                    requested_rows
+                    + [row["row_no"] for row in search_results]
+                    + [row["row_no"] for row in evidence["related_rules"]]
+                )),
             )
             evidence["table_1"] = {
                 "rows": rows,
