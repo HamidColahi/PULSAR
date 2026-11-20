@@ -700,7 +700,7 @@ function buildDecisionState(decision, note) {
 
   return {
     ...previous,
-    programmer_decisions: decisions.slice(-30)
+    programmer_decisions: decisions.slice(-10)
   }
 }
 
