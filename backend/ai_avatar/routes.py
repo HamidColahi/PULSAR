@@ -87,6 +87,8 @@ class FunctionOutputResourceRequest(BaseModel):
 
     output_config_id: int = Field(..., ge=1)
     definition_code: str = Field(..., min_length=1, max_length=100)
+    schema_name: str = Field(..., min_length=1, max_length=128)
+    function_name: str = Field(..., min_length=1, max_length=255)
     search_text: str = Field(default="", max_length=4000)
     row_numbers: list[int] = Field(default_factory=list, max_length=50)
 
@@ -369,6 +371,8 @@ async def get_function_output_resources(
         return await service.retrieve(
             output_config_id=payload.output_config_id,
             definition_code=_validate_definition_code(payload.definition_code),
+            schema_name=payload.schema_name,
+            function_name=payload.function_name,
             search_text=payload.search_text,
             row_numbers=payload.row_numbers,
         )
