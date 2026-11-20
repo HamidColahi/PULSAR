@@ -1,0 +1,782 @@
+<!--
+File: Pulsar/frontend/src/components/tools/pali_analyst_panel.vue
+Description: Metadata-driven interactive Pali Analyst for Function output evidence
+Change Date: 2026-11-21 04:00 Asia/Baku
+In collaboration with GPT4 Chat Assistant: Bahram
+-->
+<template>
+  <aside class="pali-analyst-panel" dir="ltr">
+    <header class="pali-header">
+      <div class="min-w-0">
+        <h3 class="pali-title">{{ managerDescription || 'AI Analysis' }}</h3>
+        <p class="pali-subtitle">
+          {{ analysisSession
+            ? `Section ${Math.min(analysisSession.current_section_index + 1, analysisSession.sections.length)} of ${analysisSession.sections.length} · ${analysisSession.status}`
+            : 'Evidence-based Function output analysis' }}
+        </p>
+      </div>
+      <button
+        type="button"
+        class="pali-close"
+        title="Close analysis"
+        aria-label="Close analysis"
+        @click="emit('update:modelValue', false)"
+      >
+        ×
+      </button>
+    </header>
+
+    <div v-if="busy" class="pali-status" role="status">
+      <span class="pali-spinner"></span>
+      {{ busyLabel }}
+    </div>
+
+    <div v-if="error" class="pali-error" role="alert">
+      {{ error }}
+    </div>
+
+    <template v-if="analysisSession">
+      <div class="pali-progress">
+        <div class="flex items-center justify-between gap-3 text-xs">
+          <strong>{{ progressLabel }}</strong>
+          <span>{{ Math.round(progress) }}%</span>
+        </div>
+        <div class="pali-progress-track">
+          <div class="pali-progress-value" :style="{ width: `${progress}%` }"></div>
+        </div>
+        <p class="pali-hint">
+          The complete Function output is preserved. Only the active logical section and its authorized evidence are sent to Pali.
+        </p>
+      </div>
+
+      <section v-if="activeSection" class="pali-section">
+        <div class="pali-section-heading">
+          <span class="pali-section-index">{{ activeSection.order + 1 }}</span>
+          <div class="min-w-0">
+            <h4>{{ activeSection.title }}</h4>
+            <p>{{ activeSection.section_type }}</p>
+          </div>
+        </div>
+
+        <pre class="pali-section-content">{{ formatJson(activeSection.content) }}</pre>
+
+        <div v-if="activeSection.analysis" class="pali-analysis">
+          <div class="pali-analysis-heading">
+            <strong>Pali Analysis</strong>
+            <span :class="['pali-status-tag', `status-${activeSection.pali_status || 'CONTINUE'}`]">
+              {{ activeSection.pali_status || 'CONTINUE' }}
+            </span>
+          </div>
+          <pre>{{ activeSection.analysis }}</pre>
+        </div>
+
+        <div v-if="activeSection.status !== 'APPROVED' && analysisSession.status !== 'COMPLETED' && analysisSession.status !== 'STOPPED'" class="pali-review">
+          <label for="pali-review-note">Programmer review note</label>
+          <textarea
+            id="pali-review-note"
+            v-model="reviewNote"
+            rows="3"
+            maxlength="4000"
+            placeholder="Add a clarification or request a focused revision..."
+          ></textarea>
+        </div>
+      </section>
+
+      <footer class="pali-actions">
+        <button
+          v-if="analysisSession.status === 'PAUSED'"
+          type="button"
+          class="pali-button pali-primary"
+          :disabled="busy || !activeSection"
+          @click="continueAnalysis"
+        >
+          Continue
+        </button>
+        <button
+          v-if="analysisSession.status === 'PAUSED'"
+          type="button"
+          class="pali-button"
+          :disabled="busy || !activeSection"
+          @click="reviseAnalysis"
+        >
+          Revise
+        </button>
+        <button
+          v-if="analysisSession.status === 'READY'"
+          type="button"
+          class="pali-button pali-primary"
+          :disabled="busy"
+          @click="resumeAnalysis"
+        >
+          Resume Analysis
+        </button>
+        <button
+          v-if="!['COMPLETED', 'STOPPED'].includes(analysisSession.status)"
+          type="button"
+          class="pali-button pali-danger"
+          :disabled="busy"
+          @click="stopAnalysis"
+        >
+          Stop
+        </button>
+        <button
+          v-if="analysisSession.status === 'STOPPED'"
+          type="button"
+          class="pali-button pali-primary"
+          :disabled="busy"
+          @click="resumeStoppedAnalysis"
+        >
+          Resume
+        </button>
+        <span v-if="analysisSession.status === 'COMPLETED'" class="pali-complete">
+          Analysis completed
+        </span>
+      </footer>
+    </template>
+  </aside>
+</template>
+
+<script setup>
+import { computed, ref, watch } from 'vue'
+import { useAIAvatar } from '@/composables/useAIAvatar'
+import { usePaliAnalystAnalysis } from '@/composables/usePaliAnalystAnalysis'
+
+const props = defineProps({
+  modelValue: { type: Boolean, default: false },
+  result: { type: [Object, Array, String, Number, Boolean], default: null },
+  display: { type: Object, default: null }
+})
+
+const emit = defineEmits(['update:modelValue'])
+const { getDefaultAvatar, getFunctionOutputResources, sendChatMessage } = useAIAvatar()
+const { createSession, getSession, saveCheckpoint } = usePaliAnalystAnalysis()
+
+const busy = ref(false)
+const busyLabel = ref('Preparing analysis...')
+const error = ref('')
+const analystDefinition = ref(null)
+const analysisSession = ref(null)
+const reviewNote = ref('')
+
+const metadata = computed(() => props.display?.metadata || {})
+const outputConfigId = computed(() => Number(metadata.value.output_config_id))
+const managerId = computed(() => Number(metadata.value.avatar_manager_id))
+const managerDescription = computed(() => metadata.value.avatar_manager_desc || '')
+const functionName = computed(() => metadata.value.function_name || 'Function output')
+
+const progress = computed(() => {
+  const total = analysisSession.value?.sections?.length || 0
+  if (!total) return 0
+  if (analysisSession.value.status === 'COMPLETED') return 100
+  return Math.min(100, (analysisSession.value.current_section_index / total) * 100)
+})
+
+const activeSection = computed(() => {
+  if (!analysisSession.value) return null
+  return analysisSession.value.sections?.[
+    analysisSession.value.current_section_index
+  ] || null
+})
+
+const progressLabel = computed(() => {
+  if (analysisSession.value?.status === 'COMPLETED') return 'All sections reviewed'
+  if (analysisSession.value?.status === 'STOPPED') return 'Analysis stopped'
+  return 'Interactive review'
+})
+
+const storageKey = computed(() => (
+  `pulsar.paliAnalyst.${outputConfigId.value}.${functionName.value}`
+))
+
+function currentReport() {
+  return {
+    function_name: functionName.value,
+    result_kind: metadata.value.result_kind || null,
+    return_type: metadata.value.return_type || null,
+    output_config_id: outputConfigId.value,
+    result: props.result,
+    display: props.display
+  }
+}
+
+function formatJson(value) {
+  try {
+    return JSON.stringify(value, null, 2)
+  } catch {
+    return String(value)
+  }
+}
+
+function collectRowNumbers(value, output = new Set()) {
+  if (Array.isArray(value)) {
+    value.forEach(item => collectRowNumbers(item, output))
+    return [...output]
+  }
+
+  if (!value || typeof value !== 'object') return [...output]
+
+  for (const [key, item] of Object.entries(value)) {
+    if (key === 'row_no' && Number.isInteger(Number(item)) && Number(item) > 0) {
+      output.add(Number(item))
+    } else if (item && typeof item === 'object') {
+      collectRowNumbers(item, output)
+    }
+  }
+
+  return [...output].slice(0, 50)
+}
+
+function normalizeResponse(response) {
+  const value = response?.response ?? response
+  if (typeof value === 'string') return value
+  if (value === null || value === undefined) return 'Pali Analyst returned an empty response.'
+  return JSON.stringify(value, null, 2)
+}
+
+function parsePaliStatus(value) {
+  const match = String(value).match(
+    /STATUS\s*:\s*(FINDING|QUESTION|CONFLICT|ROOT_CAUSE|CONTINUE)/i
+  )
+  return match ? match[1].toUpperCase() : 'CONTINUE'
+}
+
+function extractSummary(value) {
+  const text = String(value)
+  const match = text.match(
+    /(?:^|\n)CHECKPOINT SUMMARY\s*:\s*([\s\S]*?)(?=\n[A-Z][A-Z _-]{2,}:|$)/i
+  )
+  return (match?.[1] || text).trim().slice(0, 700)
+}
+
+function buildAnalysisState(analysis, paliStatus, section) {
+  const previous = analysisSession.value?.analysis_state || {}
+  const summaries = Array.isArray(previous.section_summaries)
+    ? [...previous.section_summaries]
+    : []
+
+  summaries.push({
+    section_id: section.section_id,
+    section_title: section.title,
+    status: paliStatus,
+    summary: extractSummary(analysis)
+  })
+
+  return {
+    version: 1,
+    last_section_id: section.section_id,
+    last_status: paliStatus,
+    running_summary: summaries.slice(-4).map(item => item.summary).join('\n').slice(-5000),
+    section_summaries: summaries.slice(-4),
+    programmer_decisions: Array.isArray(previous.programmer_decisions)
+      ? previous.programmer_decisions
+      : []
+  }
+}
+
+function applyCheckpointUpdate(update) {
+  if (!analysisSession.value) return
+
+  analysisSession.value = {
+    ...analysisSession.value,
+    ...update,
+    sections: analysisSession.value.sections.map((section, index) => (
+      index === update.current_section_index ||
+      index === analysisSession.value.current_section_index
+        ? { ...section, ...(update.updated_section || {}) }
+        : section
+    ))
+  }
+
+  if (update.updated_section) {
+    const index = analysisSession.value.sections.findIndex(
+      section => section.section_id === update.updated_section.section_id
+    )
+    if (index >= 0) {
+      analysisSession.value.sections[index] = update.updated_section
+    }
+  }
+}
+
+function storeSessionId(sessionId) {
+  try {
+    localStorage.setItem(storageKey.value, sessionId)
+  } catch (exception) {
+    console.warn('Pali Analyst session ID could not be stored locally.', exception)
+  }
+}
+
+function clearSessionId() {
+  try {
+    localStorage.removeItem(storageKey.value)
+  } catch (exception) {
+    console.warn('Pali Analyst session ID could not be cleared locally.', exception)
+  }
+}
+
+async function initializeAnalyst() {
+  if (!Number.isInteger(managerId.value) || managerId.value < 1) {
+    throw new Error('The output configuration has no valid Avatar Manager.')
+  }
+
+  if (!Number.isInteger(outputConfigId.value) || outputConfigId.value < 1) {
+    throw new Error('The output configuration ID is missing.')
+  }
+
+  if (analystDefinition.value) return analystDefinition.value
+
+  const definition = await getDefaultAvatar(managerId.value)
+  if (Number(definition.avatar_manager_id) !== managerId.value) {
+    throw new Error('The returned AI Avatar does not match the configured manager.')
+  }
+  if (!definition.definition_code) {
+    throw new Error('The AI Avatar definition code is missing.')
+  }
+
+  analystDefinition.value = definition
+  return definition
+}
+
+async function loadOrCreateSession() {
+  const definition = await initializeAnalyst()
+  const savedId = localStorage.getItem(storageKey.value)
+
+  if (savedId) {
+    try {
+      const saved = await getSession(savedId)
+      const savedResult = saved.report?.result
+      if (JSON.stringify(savedResult) === JSON.stringify(props.result)) {
+        analysisSession.value = saved
+        if (saved.status === 'READY') {
+          await analyzeCurrentSection()
+        }
+        return
+      }
+    } catch (exception) {
+      console.info('No resumable Pali Analyst session was found.', exception)
+    }
+    clearSessionId()
+  }
+
+  const report = currentReport()
+  const session = await createSession(
+    report,
+    definition.definition_code,
+    outputConfigId.value
+  )
+  analysisSession.value = session
+  storeSessionId(session.analysis_session_id)
+  await analyzeCurrentSection()
+}
+
+async function analyzeCurrentSection() {
+  if (!analysisSession.value || busy.value) return
+
+  const section = activeSection.value
+  if (!section) return
+
+  busy.value = true
+  busyLabel.value = 'Retrieving authorized evidence and analyzing the active section...'
+  error.value = ''
+
+  try {
+    const definition = await initializeAnalyst()
+    const resources = await getFunctionOutputResources({
+      output_config_id: outputConfigId.value,
+      definition_code: definition.definition_code,
+      search_text: JSON.stringify(section.content),
+      row_numbers: collectRowNumbers(section.content)
+    })
+
+    const message = [
+      'PALI ANALYST — SECTION REVIEW',
+      'Analyze only the active logical section. Do not assume facts that are not supported by the supplied evidence.',
+      'Use the Colony Table 1 rows as the authoritative methodology source. Treat extracted guidance PDF text as supplementary evidence.',
+      'If evidence is insufficient, state exactly what is missing. Cite Table 1 row numbers and PDF page numbers for each material conclusion.',
+      '',
+      'FUNCTION CONTEXT:',
+      JSON.stringify({
+        function_name: functionName.value,
+        output_config_id: outputConfigId.value,
+        section_index: analysisSession.value.current_section_index,
+        section_count: analysisSession.value.sections.length
+      }, null, 2),
+      '',
+      'PREVIOUS CHECKPOINT:',
+      JSON.stringify(analysisSession.value.analysis_state || {}, null, 2),
+      '',
+      'PROGRAMMER REVIEW NOTE:',
+      section.note || reviewNote.value || 'None',
+      '',
+      'ACTIVE SECTION:',
+      JSON.stringify(section, null, 2),
+      '',
+      'AUTHORIZED RESOURCE EVIDENCE:',
+      JSON.stringify(resources, null, 2)
+    ].join('\n')
+
+    if (message.length > 90000) {
+      throw new Error('The active section and evidence exceed the safe AI message size.')
+    }
+
+    const response = await sendChatMessage({
+      definition_code: definition.definition_code,
+      message,
+      conversation_id: analysisSession.value.conversation_id,
+      new_conversation: !analysisSession.value.conversation_id,
+      include_history: false
+    })
+
+    const analysis = normalizeResponse(response)
+    const paliStatus = parsePaliStatus(analysis)
+    const checkpointState = buildAnalysisState(analysis, paliStatus, section)
+
+    const checkpoint = await saveCheckpoint(
+      analysisSession.value.analysis_session_id,
+      {
+        section_index: analysisSession.value.current_section_index,
+        analysis,
+        pali_status: paliStatus,
+        analysis_state: checkpointState,
+        definition_code: definition.definition_code,
+        conversation_id: response?.conversation_id || analysisSession.value.conversation_id || null
+      }
+    )
+
+    applyCheckpointUpdate(checkpoint)
+    reviewNote.value = ''
+  } catch (exception) {
+    error.value = exception?.response?.data?.detail
+      || exception?.message
+      || 'Pali Analyst could not analyze the active section.'
+  } finally {
+    busy.value = false
+  }
+}
+
+async function continueAnalysis() {
+  if (!analysisSession.value || !activeSection.value || busy.value) return
+  busy.value = true
+  error.value = ''
+
+  try {
+    const note = reviewNote.value.trim()
+    const updated = await saveCheckpoint(
+      analysisSession.value.analysis_session_id,
+      {
+        section_index: analysisSession.value.current_section_index,
+        decision: 'CONTINUE',
+        note,
+        analysis_state: {
+          ...(analysisSession.value.analysis_state || {}),
+          programmer_decisions: [
+            ...(analysisSession.value.analysis_state?.programmer_decisions || []),
+            { section_id: activeSection.value.section_id, decision: 'CONTINUE', note }
+          ].slice(-20)
+        }
+      }
+    )
+    applyCheckpointUpdate(updated)
+    reviewNote.value = ''
+    if (updated.status === 'READY') {
+      busy.value = false
+      await analyzeCurrentSection()
+    }
+  } catch (exception) {
+    error.value = exception?.response?.data?.detail || exception?.message || 'The analysis checkpoint could not be continued.'
+  } finally {
+    busy.value = false
+  }
+}
+
+async function reviseAnalysis() {
+  if (!analysisSession.value || !activeSection.value || busy.value) return
+  busy.value = true
+  error.value = ''
+
+  try {
+    const note = reviewNote.value.trim()
+    const updated = await saveCheckpoint(
+      analysisSession.value.analysis_session_id,
+      {
+        section_index: analysisSession.value.current_section_index,
+        decision: 'REVISE',
+        note,
+        analysis_state: analysisSession.value.analysis_state || {}
+      }
+    )
+    applyCheckpointUpdate(updated)
+    reviewNote.value = note
+    busy.value = false
+    await analyzeCurrentSection()
+  } catch (exception) {
+    error.value = exception?.response?.data?.detail || exception?.message || 'The active section could not be revised.'
+  } finally {
+    busy.value = false
+  }
+}
+
+async function stopAnalysis() {
+  if (!analysisSession.value || !activeSection.value || busy.value) return
+  busy.value = true
+  error.value = ''
+
+  try {
+    const updated = await saveCheckpoint(
+      analysisSession.value.analysis_session_id,
+      {
+        section_index: analysisSession.value.current_section_index,
+        decision: 'STOP',
+        note: reviewNote.value.trim(),
+        analysis_state: analysisSession.value.analysis_state || {}
+      }
+    )
+    applyCheckpointUpdate(updated)
+  } catch (exception) {
+    error.value = exception?.response?.data?.detail || exception?.message || 'The analysis could not be stopped.'
+  } finally {
+    busy.value = false
+  }
+}
+
+async function resumeStoppedAnalysis() {
+  if (!analysisSession.value || !activeSection.value || busy.value) return
+  busy.value = true
+  error.value = ''
+
+  try {
+    const updated = await saveCheckpoint(
+      analysisSession.value.analysis_session_id,
+      {
+        section_index: analysisSession.value.current_section_index,
+        decision: 'RESUME',
+        analysis_state: analysisSession.value.analysis_state || {}
+      }
+    )
+    applyCheckpointUpdate(updated)
+    busy.value = false
+    await analyzeCurrentSection()
+  } catch (exception) {
+    error.value = exception?.response?.data?.detail || exception?.message || 'The analysis could not be resumed.'
+  } finally {
+    busy.value = false
+  }
+}
+
+async function resumeAnalysis() {
+  await analyzeCurrentSection()
+}
+
+watch(
+  () => props.modelValue,
+  async opened => {
+    if (!opened) return
+    if (analysisSession.value || busy.value) return
+
+    error.value = ''
+    await loadOrCreateSession()
+  },
+  { immediate: true }
+)
+</script>
+
+<style scoped>
+.pali-analyst-panel {
+  display: flex;
+  min-width: 0;
+  min-height: 320px;
+  max-height: 100%;
+  flex-direction: column;
+  gap: 12px;
+  overflow: hidden;
+  border: 1px solid var(--border-color, #dbe1ea);
+  border-radius: 12px;
+  background: var(--surface-primary, #fff);
+  color: var(--text-primary, #1f2937);
+  padding: 12px;
+}
+.pali-header,
+.pali-analysis-heading,
+.pali-section-heading,
+.pali-actions {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+}
+.pali-header {
+  border-bottom: 1px solid var(--border-color, #dbe1ea);
+  padding-bottom: 10px;
+}
+.pali-title {
+  overflow: hidden;
+  font-size: 14px;
+  font-weight: 700;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.pali-subtitle,
+.pali-hint,
+.pali-section-heading p {
+  color: var(--text-secondary, #6b7280);
+  font-size: 11px;
+}
+.pali-close {
+  flex: 0 0 auto;
+  width: 30px;
+  height: 30px;
+  border: 1px solid var(--border-color, #dbe1ea);
+  border-radius: 8px;
+  font-size: 20px;
+}
+.pali-status,
+.pali-error,
+.pali-progress,
+.pali-section,
+.pali-analysis {
+  border: 1px solid var(--border-color, #dbe1ea);
+  border-radius: 10px;
+  padding: 10px;
+}
+.pali-status {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  color: var(--text-secondary, #6b7280);
+  font-size: 12px;
+}
+.pali-spinner {
+  width: 14px;
+  height: 14px;
+  border: 2px solid currentColor;
+  border-right-color: transparent;
+  border-radius: 50%;
+  animation: pali-spin .8s linear infinite;
+}
+.pali-error {
+  border-color: #ef444455;
+  background: #ef444410;
+  color: #dc2626;
+  font-size: 12px;
+}
+.pali-progress-track {
+  height: 6px;
+  margin-top: 8px;
+  overflow: hidden;
+  border-radius: 999px;
+  background: var(--surface-secondary, #f3f4f6);
+}
+.pali-progress-value {
+  height: 100%;
+  border-radius: inherit;
+  background: var(--chart-color, #2563eb);
+  transition: width .2s ease;
+}
+.pali-hint {
+  margin-top: 8px;
+  line-height: 1.5;
+}
+.pali-section {
+  min-height: 0;
+  flex: 1;
+  overflow: auto;
+}
+.pali-section-index {
+  display: grid;
+  width: 26px;
+  height: 26px;
+  flex: 0 0 auto;
+  place-items: center;
+  border-radius: 8px;
+  background: var(--surface-secondary, #f3f4f6);
+  font-size: 11px;
+  font-weight: 700;
+}
+.pali-section-heading h4 {
+  font-size: 12px;
+  font-weight: 700;
+}
+.pali-section-content,
+.pali-analysis pre {
+  max-height: 180px;
+  margin-top: 10px;
+  overflow: auto;
+  border-radius: 8px;
+  background: var(--surface-secondary, #f8fafc);
+  padding: 9px;
+  font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+  font-size: 10px;
+  line-height: 1.55;
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+}
+.pali-analysis {
+  margin-top: 10px;
+}
+.pali-analysis-heading {
+  font-size: 11px;
+}
+.pali-analysis pre {
+  max-height: 320px;
+}
+.pali-status-tag {
+  border-radius: 999px;
+  background: var(--surface-secondary, #f3f4f6);
+  padding: 3px 7px;
+  font-size: 9px;
+  font-weight: 700;
+}
+.status-CONFLICT,
+.status-ROOT_CAUSE {
+  color: #b45309;
+}
+.pali-review {
+  margin-top: 12px;
+}
+.pali-review label {
+  display: block;
+  margin-bottom: 6px;
+  font-size: 11px;
+  font-weight: 600;
+}
+.pali-review textarea {
+  width: 100%;
+  resize: vertical;
+  border: 1px solid var(--border-color, #dbe1ea);
+  border-radius: 8px;
+  background: var(--surface-primary, #fff);
+  padding: 8px;
+  font-size: 11px;
+}
+.pali-actions {
+  flex-wrap: wrap;
+  border-top: 1px solid var(--border-color, #dbe1ea);
+  padding-top: 10px;
+}
+.pali-button {
+  border: 1px solid var(--border-color, #dbe1ea);
+  border-radius: 8px;
+  padding: 7px 10px;
+  font-size: 11px;
+  font-weight: 600;
+}
+.pali-primary {
+  border-color: var(--chart-color, #2563eb);
+  background: var(--chart-color, #2563eb);
+  color: #fff;
+}
+.pali-danger {
+  color: #dc2626;
+}
+.pali-button:disabled {
+  cursor: not-allowed;
+  opacity: .45;
+}
+.pali-complete {
+  color: #15803d;
+  font-size: 11px;
+  font-weight: 700;
+}
+@keyframes pali-spin {
+  to { transform: rotate(360deg); }
+}
+</style>
