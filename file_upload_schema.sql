@@ -44,7 +44,11 @@ BEGIN
         control_type = 'file',
         accepted_mime_types = ARRAY['application/pdf', '.pdf']::text[],
         max_file_size_bytes = 26214400,
-        visible_in_form = true
+        visible_in_form = true,
+        is_readonly = CASE
+            WHEN cc.field_mode IN ('insert', 'update') THEN false
+            ELSE cc.is_readonly
+        END
     FROM pulsar.components_base AS cb
     WHERE cb.component_name = cc.component_name
       AND LOWER(cb.schm_name) = 'pulsar'
