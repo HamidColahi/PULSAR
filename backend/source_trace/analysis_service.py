@@ -4,7 +4,7 @@
 # Description:
 # Persistent interactive analysis sessions for P-ATVT Source Trace
 #
-# Change Date: 2026-11-20 18:55
+# Change Date: 2026-11-20 19:45
 # Timezone: Asia/Baku
 #
 # Author: MHKolahi@gmail.com
@@ -315,13 +315,12 @@ class SourceTraceAnalysisService:
 
         return payload
 
-    def _serialize(self, row: Any) -> dict:
+    def _serialize(self, row: Any, include_report: bool = True) -> dict:
         payload = self._decrypt_payload(row)
 
-        return {
+        serialized = {
             "analysis_session_id": str(row["c_analysis_session_id"]),
             "topic": row["c_topic"],
-            "report": payload.get("report", {}),
             "sections": payload.get("sections", []),
             "analysis_state": payload.get("analysis_state", {}),
             "current_section_index": row["c_current_section_index"],
@@ -336,6 +335,11 @@ class SourceTraceAnalysisService:
             "updated_at": row["c_updated_at"].isoformat(),
             "expires_at": row["c_expires_at"].isoformat(),
         }
+
+        if include_report:
+            serialized["report"] = payload.get("report", {})
+
+        return serialized
 
     async def create_session(
         self,
@@ -442,9 +446,18 @@ class SourceTraceAnalysisService:
         )
         await self.session.commit()
 
-        return await self.get_session(owner_id, session_id)
+        return await self.get_session(
+            owner_id,
+            session_id,
+            include_report=False,
+        )
 
-    async def get_session(self, user_id: str, session_id: str) -> dict:
+    async def get_session(
+        self,
+        user_id: str,
+        session_id: str,
+        include_report: bool = True,
+    ) -> dict:
         owner_id = self._uuid(user_id, "authenticated user ID")
         normalized_id = self._uuid(session_id, "analysis session ID")
 
@@ -472,7 +485,7 @@ class SourceTraceAnalysisService:
                 404,
             )
 
-        return self._serialize(row)
+        return self._serialize(row, include_report=include_report)
 
     async def save_checkpoint(
         self,
@@ -667,4 +680,17 @@ class SourceTraceAnalysisService:
         )
         await self.session.commit()
 
-        return await self.get_session(owner_id, normalized_id)
+        return {
+            "analysis_session_id": normalized_id,
+            "current_section_index": current_index,
+            "section_count": len(sections),
+            "status": status,
+            "definition_code": definition_code or row["c_definition_code"],
+            "conversation_id": conversation_id or (
+                str(row["c_conversation_id"])
+                if row["c_conversation_id"]
+                else None
+            ),
+            "analysis_state": state,
+            "updated_section": sections[section_index],
+        }
