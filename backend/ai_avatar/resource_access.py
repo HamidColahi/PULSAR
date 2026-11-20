@@ -17,6 +17,7 @@ from __future__ import annotations
 import io
 import json
 import logging
+import re
 from typing import Any
 
 from sqlalchemy import text
@@ -294,7 +295,7 @@ class FunctionOutputResourceService:
 
         tokens = [
             token.strip()
-            for token in re.split(r"\\s+", normalized_text)
+            for token in re.split(r"\s+", normalized_text)
             if len(token.strip()) >= 2
         ][:12]
 
