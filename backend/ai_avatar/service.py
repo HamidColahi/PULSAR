@@ -4,7 +4,7 @@
 # Description:
 # Metadata-driven AI Avatar runtime with encrypted conversation persistence
 #
-# Change Date: 2026-11-20 15:32
+# Change Date: 2026-11-20 16:10
 # Timezone: Asia/Baku
 #
 # Author: MHKolahi@gmail.com
@@ -1183,6 +1183,8 @@ class AIAvatarService:
         definition_id: str,
         avatar_manager_id: int,
         history_retention_days: int,
+        conversation_id: str | None = None,
+        force_new: bool = False,
     ) -> str:
         await self.session.execute(
             text(
@@ -1212,10 +1214,40 @@ class AIAvatarService:
             },
         )
 
-        conversation = await self._fetch_one(
-            """
-            SELECT c_conversation_id
-            FROM pulsar.t_ai_avatar_conversation
+        if conversation_id is not None:
+            conversation = await self._fetch_one(
+                """
+                SELECT c_conversation_id
+                FROM pulsar.t_ai_avatar_conversation
+                WHERE c_conversation_id = CAST(:conversation_id AS uuid)
+                  AND c_user_id = CAST(:user_id AS uuid)
+                  AND c_ai_definition_id = CAST(:definition_id AS uuid)
+                  AND upper(c_state) = 'ACTIVE'
+                  AND c_expires_at > CURRENT_TIMESTAMP
+                LIMIT 1
+                """,
+                {
+                    "conversation_id": conversation_id,
+                    "user_id": user_id,
+                    "definition_id": definition_id,
+                },
+            )
+
+            if not conversation:
+                raise AIAvatarServiceError(
+                    "The requested AI Avatar conversation is unavailable.",
+                    404,
+                )
+
+            return str(conversation["c_conversation_id"])
+
+        conversation = None
+
+        if not force_new:
+            conversation = await self._fetch_one(
+                """
+                SELECT c_conversation_id
+                FROM pulsar.t_ai_avatar_conversation
             WHERE c_user_id = CAST(:user_id AS uuid)
               AND c_ai_definition_id = CAST(:definition_id AS uuid)
               AND upper(c_state) = 'ACTIVE'
@@ -1223,11 +1255,11 @@ class AIAvatarService:
             ORDER BY c_last_message_at DESC
             LIMIT 1
             """,
-            {
-                "user_id": user_id,
-                "definition_id": definition_id,
-            },
-        )
+                {
+                    "user_id": user_id,
+                    "definition_id": definition_id,
+                },
+            )
 
         if conversation:
             return str(conversation["c_conversation_id"])
@@ -2171,6 +2203,9 @@ class AIAvatarService:
         user_message: str,
         user_id: str,
         context_variables: dict[str, Any] | None = None,
+        conversation_id: str | None = None,
+        new_conversation: bool = False,
+        include_history: bool = True,
     ) -> dict[str, Any]:
         """Execute a metadata-defined Avatar conversation with persisted history."""
 
@@ -2190,6 +2225,24 @@ class AIAvatarService:
             user_id,
             "authenticated user ID",
         )
+
+        if type(new_conversation) is not bool or type(include_history) is not bool:
+            raise AIAvatarServiceError(
+                "Invalid AI Avatar conversation options.",
+                400,
+            )
+
+        if conversation_id is not None and new_conversation:
+            raise AIAvatarServiceError(
+                "A conversation ID cannot be combined with new_conversation.",
+                400,
+            )
+
+        if conversation_id is not None:
+            conversation_id = self._normalize_uuid(
+                conversation_id,
+                "AI Avatar conversation ID",
+            )
 
         safe_context_variables = self._validate_context_variables(
             context_variables
@@ -2229,13 +2282,19 @@ class AIAvatarService:
             definition_id=definition_id,
             avatar_manager_id=definition["c_avatar_manager_id"],
             history_retention_days=history_retention_days,
+            conversation_id=conversation_id,
+            force_new=new_conversation,
         )
 
-        history = await self._load_conversation_history(
-            user_id=user_id,
-            definition_id=definition_id,
-            conversation_id=conversation_id,
-            max_messages=max_history_messages,
+        history = (
+            await self._load_conversation_history(
+                user_id=user_id,
+                definition_id=definition_id,
+                conversation_id=conversation_id,
+                max_messages=max_history_messages,
+            )
+            if include_history
+            else []
         )
 
         memories = await self._load_long_term_memories(
