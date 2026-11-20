@@ -110,12 +110,16 @@ class FunctionOutputResourceService:
         self,
         output_config_id: int,
         definition_code: str,
+        schema_name: str,
+        function_name: str,
     ) -> tuple[dict[str, Any], list[dict[str, Any]]]:
         config_result = await self.session.execute(
             text(
                 """
                 SELECT
                     output_config_id,
+                    schema_name,
+                    function_name,
                     c_avatar_manager_id
                 FROM pulsar.t_function_output_config
                 WHERE output_config_id = :output_config_id
@@ -131,6 +135,15 @@ class FunctionOutputResourceService:
             raise FunctionOutputResourceError(
                 "The requested Function output configuration is unavailable.",
                 404,
+            )
+
+        if (
+            config["schema_name"] != schema_name
+            or config["function_name"] != function_name
+        ):
+            raise FunctionOutputResourceError(
+                "The output configuration does not belong to the requested Function.",
+                403,
             )
 
         definition_result = await self.session.execute(
@@ -559,6 +572,8 @@ class FunctionOutputResourceService:
         self,
         output_config_id: int,
         definition_code: str,
+        schema_name: str,
+        function_name: str,
         search_text: str = "",
         row_numbers: list[int] | None = None,
     ) -> dict[str, Any]:
@@ -573,6 +588,17 @@ class FunctionOutputResourceService:
         if not isinstance(definition_code, str) or not definition_code.strip():
             raise FunctionOutputResourceError(
                 "An AI Avatar definition code is required.",
+                422,
+            )
+
+        if (
+            not isinstance(schema_name, str)
+            or not schema_name.strip()
+            or not isinstance(function_name, str)
+            or not function_name.strip()
+        ):
+            raise FunctionOutputResourceError(
+                "The Function schema and name are required.",
                 422,
             )
 
@@ -596,6 +622,8 @@ class FunctionOutputResourceService:
         _, access_rows = await self._resolve_authorization(
             output_config_id=output_config_id,
             definition_code=definition_code.strip(),
+            schema_name=schema_name.strip(),
+            function_name=function_name.strip(),
         )
 
         access_by_code = {
@@ -607,6 +635,8 @@ class FunctionOutputResourceService:
             "contract": "PULSAR_FUNCTION_OUTPUT_RESOURCE_EVIDENCE",
             "output_config_id": output_config_id,
             "definition_code": definition_code.strip(),
+            "schema_name": schema_name.strip(),
+            "function_name": function_name.strip(),
             "resources": [],
             "table_1": None,
             "related_rules": [],
