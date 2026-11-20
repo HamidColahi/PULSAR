@@ -15,6 +15,7 @@ from __future__ import annotations
 
 import json
 import uuid
+from datetime import datetime, timezone
 from typing import Any
 
 from sqlalchemy import text
@@ -509,6 +510,7 @@ class PaliAnalystAnalysisService:
         analysis_state: dict | None = None,
         definition_code: str | None = None,
         conversation_id: str | None = None,
+        interaction: dict | None = None,
     ) -> dict:
         owner_id = self._uuid(user_id, "authenticated user ID")
         normalized_id = self._uuid(session_id, "analysis session ID")
@@ -555,6 +557,27 @@ class PaliAnalystAnalysisService:
                 "AI Avatar conversation ID",
             )
 
+        if interaction is not None:
+            if not isinstance(interaction, dict):
+                raise PaliAnalystAnalysisError("Invalid Pali Analyst interaction.", 422)
+
+            question = interaction.get("question")
+            answer = interaction.get("answer")
+            if (
+                not isinstance(question, str)
+                or not question.strip()
+                or len(question) > 2000
+                or not isinstance(answer, str)
+                or not answer.strip()
+                or len(answer) > 8000
+            ):
+                raise PaliAnalystAnalysisError("Invalid Pali Analyst question or answer.", 422)
+
+            interaction = {
+                "question": question.strip(),
+                "answer": answer.strip(),
+            }
+
         result = await self.session.execute(
             text(
                 """
@@ -592,6 +615,16 @@ class PaliAnalystAnalysisService:
             )
 
         section = sections[section_index]
+
+        if interaction is not None:
+            interactions = section.get("interactions", [])
+            if not isinstance(interactions, list):
+                interactions = []
+            interactions.append({
+                **interaction,
+                "created_at": datetime.now(timezone.utc).isoformat(),
+            })
+            section["interactions"] = interactions[-20:]
 
         if analysis is not None:
             section["analysis"] = analysis.strip()
