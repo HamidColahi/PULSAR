@@ -8,7 +8,7 @@
 #
 # Author: MHKolahi@gmail.com
 # In collaboration with GPT4 Chat Assistant: Bahram
-# Modified: 2026-10-09 01:00 (Asia/Baku)
+# Modified: 2026-11-21 04:00 (Asia/Baku)
 # =================================================
 
 import logging
@@ -153,13 +153,15 @@ async def _load_output_configuration(
     query = text(
         """
         SELECT
+            output_config_id,
             output_type_code,
             renderer_key,
             presentation_code,
             display_options,
             is_default,
             priority,
-            config_code
+            config_code,
+            c_avatar_manager_id
         FROM pulsar.t_function_output_config
         WHERE schema_name = :schema_name
           AND function_name = :function_name
@@ -222,6 +224,7 @@ async def _load_output_configuration(
         allowed_types.add(output_type)
 
         normalized_configs.append({
+            "output_config_id": config["output_config_id"],
             "output_type_code": output_type,
             "renderer_key": renderer_key,
             "presentation_code": presentation_code,
@@ -229,6 +232,7 @@ async def _load_output_configuration(
             "is_default": bool(config["is_default"]),
             "priority": config["priority"],
             "config_code": config["config_code"],
+            "avatar_manager_id": config["c_avatar_manager_id"],
         })
 
     if not allowed_types:
@@ -254,6 +258,8 @@ async def _load_output_configuration(
                 config["presentation_code"]
             )
             selected_options["config_code"] = config["config_code"]
+            selected_options["output_config_id"] = config["output_config_id"]
+            selected_options["avatar_manager_id"] = config["avatar_manager_id"]
             break
 
     if not selected_options:
@@ -268,6 +274,8 @@ async def _load_output_configuration(
             first_config["presentation_code"]
         )
         selected_options["config_code"] = first_config["config_code"]
+        selected_options["output_config_id"] = first_config["output_config_id"]
+        selected_options["avatar_manager_id"] = first_config["avatar_manager_id"]
 
     return allowed_types, selected_options
 
@@ -488,6 +496,15 @@ async def execute_panel_function(
         effective_options = dict(configured_options)
         effective_options.update(request.display_options)
 
+        # Output configuration identity and Avatar assignment are trusted
+        # database metadata and cannot be overridden by request options.
+        effective_options["output_config_id"] = configured_options.get(
+            "output_config_id"
+        )
+        effective_options["avatar_manager_id"] = configured_options.get(
+            "avatar_manager_id"
+        )
+
         formatted_result = format_function_result(
             result=output,
             result_kind=result_kind,
@@ -504,6 +521,8 @@ async def execute_panel_function(
                 "presentation_code"
             ),
             "config_code": effective_options.get("config_code"),
+            "output_config_id": effective_options.get("output_config_id"),
+            "avatar_manager_id": effective_options.get("avatar_manager_id"),
         })
 
         response_payload = {
