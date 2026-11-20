@@ -1,8 +1,8 @@
 
 <!--
 File: Pulsar/frontend/src/components/tools/source_trace_panel.vue
-Version: 1.7
-Modified: 2026-11-20 19:00 Asia/Baku
+Version: 1.8
+Modified: 2026-11-20 19:15 Asia/Baku
 In collaboration with GPT4 Chat Assistant: Bahram
 -->
 <template>
@@ -673,15 +673,25 @@ function parsePaliStatus(value) {
   return match ? match[1].toUpperCase() : 'CONTINUE'
 }
 
+function extractNamedSection(value, label, maximumLength) {
+  const pattern = new RegExp(
+    `(?:^|\\n)${label}\\s*:\\s*([\\s\\S]*?)(?=\\n[A-Z][A-Z _-]{2,}:|$)`,
+    'i'
+  )
+  const match = String(value).match(pattern)
+
+  return (match?.[1] || '').trim().slice(0, maximumLength)
+}
+
 function extractCheckpointSummary(value) {
   const text = String(value)
-  const match = text.match(
-    /CHECKPOINT SUMMARY\s*:\s*([\s\S]*?)(?=\n[A-Z][A-Z _-]{2,}:|$)/i
+  const summary = extractNamedSection(
+    text,
+    'CHECKPOINT SUMMARY',
+    600
   )
 
-  const summary = (match?.[1] || text).trim()
-
-  return summary.slice(0, 600)
+  return summary || text.slice(0, 600)
 }
 
 function buildAnalysisState(analysis, paliStatus, section) {
@@ -690,18 +700,31 @@ function buildAnalysisState(analysis, paliStatus, section) {
     ? [...previous.section_summaries]
     : []
 
+  const checkpointSummary = extractCheckpointSummary(analysis)
+  const runningSummary = extractNamedSection(
+    analysis,
+    'RUNNING ANALYSIS STATE',
+    5000
+  )
+
+  const fallbackRunningSummary = [
+    previous.running_summary || '',
+    checkpointSummary
+  ].filter(Boolean).join('\\n').slice(-5000)
+
   summaries.push({
     section_id: section.section_id,
     section_title: section.title,
     status: paliStatus,
-    summary: extractCheckpointSummary(analysis)
+    summary: checkpointSummary
   })
 
   return {
     version: 1,
     last_section_id: section.section_id,
     last_status: paliStatus,
-    section_summaries: summaries.slice(-8),
+    running_summary: runningSummary || fallbackRunningSummary,
+    section_summaries: summaries.slice(-4),
     programmer_decisions: Array.isArray(previous.programmer_decisions)
       ? previous.programmer_decisions
       : []
@@ -717,7 +740,7 @@ function buildDecisionState(decision, note) {
   decisions.push({
     section_id: activeSection.value?.section_id || null,
     decision,
-    note: note ? note.slice(0, 300) : null
+    note: note ? note.slice(0, 200) : null
   })
 
   return {
@@ -758,7 +781,9 @@ async function analyzeCurrentSection(force = false) {
         'Do not invent source evidence or conclusions that are absent from the supplied section.',
         'A ROOT_CAUSE status is allowed only when the current evidence is sufficient and directly supports it.',
         'At the end, output STATUS: FINDING, QUESTION, CONFLICT, ROOT_CAUSE, or CONTINUE.',
-        'Then output CHECKPOINT SUMMARY: with a concise summary of the verified evidence and unresolved items, maximum 1200 characters.',
+        'Then output RUNNING ANALYSIS STATE: with a cumulative, evidence-linked summary of verified findings, unresolved questions, conflicts, rejected hypotheses, and programmer decisions; maximum 5000 characters.',
+        'Preserve important evidence from earlier sections in the running state without inventing or overstating conclusions.',
+        'Finally output CHECKPOINT SUMMARY: with a concise summary of this section; maximum 600 characters.',
         'Keep the response focused so the programmer can review this checkpoint before continuing.'
       ],
       session: {
