@@ -368,7 +368,7 @@ async def get_function_output_resources(
     service = FunctionOutputResourceService(session)
 
     try:
-        return await service.retrieve(
+        result = await service.retrieve(
             output_config_id=payload.output_config_id,
             definition_code=_validate_definition_code(payload.definition_code),
             schema_name=payload.schema_name,
@@ -376,12 +376,16 @@ async def get_function_output_resources(
             search_text=payload.search_text,
             row_numbers=payload.row_numbers,
         )
+        await session.commit()
+        return result
     except FunctionOutputResourceError as exc:
+        await session.rollback()
         raise HTTPException(
             status_code=exc.status_code,
             detail=exc.message,
         ) from exc
     except Exception as exc:
+        await session.rollback()
         logger.exception(
             "Function output resource retrieval failed for output config %s.",
             payload.output_config_id,
