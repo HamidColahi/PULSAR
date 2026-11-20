@@ -63,7 +63,18 @@ BEGIN
             'No components_config rows found for pulsar.table_1.guidance_pdf in insert/update/view modes. Verify component metadata before retrying.';
     END IF;
 END;
-$$;
+$;
+
+UPDATE pulsar.components_config AS cc
+SET
+    visible_in_grid = false,
+    visible_in_search = false
+FROM pulsar.components_base AS cb
+WHERE cb.component_name = cc.component_name
+  AND LOWER(cb.schm_name) = 'pulsar'
+  AND LOWER(cb.tbl_name) = 'table_1'
+  AND cc.field_name = 'guidance_pdf'
+  AND cc.field_mode IN ('list', 'grid', 'search');
 
 COMMIT;
 
