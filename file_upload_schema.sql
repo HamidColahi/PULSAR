@@ -66,3 +66,20 @@ END;
 $$;
 
 COMMIT;
+
+SELECT
+    cb.component_name,
+    cc.field_mode,
+    cc.field_name,
+    cc.control_type,
+    cc.accepted_mime_types,
+    cc.max_file_size_bytes,
+    cc.visible_in_form,
+    cc.is_readonly
+FROM pulsar.components_config AS cc
+JOIN pulsar.components_base AS cb
+  ON cb.component_name = cc.component_name
+WHERE LOWER(cb.schm_name) = 'pulsar'
+  AND LOWER(cb.tbl_name) = 'table_1'
+  AND cc.field_name = 'guidance_pdf'
+ORDER BY cc.field_mode;
