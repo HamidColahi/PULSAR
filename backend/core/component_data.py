@@ -1349,13 +1349,47 @@ def create_component_data_router(
             field_name
         ) or "download"
 
+        file_configs = await _load_file_field_configs(
+            session,
+            component_name,
+            "view",
+        )
+        file_config = file_configs.get(field_name, {})
+        accepted_types = [
+            str(item).strip().lower()
+            for item in file_config.get("accepted_mime_types", [])
+            if str(item).strip()
+        ]
+
+        extension = next(
+            (
+                item for item in accepted_types
+                if item.startswith(".")
+                and re.fullmatch(r"\.[a-z0-9]{1,10}", item)
+            ),
+            None,
+        )
+        if extension is None and "application/pdf" in accepted_types:
+            extension = ".pdf"
+
+        if extension and not safe_filename.lower().endswith(extension):
+            safe_filename = f"{safe_filename}{extension}"
+
+        media_type = next(
+            (
+                item for item in accepted_types
+                if "/" in item and not item.endswith("/*")
+            ),
+            "application/octet-stream",
+        )
+
         encoded_filename = quote(
             safe_filename
         )
 
         return Response(
             content=bytes(content),
-            media_type="application/octet-stream",
+            media_type=media_type,
             headers={
                 "Content-Disposition": (
                     f"attachment; filename=\"{safe_filename}\"; "
