@@ -176,7 +176,7 @@ CROSS JOIN (
     (
         'COLONY_CONCEPT_SEARCH',
         'SEARCH',
-        '{"max_results": 20, "match_fields": ["concept_name", "concept_code", "concept_aliases", "definition", "source_excerpt"]}'::jsonb,
+        '{"max_results": 20}'::jsonb,
         true,
         50
     )
