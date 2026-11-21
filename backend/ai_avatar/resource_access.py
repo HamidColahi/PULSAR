@@ -690,7 +690,7 @@ class FunctionOutputResourceService:
                 f"OR COALESCE(source_excerpt, '') ILIKE :{bind_key} "
                 "OR EXISTS ("
                 "SELECT 1 "
-                "FROM unnest(concept_aliases) AS alias_value "
+                "FROM unnest(concept_aliases) AS aliases(alias_value) "
                 f"WHERE alias_value ILIKE :{bind_key}"
                 ")"
                 ")"
@@ -717,7 +717,7 @@ class FunctionOutputResourceService:
                         WHEN lower(concept_name) = :exact_phrase THEN 0
                         WHEN EXISTS (
                             SELECT 1
-                            FROM unnest(concept_aliases) AS alias_value
+                            FROM unnest(concept_aliases) AS aliases(alias_value)
                             WHERE lower(alias_value) = :exact_phrase
                         ) THEN 1
                         WHEN lower(concept_code) = :exact_phrase THEN 2
