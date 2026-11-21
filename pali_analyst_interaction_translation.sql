@@ -1,7 +1,7 @@
 /*
 File: PULSAR/pali_analyst_interaction_translation.sql
 Description: Translation entries for interactive Pali Analyst controls
-Change Date: 2026-11-21 01:00 (Asia/Baku)
+Change Date: 2026-11-21 20:00 (Asia/Baku)
 In collaboration with GPT4 Chat Assistant: Bahram
 */
 
@@ -29,7 +29,15 @@ FROM (
         ('pulsar.pali_analyst.ask', 'en', 'Ask Pali'),
         ('pulsar.pali_analyst.ask', 'fa', 'پرسیدن از پالی'),
         ('pulsar.pali_analyst.asking', 'en', 'Pali is preparing an evidence-based answer...'),
-        ('pulsar.pali_analyst.asking', 'fa', 'پالی در حال آماده‌سازی پاسخ مبتنی بر شواهد است...')
+        ('pulsar.pali_analyst.asking', 'fa', 'پالی در حال آماده‌سازی پاسخ مبتنی بر شواهد است...'),
+        ('pulsar.pali_analyst.button', 'en', 'Pali Analyst'),
+        ('pulsar.pali_analyst.button', 'fa', 'تحلیلگر پالی'),
+        ('pulsar.pali_analyst.concepts', 'en', 'Retrieved Colony Concepts'),
+        ('pulsar.pali_analyst.concepts', 'fa', 'مفاهیم بازیابی‌شدهٔ Colony'),
+        ('pulsar.pali_analyst.conceptsHint', 'en', 'Definitions are retrieved from the Colony concept repository. Table 1 remains authoritative for process sequence and state transitions.'),
+        ('pulsar.pali_analyst.conceptsHint', 'fa', 'تعریف‌ها از مخزن مفاهیم Colony بازیابی می‌شوند. برای توالی فرایند و تغییر وضعیت‌ها، Table 1 همچنان مرجع معتبر است.'),
+        ('pulsar.pali_analyst.noConcepts', 'en', 'No matching active concepts were found for this section.'),
+        ('pulsar.pali_analyst.noConcepts', 'fa', 'مفهوم فعال و مرتبطی برای این بخش پیدا نشد.')
 ) AS source(item_code, language_code, translated_text)
 WHERE NOT EXISTS (
     SELECT 1
