@@ -46,8 +46,8 @@ In collaboration with GPT4 Chat Assistant: Bahram
             <path d="M3 3v5h5" />
           </svg>
         </button>
-        </div>
-        <button
+      </div>
+      <button
         type="button"
         class="pali-close"
         :title="t('close')"
