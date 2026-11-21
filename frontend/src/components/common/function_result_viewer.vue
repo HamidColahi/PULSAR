@@ -540,6 +540,7 @@ const translationKeys = computed(() => [
   'pulsar.function_result.direction_auto',
   'pulsar.function_result.direction_ltr',
   'pulsar.function_result.direction_rtl',
+  'pulsar.pali_analyst.button',
   'pulsar.common.yes',
   'pulsar.common.no',
   ...tableColumns.value.map(
