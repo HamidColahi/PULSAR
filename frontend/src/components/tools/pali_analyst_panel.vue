@@ -435,6 +435,26 @@ function buildSearchText(value, output = []) {
   return output.join(' ').slice(0, 4000)
 }
 
+async function loadActiveEvidence(section = activeSection.value) {
+  if (!section) {
+    activeEvidence.value = null
+    return null
+  }
+
+  const definition = await initializeAnalyst()
+  activeEvidence.value = null
+  const resources = await getFunctionOutputResources({
+    output_config_id: outputConfigId.value,
+    definition_code: definition.definition_code,
+    schema_name: metadata.value.schema_name,
+    function_name: functionName.value,
+    search_text: buildSearchText(section.content),
+    row_numbers: collectRowNumbers(section.content)
+  })
+  activeEvidence.value = resources
+  return resources
+}
+
 function normalizeResponse(response) {
   const value = response?.response ?? response
   if (typeof value === 'string') return value
@@ -580,6 +600,8 @@ async function loadOrCreateSession() {
         analysisSession.value = saved
         if (saved.status === 'READY') {
           await analyzeCurrentSection()
+        } else {
+          await loadActiveEvidence()
         }
         return
       }
@@ -612,16 +634,7 @@ async function analyzeCurrentSection() {
 
   try {
     const definition = await initializeAnalyst()
-    const resources = await getFunctionOutputResources({
-      output_config_id: outputConfigId.value,
-      definition_code: definition.definition_code,
-      schema_name: metadata.value.schema_name,
-      function_name: functionName.value,
-      search_text: buildSearchText(section.content),
-      row_numbers: collectRowNumbers(section.content)
-    })
-    activeEvidence.value = resources
-    activeEvidence.value = resources
+    const resources = await loadActiveEvidence(section)
 
     const message = [
       'PALI ANALYST — SECTION REVIEW',
@@ -703,14 +716,7 @@ async function askQuestion() {
   try {
     const definition = await initializeAnalyst()
     const section = activeSection.value
-    const resources = await getFunctionOutputResources({
-      output_config_id: outputConfigId.value,
-      definition_code: definition.definition_code,
-      schema_name: metadata.value.schema_name,
-      function_name: functionName.value,
-      search_text: buildSearchText(section.content),
-      row_numbers: collectRowNumbers(section.content)
-    })
+    const resources = await loadActiveEvidence(section)
 
     const message = [
       'PALI ANALYST — USER QUESTION',
