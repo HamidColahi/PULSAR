@@ -1,7 +1,7 @@
 <!--
 File: Pulsar/frontend/src/components/tools/pali_analyst_panel.vue
 Description: Metadata-driven interactive Pali Analyst for Function output evidence
-Change Date: 2026-11-21 20:00 (Asia/Baku)
+Change Date: 2026-11-22 22:00 (Asia/Baku)
 In collaboration with GPT4 Chat Assistant: Bahram
 -->
 <template>
@@ -15,7 +15,24 @@ In collaboration with GPT4 Chat Assistant: Bahram
             : t('subtitle') }}
         </p>
       </div>
-      <button
+      <div class="pali-header-actions">
+        <span v-if="copyFeedback" class="pali-copy-feedback" role="status">
+          {{ copyFeedback }}
+        </span>
+        <button
+          v-if="analysisSession"
+          type="button"
+          class="pali-copy"
+          :title="copyFeedback || t('copyReport')"
+          :aria-label="t('copyReport')"
+          @click="copyFullReport"
+        >
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+            <rect x="8" y="8" width="12" height="13" rx="2" />
+            <path d="M16 8V5a2 2 0 0 0-2-2H5a2 2 0 0 0-2 2v9a2 2 0 0 0 2 2h3" />
+          </svg>
+        </button>
+        <button
         type="button"
         class="pali-close"
         :title="t('close')"
@@ -272,7 +289,10 @@ const translationFallbacks = {
   asking: 'Pali is preparing an evidence-based answer...',
   concepts: 'Retrieved Colony Concepts',
   conceptsHint: 'Definitions are retrieved from the Colony concept repository. Table 1 remains authoritative for process sequence and state transitions.',
-  noConcepts: 'No matching active concepts were found for this section.'
+  noConcepts: 'No matching active concepts were found for this section.',
+  copyReport: 'Copy full analysis',
+  copied: 'Analysis copied',
+  copyFailed: 'Could not copy analysis'
 }
 
 const translations = ref({})
@@ -311,6 +331,7 @@ const analysisSession = ref(null)
 const activeEvidence = ref(null)
 const reviewNote = ref('')
 const userQuestion = ref('')
+const copyFeedback = ref('')
 
 const metadata = computed(() => props.display?.metadata || {})
 const outputConfigId = computed(() => Number(metadata.value.output_config_id))
@@ -794,6 +815,99 @@ function formatTimestamp(value) {
     : date.toLocaleString()
 }
 
+function buildFullReportMarkdown() {
+  const sections = Array.isArray(analysisSession.value?.sections)
+    ? analysisSession.value.sections
+    : []
+
+  const lines = [
+    '# Pali Analyst Report',
+    '',
+    `- Function: ${functionName.value}`,
+    `- Schema: ${metadata.value.schema_name || 'N/A'}`,
+    `- Output Configuration: ${outputConfigId.value}`,
+    `- Session Status: ${analysisSession.value?.status || 'N/A'}`,
+    `- Sections: ${sections.length}`,
+    ''
+  ]
+
+  sections.forEach((section, index) => {
+    lines.push(
+      `## ${index + 1}. ${section.title || 'Untitled Section'}`,
+      '',
+      `- Section Type: ${section.section_type || 'N/A'}`,
+      `- Review Status: ${section.status || 'N/A'}`,
+      `- Pali Status: ${section.pali_status || 'N/A'}`,
+      ''
+    )
+
+    if (section.analysis) {
+      lines.push('### Pali Analysis', '', String(section.analysis).trim(), '')
+    } else {
+      lines.push('_No analysis has been recorded for this section._', '')
+    }
+
+    const interactions = Array.isArray(section.interactions)
+      ? section.interactions
+      : []
+
+    if (interactions.length) {
+      lines.push('### Questions and Answers', '')
+      interactions.forEach((item, interactionIndex) => {
+        lines.push(
+          `#### Question ${interactionIndex + 1}`,
+          '',
+          String(item.question || '').trim(),
+          '',
+          '#### Answer',
+          '',
+          String(item.answer || '').trim(),
+          ''
+        )
+        if (item.created_at) {
+          lines.push(`_Date: ${formatTimestamp(item.created_at)}_`, '')
+        }
+      })
+    }
+
+    if (section.note) {
+      lines.push('### Review Note', '', String(section.note).trim(), '')
+    }
+
+    lines.push('---', '')
+  })
+
+  return lines.join('\\n').trim()
+}
+
+async function copyFullReport() {
+  if (!analysisSession.value) return
+
+  const report = buildFullReportMarkdown()
+
+  try {
+    if (navigator.clipboard?.writeText) {
+      await navigator.clipboard.writeText(report)
+    } else {
+      const textArea = document.createElement('textarea')
+      textArea.value = report
+      textArea.setAttribute('readonly', '')
+      textArea.style.position = 'fixed'
+      textArea.style.opacity = '0'
+      document.body.appendChild(textArea)
+      textArea.select()
+      const copied = document.execCommand('copy')
+      textArea.remove()
+      if (!copied) throw new Error('Clipboard copy command was rejected.')
+    }
+
+    copyFeedback.value = t('copied')
+  } catch (exception) {
+    console.error('Pali Analyst report could not be copied.', exception)
+    copyFeedback.value = t('copyFailed')
+  }
+}
+
 async function initializeSession() {
   if (initializing.value || busy.value || analysisSession.value) return
 
@@ -960,6 +1074,37 @@ watch(
   border-bottom: 1px solid var(--border-color, #dbe1ea);
   padding-bottom: 10px;
 }
+.pali-header-actions {
+  display: flex;
+  flex: 0 0 auto;
+  align-items: center;
+  gap: 6px;
+}
+.pali-copy,
+.pali-close {
+  display: grid;
+  width: 30px;
+  height: 30px;
+  flex: 0 0 auto;
+  place-items: center;
+  border: 1px solid var(--border-color, #dbe1ea);
+  border-radius: 8px;
+}
+.pali-copy {
+  color: var(--text-secondary, #6b7280);
+}
+.pali-copy:hover {
+  background: var(--surface-secondary, #f3f4f6);
+  color: var(--text-primary, #1f2937);
+}
+.pali-copy svg {
+  width: 16px;
+  height: 16px;
+}
+.pali-copy-feedback {
+  color: var(--text-secondary, #6b7280);
+  font-size: 10px;
+}
 .pali-title {
   overflow: hidden;
   font-size: 14px;
@@ -974,11 +1119,6 @@ watch(
   font-size: 11px;
 }
 .pali-close {
-  flex: 0 0 auto;
-  width: 30px;
-  height: 30px;
-  border: 1px solid var(--border-color, #dbe1ea);
-  border-radius: 8px;
   font-size: 20px;
 }
 .pali-status,
