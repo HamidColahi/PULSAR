@@ -5,7 +5,7 @@
 # Metadata-authorized retrieval of Function output resources
 # for AI Avatar analysis.
 #
-# Change Date: 2026-11-21 04:00
+# Change Date: 2026-11-21 20:00 (Asia/Baku)
 # Timezone: Asia/Baku
 #
 # Author: MHKolahi@gmail.com
@@ -52,6 +52,7 @@ class FunctionOutputResourceService:
         "COLONY_GUIDANCE_PDF": "READ",
         "COLONY_RULE_SEARCH": "SEARCH",
         "COLONY_RELATED_RULES": "SEARCH",
+        "COLONY_CONCEPT_SEARCH": "SEARCH",
     }
 
     SEARCH_FIELDS = {
@@ -645,6 +646,96 @@ class FunctionOutputResourceService:
 
         return documents
 
+
+    async def _search_concepts(
+        self,
+        search_text: str,
+        options: dict[str, Any],
+    ) -> list[dict[str, Any]]:
+        """Retrieve active Colony concepts using bounded lexical evidence matching."""
+
+        normalized_text = search_text.strip()
+        if not normalized_text:
+            return []
+
+        tokens = list(dict.fromkeys(
+            token.lower()
+            for token in re.findall(r"[\w-]{3,}", normalized_text, flags=re.UNICODE)
+        ))[:16]
+
+        if not tokens:
+            return []
+
+        limit = self._bounded_int(
+            options.get("max_results"),
+            default=20,
+            minimum=1,
+            maximum=100,
+        )
+
+        token_conditions = []
+        bind_values: dict[str, Any] = {
+            "result_limit": limit,
+            "exact_phrase": normalized_text[:250].lower(),
+        }
+
+        for index, token in enumerate(tokens):
+            bind_key = f"concept_search_{index}"
+            bind_values[bind_key] = f"%{token[:100]}%"
+            token_conditions.append(
+                "("
+                f"concept_name ILIKE :{bind_key} "
+                f"OR concept_code ILIKE :{bind_key} "
+                f"OR definition ILIKE :{bind_key} "
+                f"OR COALESCE(source_excerpt, '') ILIKE :{bind_key} "
+                "OR EXISTS ("
+                "SELECT 1 "
+                "FROM unnest(concept_aliases) AS alias_value "
+                f"WHERE alias_value ILIKE :{bind_key}"
+                ")"
+                ")"
+            )
+
+        result = await self.session.execute(
+            text(
+                f"""
+                SELECT
+                    concept_id,
+                    concept_code,
+                    concept_name,
+                    concept_type,
+                    definition,
+                    concept_aliases,
+                    source_section,
+                    source_page,
+                    source_excerpt
+                FROM pulsar.t_cln_concept
+                WHERE is_active = TRUE
+                  AND ({" OR ".join(token_conditions)})
+                ORDER BY
+                    CASE
+                        WHEN lower(concept_name) = :exact_phrase THEN 0
+                        WHEN EXISTS (
+                            SELECT 1
+                            FROM unnest(concept_aliases) AS alias_value
+                            WHERE lower(alias_value) = :exact_phrase
+                        ) THEN 1
+                        WHEN lower(concept_code) = :exact_phrase THEN 2
+                        ELSE 3
+                    END,
+                    concept_name,
+                    concept_code
+                LIMIT :result_limit
+                """
+            ),
+            bind_values,
+        )
+
+        return [
+            dict(row)
+            for row in result.mappings().all()
+        ]
+
     async def retrieve(
         self,
         output_config_id: int,
@@ -718,6 +809,7 @@ class FunctionOutputResourceService:
             "table_1": None,
             "related_rules": [],
             "guidance_pdfs": [],
+            "concepts": [],
             "limitations": [],
         }
 
@@ -787,6 +879,20 @@ class FunctionOutputResourceService:
             ):
                 evidence["limitations"].append(
                     "At least one guidance PDF contains no extractable text and requires OCR."
+                )
+
+
+        if "COLONY_CONCEPT_SEARCH" in access_by_code:
+            access = access_by_code["COLONY_CONCEPT_SEARCH"]
+            evidence["concepts"] = await self._search_concepts(
+                search_text,
+                access["access_options"],
+            )
+            evidence["resources"].append("COLONY_CONCEPT_SEARCH")
+
+            if search_text.strip() and not evidence["concepts"]:
+                evidence["limitations"].append(
+                    "No active Colony concept matched the supplied section text."
                 )
 
         evidence["searched_row_numbers"] = selected_row_numbers
