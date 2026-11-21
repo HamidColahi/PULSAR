@@ -10,6 +10,7 @@
 #
 # Author: MHKolahi@gmail.com
 # In collaboration with GPT4 Chat Assistant: Bahram
+# Last Modified: 2026-11-21 01:00 (Asia/Baku)
 # ===============================================
 
 import logging
@@ -112,6 +113,7 @@ class FunctionOutputAnalysisCheckpointRequest(BaseModel):
     analysis_state: dict[str, Any] | None = None
     definition_code: str | None = Field(default=None, max_length=100)
     conversation_id: str | None = Field(default=None, max_length=36)
+    interaction: dict[str, Any] | None = None
 
 
 class AvatarDefinitionResponse(BaseModel):
@@ -501,6 +503,7 @@ async def save_function_output_analysis_checkpoint(
             analysis_state=payload.analysis_state,
             definition_code=payload.definition_code,
             conversation_id=payload.conversation_id,
+            interaction=payload.interaction,
         )
     except PaliAnalystAnalysisError as exc:
         raise HTTPException(

@@ -7,6 +7,7 @@
 #
 # Author: MHKolahi@gmail.com
 # In collaboration with GPT4 Chat Assistant: Bahram
+# Last Modified: 2026-11-21 01:00 (Asia/Baku)
 # ===============================================
 
 from typing import List
@@ -56,6 +57,8 @@ class ComponentFieldConfig(BaseModel):
 
     # UI control metadata.
     control_type: str | None = None
+    accepted_mime_types: List[str] | None = None
+    max_file_size_bytes: int | None = None
     search_mode: str | None = None
 
     visible_in_grid: bool | None = None
@@ -272,6 +275,8 @@ async def read_component_config(
 
                 # UI control metadata.
                 control_type=config.control_type,
+                accepted_mime_types=config.accepted_mime_types,
+                max_file_size_bytes=config.max_file_size_bytes,
                 search_mode=config.search_mode,
 
                 visible_in_grid=config.visible_in_grid,
