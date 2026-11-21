@@ -3,7 +3,7 @@ File: Pulsar/frontend/src/components/common/function_result_viewer.vue
 Description: Generic metadata-driven renderer for PostgreSQL Panel Function results.
 Author: MHKolahi@gmail.com
 In collaboration with GPT4 Chat Assistant: Bahram
-Last Modified: 2026-11-21 04:00 (Asia/Baku)
+Last Modified: 2026-11-21 20:00 (Asia/Baku)
 -->
 
 <template>
@@ -48,7 +48,8 @@ Last Modified: 2026-11-21 04:00 (Asia/Baku)
           class="direction-button pali-analyst-toggle"
           :class="{ 'direction-active': paliAnalystEnabled }"
           :aria-pressed="paliAnalystEnabled"
-          :title="avatarManagerDescription"
+          :title="avatarManagerDescription || translated('pulsar.pali_analyst.button')"
+          :aria-label="translated('pulsar.pali_analyst.button')"
           @click="paliAnalystEnabled = !paliAnalystEnabled"
         >
           <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" aria-hidden="true">
@@ -56,7 +57,7 @@ Last Modified: 2026-11-21 04:00 (Asia/Baku)
             <circle cx="12" cy="12" r="6" />
             <circle cx="12" cy="12" r="2" />
           </svg>
-          <span>{{ avatarManagerDescription || 'AI Analyst' }}</span>
+          <span>{{ translated('pulsar.pali_analyst.button') }}</span>
         </button>
       </div>
 
