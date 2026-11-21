@@ -33,6 +33,21 @@ In collaboration with GPT4 Chat Assistant: Bahram
           </svg>
         </button>
         <button
+          v-if="analysisSession"
+          type="button"
+          class="pali-copy pali-reset"
+          :title="t('resetAnalysis')"
+          :aria-label="t('resetAnalysis')"
+          :disabled="busy || initializing"
+          @click="resetAnalysis"
+        >
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+            <path d="M3 12a9 9 0 1 0 2.64-6.36L3 8" />
+            <path d="M3 3v5h5" />
+          </svg>
+        </button>
+        </div>
+        <button
         type="button"
         class="pali-close"
         :title="t('close')"
@@ -292,7 +307,10 @@ const translationFallbacks = {
   noConcepts: 'No matching active concepts were found for this section.',
   copyReport: 'Copy full analysis',
   copied: 'Analysis copied',
-  copyFailed: 'Could not copy analysis'
+  copyFailed: 'Could not copy analysis',
+  resetAnalysis: 'Start a new analysis',
+  resetConfirm: 'Start a new Pali Analyst session? The current session will remain saved in history, and a new session will be created.',
+  resetFailed: 'Could not start a new analysis session'
 }
 
 const translations = ref({})
@@ -877,7 +895,7 @@ function buildFullReportMarkdown() {
     lines.push('---', '')
   })
 
-  return lines.join('\\n').trim()
+  return lines.join('\n').trim()
 }
 
 async function copyFullReport() {
@@ -905,6 +923,39 @@ async function copyFullReport() {
   } catch (exception) {
     console.error('Pali Analyst report could not be copied.', exception)
     copyFeedback.value = t('copyFailed')
+  }
+}
+
+async function resetAnalysis() {
+  if (busy.value || initializing.value || !analysisSession.value) return
+  if (!window.confirm(t('resetConfirm'))) return
+
+  initializing.value = true
+  busyLabel.value = t('preparing')
+  error.value = ''
+  clearSessionId()
+  analysisSession.value = null
+  activeEvidence.value = null
+  reviewNote.value = ''
+  userQuestion.value = ''
+  copyFeedback.value = ''
+
+  try {
+    const definition = await initializeAnalyst()
+    const session = await createSession(
+      currentReport(),
+      definition.definition_code,
+      outputConfigId.value
+    )
+    analysisSession.value = session
+    storeSessionId(session.analysis_session_id)
+    await analyzeCurrentSection()
+  } catch (exception) {
+    error.value = exception?.response?.data?.detail
+      || exception?.message
+      || t('resetFailed')
+  } finally {
+    initializing.value = false
   }
 }
 
