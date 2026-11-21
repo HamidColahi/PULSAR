@@ -1,7 +1,7 @@
 /*
 File: PULSAR/pali_analyst_interaction_translation.sql
 Description: Translation entries for interactive Pali Analyst controls
-Change Date: 2026-11-21 20:00 (Asia/Baku)
+Change Date: 2026-11-22 22:00 (Asia/Baku)
 In collaboration with GPT4 Chat Assistant: Bahram
 */
 
@@ -37,7 +37,13 @@ FROM (
         ('pulsar.pali_analyst.conceptsHint', 'en', 'Definitions are retrieved from the Colony concept repository. Table 1 remains authoritative for process sequence and state transitions.'),
         ('pulsar.pali_analyst.conceptsHint', 'fa', 'تعریف‌ها از مخزن مفاهیم Colony بازیابی می‌شوند. برای توالی فرایند و تغییر وضعیت‌ها، Table 1 همچنان مرجع معتبر است.'),
         ('pulsar.pali_analyst.noConcepts', 'en', 'No matching active concepts were found for this section.'),
-        ('pulsar.pali_analyst.noConcepts', 'fa', 'مفهوم فعال و مرتبطی برای این بخش پیدا نشد.')
+        ('pulsar.pali_analyst.noConcepts', 'fa', 'مفهوم فعال و مرتبطی برای این بخش پیدا نشد.'),
+        ('pulsar.pali_analyst.copyReport', 'en', 'Copy full analysis'),
+        ('pulsar.pali_analyst.copyReport', 'fa', 'کپی کل تحلیل'),
+        ('pulsar.pali_analyst.copied', 'en', 'Analysis copied'),
+        ('pulsar.pali_analyst.copied', 'fa', 'تحلیل کپی شد'),
+        ('pulsar.pali_analyst.copyFailed', 'en', 'Could not copy analysis'),
+        ('pulsar.pali_analyst.copyFailed', 'fa', 'کپی تحلیل انجام نشد')
 ) AS source(item_code, language_code, translated_text)
 WHERE NOT EXISTS (
     SELECT 1
