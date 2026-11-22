@@ -4,7 +4,7 @@
 # Description:
 # Metadata-driven AI Avatar runtime with encrypted conversation persistence
 #
-# Change Date: 2026-11-20 16:10
+# Change Date: 2026-11-22 23:26
 # Timezone: Asia/Baku
 #
 # Author: MHKolahi@gmail.com
@@ -909,6 +909,9 @@ class AIAvatarService:
 
         config = self._merge_dicts(model_parameters, operation_parameters)
         config["transport"] = transport
+        config["provider_code"] = str(
+            model.get("c_provider_code") or ""
+        ).strip().upper()
         config["model_parameters"] = model_parameters
         config["operation_parameters"] = operation_parameters
 
@@ -1764,6 +1767,52 @@ class AIAvatarService:
             )
 
         request_body = self._render_value(request_template, request_values)
+
+        if config.get("provider_code") == "OLLAMA":
+            runtime_limits = config.get("runtime_limits")
+
+            if runtime_limits is not None:
+                if not isinstance(runtime_limits, dict):
+                    raise AIAvatarServiceError(
+                        "Ollama runtime_limits must be a JSON object.",
+                        409,
+                    )
+
+                if not isinstance(request_body, dict):
+                    raise AIAvatarServiceError(
+                        "Ollama chat requests must use a JSON object body.",
+                        409,
+                    )
+
+                options = request_body.setdefault("options", {})
+                if not isinstance(options, dict):
+                    raise AIAvatarServiceError(
+                        "Ollama request options must be a JSON object.",
+                        409,
+                    )
+
+                option_bounds = {
+                    "num_thread": (1, 16),
+                    "num_ctx": (1024, 16384),
+                    "num_predict": (128, 8192),
+                }
+
+                for option_name, (minimum, maximum) in option_bounds.items():
+                    option_value = runtime_limits.get(option_name)
+
+                    if option_value is None:
+                        continue
+
+                    if (
+                        type(option_value) is not int
+                        or not minimum <= option_value <= maximum
+                    ):
+                        raise AIAvatarServiceError(
+                            f"Invalid Ollama runtime limit: {option_name}.",
+                            409,
+                        )
+
+                    options[option_name] = option_value
 
         # Temporary Pali request diagnostics.
         # Do not log the full runtime context or conversation content.
