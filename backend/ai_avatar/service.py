@@ -683,6 +683,7 @@ class AIAvatarService:
                 m.c_parameters AS model_parameters,
                 p.c_ai_provider_id,
                 p.c_provider_code,
+                p.c_runtime_code,
                 p.c_title AS provider_title,
                 p.c_api_base_url,
                 p.c_api_key_ref
@@ -911,6 +912,9 @@ class AIAvatarService:
         config["transport"] = transport
         config["provider_code"] = str(
             model.get("c_provider_code") or ""
+        ).strip().upper()
+        config["runtime_code"] = str(
+            model.get("c_runtime_code") or ""
         ).strip().upper()
         config["model_parameters"] = model_parameters
         config["operation_parameters"] = operation_parameters
@@ -1768,7 +1772,7 @@ class AIAvatarService:
 
         request_body = self._render_value(request_template, request_values)
 
-        if config.get("provider_code") == "OLLAMA":
+        if config.get("runtime_code") == "OLLAMA":
             runtime_limits = config.get("runtime_limits")
 
             if runtime_limits is not None:
