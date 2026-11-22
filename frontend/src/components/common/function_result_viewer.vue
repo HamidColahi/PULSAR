@@ -37,6 +37,17 @@ Last Modified: 2026-11-22 23:26 (Asia/Baku)
           v-if="displayType === 'structured_report'"
           type="button"
           class="direction-button report-action-button"
+          :title="translated('pulsar.function_result.raw_json')"
+          :aria-pressed="showStructuredRaw"
+          @click="showStructuredRaw = !showStructuredRaw"
+        >
+          JSON
+        </button>
+
+        <button
+          v-if="displayType === 'structured_report'"
+          type="button"
+          class="direction-button report-action-button"
           :title="translated('pulsar.function_result.print_report')"
           :aria-label="translated('pulsar.function_result.print_report')"
           @click="printStructuredReport"
@@ -306,12 +317,14 @@ Last Modified: 2026-11-22 23:26 (Asia/Baku)
           </div>
         </div>
 
-        <StructuredReportRenderer
-          v-else-if="displayType === 'structured_report'"
-          :data="data"
-          :definition="structuredReportDefinition"
-          :direction="resultDirection"
-        />
+        <template v-else-if="displayType === 'structured_report'">
+          <StructuredReportRenderer
+            :data="data"
+            :definition="structuredReportDefinition"
+            :direction="resultDirection"
+          />
+          <pre v-if="showStructuredRaw" class="result-json structured-raw-json">{{ prettyJson(data) }}</pre>
+        </template>
 
         <div
           v-else-if="displayType === 'json'"
@@ -394,6 +407,7 @@ const props = defineProps({
 })
 
 const paliAnalystEnabled = ref(false)
+const showStructuredRaw = ref(false)
 
 const hasPaliAnalyst = computed(() => {
   const managerId = Number(props.display?.metadata?.avatar_manager_id)
@@ -587,6 +601,7 @@ const translationKeys = computed(() => [
   'pulsar.function_result.direction_rtl',
   'pulsar.function_result.copy_report',
   'pulsar.function_result.print_report',
+  'pulsar.function_result.raw_json',
   'pulsar.pali_analyst.button',
   'pulsar.common.yes',
   'pulsar.common.no',
@@ -1231,6 +1246,14 @@ const TreeNode = defineComponent({
   border-color: var(--chart-color, #2563eb);
   background: var(--chart-color, #2563eb);
   color: #ffffff;
+}
+
+.structured-raw-json {
+  margin-top: 1rem;
+  border: 1px solid var(--border-color, #dbe1ea);
+  border-radius: 0.75rem;
+  padding: 1rem;
+  background: var(--surface-secondary, #f9fafb);
 }
 
 .report-action-button svg {
