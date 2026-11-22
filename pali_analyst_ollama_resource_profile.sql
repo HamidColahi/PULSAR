@@ -18,8 +18,8 @@ BEGIN
                 'runtime_limits',
                 jsonb_build_object(
                     'num_thread', 4,
-                    'num_ctx', 4096,
-                    'num_predict', 2048
+                    'num_ctx', 8192,
+                    'num_predict', 1536
                 )
             ),
         c_updated_at = CURRENT_TIMESTAMP
