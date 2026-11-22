@@ -976,8 +976,8 @@ function escapeHtml(value) {
 
 function printStructuredReport() {
   const report = buildStructuredReportText()
-    .replace(/^#{1,6}\\s+/gm, '')
-    .replace(/\\*\\*(.*?)\\*\\*/g, '$1')
+    .replace(/^#{1,6}\s+/gm, '')
+    .replace(/\*\*(.*?)\*\*/g, '$1')
   const printWindow = window.open('', '_blank')
 
   if (!printWindow) {
