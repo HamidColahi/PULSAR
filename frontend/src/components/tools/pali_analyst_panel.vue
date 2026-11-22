@@ -475,7 +475,13 @@ function startElapsedTimer() {
   elapsedSessionId = analysisSession.value.analysis_session_id
   elapsedStartedAt = Date.now()
   elapsedTimer = setInterval(() => {
-    if (elapsedStartedAt !== null) elapsedClock.value = Date.now()
+    if (elapsedStartedAt === null) return
+
+    const now = Date.now()
+    elapsedSeconds.value += (now - elapsedStartedAt) / 1000
+    elapsedStartedAt = now
+    elapsedClock.value = now
+    persistElapsedTime()
   }, 1000)
 }
 
