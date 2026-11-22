@@ -1,7 +1,7 @@
 <!--
 File: Pulsar/frontend/src/components/tools/pali_analyst_panel.vue
 Description: Metadata-driven interactive Pali Analyst for Function output evidence
-Change Date: 2026-11-22 22:00 (Asia/Baku)
+Change Date: 2026-11-22 23:26 (Asia/Baku)
 In collaboration with GPT4 Chat Assistant: Bahram
 -->
 <template>
@@ -291,7 +291,7 @@ const translationFallbacks = {
   reviewPlaceholder: 'Add a clarification or request a focused revision...',
   continue: 'Continue',
   revise: 'Revise',
-  resumeAnalysis: 'Resume Analysis',
+  resumeAnalysis: 'Analyze Current Section',
   stop: 'Stop',
   resume: 'Resume',
   completed: 'Analysis completed',
@@ -637,11 +637,7 @@ async function loadOrCreateSession() {
         JSON.stringify(savedResult) === JSON.stringify(props.result)
       ) {
         analysisSession.value = saved
-        if (saved.status === 'READY') {
-          await analyzeCurrentSection()
-        } else {
-          await loadActiveEvidence()
-        }
+        activeEvidence.value = null
         return
       }
     } catch (exception) {
@@ -658,7 +654,6 @@ async function loadOrCreateSession() {
   )
   analysisSession.value = session
   storeSessionId(session.analysis_session_id)
-  await analyzeCurrentSection()
 }
 
 async function analyzeCurrentSection() {
@@ -949,7 +944,6 @@ async function resetAnalysis() {
     )
     analysisSession.value = session
     storeSessionId(session.analysis_session_id)
-    await analyzeCurrentSection()
   } catch (exception) {
     error.value = exception?.response?.data?.detail
       || exception?.message
@@ -998,7 +992,6 @@ async function continueAnalysis() {
     userQuestion.value = ''
     if (updated.status === 'READY') {
       busy.value = false
-      await analyzeCurrentSection()
     }
   } catch (exception) {
     error.value = exception?.response?.data?.detail || exception?.message || 'The analysis checkpoint could not be continued.'
