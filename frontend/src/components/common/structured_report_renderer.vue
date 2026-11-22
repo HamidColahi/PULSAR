@@ -159,7 +159,7 @@ const props = defineProps({
   }
 })
 
-const headerTitle = computed(() => props.definition.header?.title || props.definition.title || '')
+const headerTitle = computed(() => props.definition.hide_header_title ? '' : (props.definition.header?.title || props.definition.title || ''))
 
 const translationKeys = computed(() => {
   const prefix = props.definition.translation_prefix
