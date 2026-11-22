@@ -56,7 +56,7 @@ Last Modified: 2026-11-22 23:26 (Asia/Baku)
       >
         <li
           v-for="(item, itemIndex) in asArray(resolvePath(data, section.path))"
-          :key="item.id || item.action_code || itemIndex"
+          :key="(item && (item.id || item.action_code)) || itemIndex"
           :class="{ 'structured-report-alert': section.type === 'alerts' }"
         >
           <template v-if="typeof item === 'string'">
@@ -80,7 +80,7 @@ Last Modified: 2026-11-22 23:26 (Asia/Baku)
           <thead>
             <tr>
               <th v-for="column in section.columns || []" :key="column.path">
-                {{ column.label || column.path }}
+                {{ translateLabel(`field.${column.path}`, column.label || column.path) }}
               </th>
             </tr>
           </thead>
