@@ -924,7 +924,7 @@ function buildStructuredReportText() {
     lines.push('')
   }
 
-  return lines.join('\\n').trim()
+  return lines.join('\n').trim()
 }
 
 async function copyStructuredReport() {
@@ -1231,6 +1231,12 @@ const TreeNode = defineComponent({
   border-color: var(--chart-color, #2563eb);
   background: var(--chart-color, #2563eb);
   color: #ffffff;
+}
+
+.report-action-button svg {
+  width: 1rem;
+  height: 1rem;
+  flex: 0 0 auto;
 }
 
 .direction-button:focus-visible {
