@@ -1,7 +1,7 @@
 /*
 File: PULSAR/pali_analyst_interaction_translation.sql
 Description: Translation entries for interactive Pali Analyst controls
-Change Date: 2026-11-22 22:00 (Asia/Baku)
+Change Date: 2026-11-22 23:26 (Asia/Baku)
 In collaboration with GPT4 Chat Assistant: Bahram
 */
 
@@ -38,6 +38,8 @@ FROM (
         ('pulsar.pali_analyst.conceptsHint', 'fa', 'تعریف‌ها از مخزن مفاهیم Colony بازیابی می‌شوند. برای توالی فرایند و تغییر وضعیت‌ها، Table 1 همچنان مرجع معتبر است.'),
         ('pulsar.pali_analyst.noConcepts', 'en', 'No matching active concepts were found for this section.'),
         ('pulsar.pali_analyst.noConcepts', 'fa', 'مفهوم فعال و مرتبطی برای این بخش پیدا نشد.'),
+        ('pulsar.pali_analyst.resumeAnalysis', 'en', 'Analyze Current Section'),
+        ('pulsar.pali_analyst.resumeAnalysis', 'fa', 'تحلیل بخش جاری'),
         ('pulsar.pali_analyst.resetAnalysis', 'en', 'Start a new analysis'),
         ('pulsar.pali_analyst.resetAnalysis', 'fa', 'شروع تحلیل جدید'),
         ('pulsar.pali_analyst.resetConfirm', 'en', 'Start a new Pali Analyst session? The current session will remain saved in history, and a new session will be created.'),
