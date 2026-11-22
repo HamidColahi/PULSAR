@@ -1,7 +1,7 @@
 /*
 File: PULSAR/pali_analyst_interaction_translation.sql
 Description: Translation entries for interactive Pali Analyst controls
-Change Date: 2026-11-22 23:26 (Asia/Baku)
+Change Date: 2026-11-23 (Asia/Baku)
 In collaboration with GPT4 Chat Assistant: Bahram
 */
 
@@ -57,7 +57,11 @@ FROM (
         ('pulsar.pali_analyst.copied', 'en', 'Analysis copied'),
         ('pulsar.pali_analyst.copied', 'fa', 'تحلیل کپی شد'),
         ('pulsar.pali_analyst.copyFailed', 'en', 'Could not copy analysis'),
-        ('pulsar.pali_analyst.copyFailed', 'fa', 'کپی تحلیل انجام نشد')
+        ('pulsar.pali_analyst.copyFailed', 'fa', 'کپی تحلیل انجام نشد'),
+        ('pulsar.pali_analyst.elapsedTime', 'en', 'Elapsed'),
+        ('pulsar.pali_analyst.elapsedTime', 'fa', 'زمان سپری‌شده'),
+        ('pulsar.pali_analyst.systemMonitorUnavailable', 'en', 'System monitoring unavailable'),
+        ('pulsar.pali_analyst.systemMonitorUnavailable', 'fa', 'پایش منابع سیستم در دسترس نیست')
 ) AS source(item_code, language_code, translated_text)
 WHERE NOT EXISTS (
     SELECT 1
