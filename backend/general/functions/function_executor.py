@@ -520,6 +520,16 @@ async def execute_panel_function(
         effective_options["avatar_manager_desc"] = configured_options.get(
             "avatar_manager_desc"
         )
+        for metadata_key in (
+            "display_type",
+            "presentation_definition",
+            "renderer_key",
+            "presentation_code",
+            "config_code",
+        ):
+            effective_options[metadata_key] = configured_options.get(
+                metadata_key
+            )
 
         formatted_result = format_function_result(
             result=output,
