@@ -37,6 +37,7 @@ SET
             $presentation$
             {
               "version": 1,
+              "translation_prefix": "pulsar.colony.guidance",
               "title": "Colony Item Guidance",
               "show_unmapped": false,
               "header": {
@@ -182,7 +183,118 @@ WHERE schema_name = 'pulsar'
   AND config_code = 'COLONY_GUIDANCE_JSON'
   AND is_active = TRUE;
 
-DO $$
+INSERT INTO pulsar.translation_dictionary (
+    item_code,
+    language_code,
+    translated_text
+)
+SELECT
+    source.item_code,
+    source.language_code,
+    source.translated_text
+FROM (
+    VALUES
+        ('pulsar.colony.guidance.header', 'en', 'Colony Item Guidance'),
+        ('pulsar.colony.guidance.header', 'fa', 'راهنمای آیتم Colony'),
+        ('pulsar.colony.guidance.additional_data', 'en', 'Additional Data'),
+        ('pulsar.colony.guidance.additional_data', 'fa', 'اطلاعات تکمیلی'),
+        ('pulsar.colony.guidance.badge.status', 'en', 'Execution'),
+        ('pulsar.colony.guidance.badge.status', 'fa', 'اجرا'),
+        ('pulsar.colony.guidance.badge.mode', 'en', 'Mode'),
+        ('pulsar.colony.guidance.badge.mode', 'fa', 'حالت'),
+        ('pulsar.colony.guidance.badge.mapping_status', 'en', 'Mapping'),
+        ('pulsar.colony.guidance.badge.mapping_status', 'fa', 'تطبیق'),
+        ('pulsar.colony.guidance.section.overview', 'en', 'Guidance Overview'),
+        ('pulsar.colony.guidance.section.overview', 'fa', 'نمای کلی راهنمایی'),
+        ('pulsar.colony.guidance.section.project', 'en', 'Project Information'),
+        ('pulsar.colony.guidance.section.project', 'fa', 'اطلاعات پروژه'),
+        ('pulsar.colony.guidance.section.selected_item', 'en', 'Selected Product Backlog Item'),
+        ('pulsar.colony.guidance.section.selected_item', 'fa', 'آیتم انتخاب‌شده از Product Backlog'),
+        ('pulsar.colony.guidance.section.guidance', 'en', 'Methodology Assessment'),
+        ('pulsar.colony.guidance.section.guidance', 'fa', 'ارزیابی روش‌شناسی'),
+        ('pulsar.colony.guidance.section.matched_rule', 'en', 'Matched Methodology Rule'),
+        ('pulsar.colony.guidance.section.matched_rule', 'fa', 'قاعده منطبق روش‌شناسی'),
+        ('pulsar.colony.guidance.section.next_rule', 'en', 'Next Recommended Methodology Step'),
+        ('pulsar.colony.guidance.section.next_rule', 'fa', 'گام بعدی پیشنهادی روش‌شناسی'),
+        ('pulsar.colony.guidance.section.backlog_summary', 'en', 'Backlog Summary'),
+        ('pulsar.colony.guidance.section.backlog_summary', 'fa', 'خلاصه Backlog'),
+        ('pulsar.colony.guidance.section.recommended_actions', 'en', 'Recommended Actions'),
+        ('pulsar.colony.guidance.section.recommended_actions', 'fa', 'اقدامات پیشنهادی'),
+        ('pulsar.colony.guidance.section.warnings', 'en', 'Warnings'),
+        ('pulsar.colony.guidance.section.warnings', 'fa', 'هشدارها'),
+        ('pulsar.colony.guidance.section.methodology_reference', 'en', 'Methodology Reference'),
+        ('pulsar.colony.guidance.section.methodology_reference', 'fa', 'مرجع روش‌شناسی'),
+        ('pulsar.colony.guidance.field.title', 'en', 'Guidance Title'),
+        ('pulsar.colony.guidance.field.title', 'fa', 'عنوان راهنمایی'),
+        ('pulsar.colony.guidance.field.mutation_performed', 'en', 'Mutation Performed'),
+        ('pulsar.colony.guidance.field.mutation_performed', 'fa', 'تغییر در داده‌ها انجام شد'),
+        ('pulsar.colony.guidance.field.c_project_name', 'en', 'Project'),
+        ('pulsar.colony.guidance.field.c_project_name', 'fa', 'پروژه'),
+        ('pulsar.colony.guidance.field.c_project_code', 'en', 'Project Code'),
+        ('pulsar.colony.guidance.field.c_project_code', 'fa', 'کد پروژه'),
+        ('pulsar.colony.guidance.field.c_project_id', 'en', 'Project ID'),
+        ('pulsar.colony.guidance.field.c_project_id', 'fa', 'شناسه پروژه'),
+        ('pulsar.colony.guidance.field.c_project_status', 'en', 'Project Status'),
+        ('pulsar.colony.guidance.field.c_project_status', 'fa', 'وضعیت پروژه'),
+        ('pulsar.colony.guidance.field.c_pb_code', 'en', 'PB Code'),
+        ('pulsar.colony.guidance.field.c_pb_code', 'fa', 'کد PB'),
+        ('pulsar.colony.guidance.field.c_pb_title', 'en', 'Title'),
+        ('pulsar.colony.guidance.field.c_pb_title', 'fa', 'عنوان'),
+        ('pulsar.colony.guidance.field.c_pb_type', 'en', 'Type'),
+        ('pulsar.colony.guidance.field.c_pb_type', 'fa', 'نوع'),
+        ('pulsar.colony.guidance.field.c_pb_status', 'en', 'Status'),
+        ('pulsar.colony.guidance.field.c_pb_status', 'fa', 'وضعیت'),
+        ('pulsar.colony.guidance.field.c_pb_priority', 'en', 'Priority'),
+        ('pulsar.colony.guidance.field.c_pb_priority', 'fa', 'اولویت'),
+        ('pulsar.colony.guidance.field.c_pb_owner_id', 'en', 'Owner ID'),
+        ('pulsar.colony.guidance.field.c_pb_owner_id', 'fa', 'شناسه مالک'),
+        ('pulsar.colony.guidance.field.c_pb_assignee_id', 'en', 'Assignee ID'),
+        ('pulsar.colony.guidance.field.c_pb_assignee_id', 'fa', 'شناسه مسئول اجرا'),
+        ('pulsar.colony.guidance.field.c_pb_parent_id', 'en', 'Parent Item ID'),
+        ('pulsar.colony.guidance.field.c_pb_parent_id', 'fa', 'شناسه آیتم والد'),
+        ('pulsar.colony.guidance.field.c_pb_description', 'en', 'Description'),
+        ('pulsar.colony.guidance.field.c_pb_description', 'fa', 'شرح'),
+        ('pulsar.colony.guidance.field.row_no', 'en', 'Table 1 Row'),
+        ('pulsar.colony.guidance.field.row_no', 'fa', 'ردیف Table 1'),
+        ('pulsar.colony.guidance.field.event', 'en', 'Event'),
+        ('pulsar.colony.guidance.field.event', 'fa', 'رویداد'),
+        ('pulsar.colony.guidance.field.backlog', 'en', 'Backlog'),
+        ('pulsar.colony.guidance.field.backlog', 'fa', 'Backlog'),
+        ('pulsar.colony.guidance.field.inquiry', 'en', 'Inquiry'),
+        ('pulsar.colony.guidance.field.inquiry', 'fa', 'موضوع درخواست'),
+        ('pulsar.colony.guidance.field.pbi_sbi', 'en', 'Work Product'),
+        ('pulsar.colony.guidance.field.pbi_sbi', 'fa', 'محصول کاری'),
+        ('pulsar.colony.guidance.field.reaction', 'en', 'Reaction'),
+        ('pulsar.colony.guidance.field.reaction', 'fa', 'واکنش'),
+        ('pulsar.colony.guidance.field.action', 'en', 'Action'),
+        ('pulsar.colony.guidance.field.action', 'fa', 'اقدام'),
+        ('pulsar.colony.guidance.field.start_state', 'en', 'Start State'),
+        ('pulsar.colony.guidance.field.start_state', 'fa', 'وضعیت آغاز'),
+        ('pulsar.colony.guidance.field.final_state', 'en', 'Final State'),
+        ('pulsar.colony.guidance.field.final_state', 'fa', 'وضعیت نهایی'),
+        ('pulsar.colony.guidance.field.rp', 'en', 'RP'),
+        ('pulsar.colony.guidance.field.rp', 'fa', 'RP'),
+        ('pulsar.colony.guidance.field.guidance_document.available', 'en', 'Guidance PDF Available'),
+        ('pulsar.colony.guidance.field.guidance_document.available', 'fa', 'فایل راهنما موجود است'),
+        ('pulsar.colony.guidance.field.guidance_document.mime_type', 'en', 'Guidance PDF Type'),
+        ('pulsar.colony.guidance.field.guidance_document.mime_type', 'fa', 'نوع فایل راهنما'),
+        ('pulsar.colony.guidance.field.guidance_document.file_size_bytes', 'en', 'Guidance PDF Size (bytes)'),
+        ('pulsar.colony.guidance.field.guidance_document.file_size_bytes', 'fa', 'اندازه فایل راهنما (بایت)'),
+        ('pulsar.colony.guidance.field.item_count', 'en', 'PB Item Count'),
+        ('pulsar.colony.guidance.field.item_count', 'fa', 'تعداد آیتم‌های PB'),
+        ('pulsar.colony.guidance.field.primary_usecase_count', 'en', 'Primary Usecase Count'),
+        ('pulsar.colony.guidance.field.primary_usecase_count', 'fa', 'تعداد Primary Usecase'),
+        ('pulsar.colony.guidance.field.inception_record_exists', 'en', 'Inception Record Exists'),
+        ('pulsar.colony.guidance.field.inception_record_exists', 'fa', 'رکورد Inception وجود دارد')
+) AS source(item_code, language_code, translated_text)
+WHERE NOT EXISTS (
+    SELECT 1
+    FROM pulsar.translation_dictionary AS existing
+    WHERE existing.item_code = source.item_code
+      AND existing.language_code = source.language_code
+);
+
+DO $
 BEGIN
     IF NOT EXISTS (
         SELECT 1
