@@ -7,7 +7,7 @@ In collaboration with GPT4 Chat Assistant: Bahram
 
 BEGIN;
 
-DO $
+DO $$
 DECLARE
     v_updated integer;
 BEGIN
@@ -26,9 +26,9 @@ BEGIN
             v_updated;
     END IF;
 END;
-$;
+$$;
 
-DO $
+DO $$
 DECLARE
     v_updated integer;
 BEGIN
