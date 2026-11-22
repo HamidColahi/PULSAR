@@ -661,7 +661,6 @@ async function toggleAIAvatar() {
 onMounted(() => {
   applyThemeLevel(colorIntensity.value)
   updateAIAvatarTitle()
-  startSystemMetrics()
 })
 
 onUnmounted(() => {
