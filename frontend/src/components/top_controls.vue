@@ -2,7 +2,7 @@
 <!-- ===============================================
 File: frontend/src/components/top_controls.vue
 Description: Fixed global PULSAR identity bar with system monitoring and metadata-driven controls
-Change Date: 2026-11-19
+Change Date: 2026-11-23
 Timezone: Asia/Baku
 Author: MHKolahi@gmail.com
 In collaboration with GPT4 Chat Assistant: Bahram
@@ -332,7 +332,7 @@ import {
 import { useRoute } from 'vue-router'
 
 import SourceTracePanel from '@/components/tools/source_trace_panel.vue'
-import axiosInstance from '@/utils/axiosInstance'
+import { useSystemMetrics } from '@/composables/useSystemMetrics'
 
 import {
   darkMode,
@@ -380,6 +380,13 @@ const {
 })
 
 const { translate } = useTranslation()
+
+const {
+  systemMetrics,
+  systemMetricsOnline,
+  startSystemMetrics,
+  stopSystemMetrics
+} = useSystemMetrics()
 
 
 // =================================================
@@ -431,18 +438,6 @@ const colorIntensity = ref(
   Number(localStorage.getItem('colorIntensity')) || 3
 )
 
-const systemMetrics = ref({
-  cpu: 0,
-  memory: 0,
-  memoryUsed: 0,
-  memoryTotal: 0,
-  logicalCores: 0
-})
-
-const systemMetricsOnline = ref(false)
-
-let systemMetricsTimer = null
-let systemMetricsRequestPending = false
 
 
 // =================================================
@@ -554,63 +549,6 @@ function getMetricClass(value) {
 
   return 'system-monitor-fill-normal'
 }
-
-async function fetchSystemMetrics() {
-  if (!isAuthenticated.value || systemMetricsRequestPending) {
-    return
-  }
-
-  systemMetricsRequestPending = true
-
-  try {
-    const response = await axiosInstance.get('/admin/system/metrics')
-
-    const data = response.data
-
-    systemMetrics.value = {
-      cpu: Math.min(100, Math.max(0, Number(data.cpu?.percent) || 0)),
-      memory: Math.min(100, Math.max(0, Number(data.memory?.percent) || 0)),
-      memoryUsed: Number(data.memory?.used_bytes) || 0,
-      memoryTotal: Number(data.memory?.total_bytes) || 0,
-      logicalCores: Number(data.cpu?.logical_cores) || 0
-    }
-
-    systemMetricsOnline.value = true
-
-  } catch (error) {
-    systemMetricsOnline.value = false
-
-    console.warn(
-      '[PULSAR SYSTEM MONITOR] Metrics unavailable.',
-      error
-    )
-
-  } finally {
-    systemMetricsRequestPending = false
-  }
-}
-
-function startSystemMetrics() {
-  stopSystemMetrics()
-
-  if (!isAuthenticated.value) {
-    return
-  }
-
-  fetchSystemMetrics()
-
-  systemMetricsTimer = setInterval(() => {
-    fetchSystemMetrics()
-  }, 3000)
-}
-
-function stopSystemMetrics() {
-  if (systemMetricsTimer !== null) {
-    clearInterval(systemMetricsTimer)
-    systemMetricsTimer = null
-  }
-}
-
 
 // =================================================
 // Theme Management
