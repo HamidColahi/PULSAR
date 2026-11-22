@@ -176,8 +176,7 @@ SET
               ]
             }
             $presentation$::jsonb
-        ),
-    updated_at = CURRENT_TIMESTAMP
+        )
 WHERE schema_name = 'pulsar'
   AND function_name = 'fn_colony_guidance'
   AND config_code = 'COLONY_GUIDANCE_JSON'
@@ -323,8 +322,7 @@ SELECT
     display_options->>'display_type' AS display_type,
     jsonb_array_length(
         display_options->'presentation_definition'->'sections'
-    ) AS presentation_section_count,
-    updated_at
+    ) AS presentation_section_count
 FROM pulsar.t_function_output_config
 WHERE schema_name = 'pulsar'
   AND function_name = 'fn_colony_guidance'
