@@ -1,7 +1,7 @@
 <!--
 File: Pulsar/frontend/src/components/tools/pali_analyst_panel.vue
 Description: Metadata-driven interactive Pali Analyst for Function output evidence
-Change Date: 2026-11-22 23:26 (Asia/Baku)
+Change Date: 2026-11-23 (Asia/Baku)
 In collaboration with GPT4 Chat Assistant: Bahram
 -->
 <template>
@@ -14,6 +14,17 @@ In collaboration with GPT4 Chat Assistant: Bahram
             ? `${t('section')} ${Math.min(analysisSession.current_section_index + 1, analysisSession.sections.length)} ${t('of')} ${analysisSession.sections.length} · ${analysisSession.status}`
             : t('subtitle') }}
         </p>
+      </div>
+      <div class="pali-header-monitor" :title="systemMonitorTooltip" role="status" aria-label="System resource monitor">
+        <span class="pali-monitor-item">
+          <span>CPU</span>
+          <strong>{{ formatMetric(systemMetrics.cpu) }}</strong>
+        </span>
+        <span class="pali-monitor-item">
+          <span>RAM</span>
+          <strong>{{ formatMetric(systemMetrics.memory) }}</strong>
+        </span>
+        <span class="pali-monitor-indicator" :class="{ 'is-online': systemMetricsOnline }"></span>
       </div>
       <div class="pali-header-actions">
         <span v-if="copyFeedback" class="pali-copy-feedback" role="status">
@@ -82,6 +93,16 @@ In collaboration with GPT4 Chat Assistant: Bahram
     </div>
 
     <template v-if="analysisSession">
+      <div class="pali-session-metrics">
+        <div class="pali-elapsed-time" role="timer" :aria-label="t('elapsedTime')">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" aria-hidden="true">
+            <circle cx="12" cy="13" r="8"></circle>
+            <path d="M12 9v4l2.5 1.5M9 2h6M12 2v3"></path>
+          </svg>
+          <span>{{ t('elapsedTime') }}</span>
+          <strong>{{ formattedElapsedTime }}</strong>
+        </div>
+      </div>
       <div class="pali-progress">
         <div class="flex items-center justify-between gap-3 text-xs">
           <strong>{{ progressLabel }}</strong>
@@ -258,10 +279,11 @@ In collaboration with GPT4 Chat Assistant: Bahram
 </template>
 
 <script setup>
-import { computed, ref, watch } from 'vue'
+import { computed, onUnmounted, ref, watch } from 'vue'
 import { useAIAvatar } from '@/composables/useAIAvatar'
 import { useTranslation } from '@/composables/useTranslation'
 import { usePaliAnalystAnalysis } from '@/composables/usePaliAnalystAnalysis'
+import { useSystemMetrics } from '@/composables/useSystemMetrics'
 
 const props = defineProps({
   modelValue: { type: Boolean, default: false },
@@ -274,6 +296,11 @@ const { getDefaultAvatar, getFunctionOutputResources, sendChatMessage } = useAIA
 const { createSession, getSession, saveCheckpoint } = usePaliAnalystAnalysis()
 
 const { translate, currentLanguage } = useTranslation()
+
+const {
+  systemMetrics,
+  systemMetricsOnline
+} = useSystemMetrics()
 
 const translationFallbacks = {
   subtitle: 'Evidence-based Function output analysis',
@@ -310,7 +337,9 @@ const translationFallbacks = {
   copyFailed: 'Could not copy analysis',
   resetAnalysis: 'Start a new analysis',
   resetConfirm: 'Start a new Pali Analyst session? The current session will remain saved in history, and a new session will be created.',
-  resetFailed: 'Could not start a new analysis session'
+  resetFailed: 'Could not start a new analysis session',
+  elapsedTime: 'Elapsed',
+  systemMonitorUnavailable: 'System monitoring unavailable'
 }
 
 const translations = ref({})
@@ -352,6 +381,131 @@ const userQuestion = ref('')
 const copyFeedback = ref('')
 
 const metadata = computed(() => props.display?.metadata || {})
+
+const systemMonitorTooltip = computed(() => {
+  if (!systemMetricsOnline.value) return t('systemMonitorUnavailable')
+
+  return [
+    `CPU Usage: ${formatMetric(systemMetrics.value.cpu)}`,
+    `Logical Cores: ${systemMetrics.value.logicalCores}`,
+    `Memory Usage: ${formatMetric(systemMetrics.value.memory)}`,
+    `Memory Used: ${formatBytes(systemMetrics.value.memoryUsed)}`,
+    `Total Memory: ${formatBytes(systemMetrics.value.memoryTotal)}`
+  ].join('\\n')
+})
+
+function formatMetric(value) {
+  const number = Number(value)
+  return Number.isFinite(number)
+    ? `${Math.min(100, Math.max(0, number)).toFixed(1)}%`
+    : '--%'
+}
+
+function formatBytes(bytes) {
+  const value = Number(bytes) || 0
+  if (value < 1024) return `${value} B`
+
+  const units = ['KB', 'MB', 'GB', 'TB']
+  let size = value / 1024
+  let unitIndex = 0
+
+  while (size >= 1024 && unitIndex < units.length - 1) {
+    size /= 1024
+    unitIndex++
+  }
+
+  return `${size.toFixed(1)} ${units[unitIndex]}`
+}
+
+const elapsedSeconds = ref(0)
+const elapsedClock = ref(Date.now())
+let elapsedStartedAt = null
+let elapsedTimer = null
+let elapsedSessionId = null
+
+const formattedElapsedTime = computed(() => {
+  elapsedClock.value
+  const liveSeconds = elapsedStartedAt === null
+    ? elapsedSeconds.value
+    : elapsedSeconds.value + (Date.now() - elapsedStartedAt) / 1000
+  const seconds = Math.max(0, Math.floor(liveSeconds))
+  const hours = Math.floor(seconds / 3600)
+  const minutes = Math.floor((seconds % 3600) / 60)
+  const remainder = seconds % 60
+
+  return [hours, minutes, remainder]
+    .map(value => String(value).padStart(2, '0'))
+    .join(':')
+})
+
+function elapsedStorageKey(sessionId) {
+  return `pulsar.paliAnalyst.elapsed.${sessionId}`
+}
+
+function persistElapsedTime() {
+  if (!elapsedSessionId) return
+
+  try {
+    localStorage.setItem(
+      elapsedStorageKey(elapsedSessionId),
+      String(Math.floor(elapsedSeconds.value))
+    )
+  } catch (exception) {
+    console.warn('Pali Analyst elapsed time could not be persisted.', exception)
+  }
+}
+
+function stopElapsedTimer() {
+  if (elapsedStartedAt !== null) {
+    elapsedSeconds.value += (Date.now() - elapsedStartedAt) / 1000
+    elapsedStartedAt = null
+  }
+
+  if (elapsedTimer !== null) {
+    clearInterval(elapsedTimer)
+    elapsedTimer = null
+  }
+
+  persistElapsedTime()
+}
+
+function startElapsedTimer() {
+  if (elapsedStartedAt !== null || !analysisSession.value?.analysis_session_id) return
+
+  elapsedSessionId = analysisSession.value.analysis_session_id
+  elapsedStartedAt = Date.now()
+  elapsedTimer = setInterval(() => {
+    if (elapsedStartedAt !== null) elapsedClock.value = Date.now()
+  }, 1000)
+}
+
+function restoreElapsedTime(sessionId) {
+  stopElapsedTimer()
+  elapsedSessionId = sessionId || null
+  elapsedSeconds.value = 0
+
+  if (!sessionId) return
+
+  try {
+    const saved = Number(localStorage.getItem(elapsedStorageKey(sessionId)))
+    elapsedSeconds.value = Number.isFinite(saved) && saved > 0 ? saved : 0
+  } catch (exception) {
+    console.warn('Pali Analyst elapsed time could not be restored.', exception)
+  }
+}
+
+watch(
+  () => analysisSession.value?.analysis_session_id,
+  sessionId => restoreElapsedTime(sessionId),
+  { immediate: true }
+)
+
+watch(busy, isBusy => {
+  if (isBusy) startElapsedTimer()
+  else stopElapsedTimer()
+})
+
+onUnmounted(stopElapsedTimer)
 const outputConfigId = computed(() => Number(metadata.value.output_config_id))
 const managerId = computed(() => Number(metadata.value.avatar_manager_id))
 const managerDescription = computed(() => metadata.value.avatar_manager_desc || '')
@@ -1117,6 +1271,65 @@ watch(
 .pali-header {
   border-bottom: 1px solid var(--border-color, #dbe1ea);
   padding-bottom: 10px;
+}
+.pali-header-monitor {
+  display: flex;
+  flex: 0 1 auto;
+  align-items: center;
+  gap: 7px;
+  border: 1px solid var(--border-color, #dbe1ea);
+  border-radius: 8px;
+  background: var(--surface-secondary, #f8fafc);
+  padding: 5px 7px;
+  font-size: 9px;
+}
+.pali-monitor-item {
+  display: flex;
+  align-items: center;
+  gap: 3px;
+  white-space: nowrap;
+}
+.pali-monitor-item span {
+  color: var(--text-secondary, #6b7280);
+}
+.pali-monitor-indicator {
+  width: 6px;
+  height: 6px;
+  border-radius: 50%;
+  background: #9ca3af;
+}
+.pali-monitor-indicator.is-online {
+  background: #16a34a;
+}
+.pali-session-metrics {
+  display: flex;
+  align-items: center;
+  justify-content: flex-end;
+}
+.pali-elapsed-time {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  color: var(--text-secondary, #6b7280);
+  font-size: 10px;
+}
+.pali-elapsed-time svg {
+  width: 14px;
+  height: 14px;
+}
+.pali-elapsed-time strong {
+  color: var(--text-primary, #1f2937);
+  font-variant-numeric: tabular-nums;
+  font-size: 12px;
+}
+@media (max-width: 560px) {
+  .pali-header-monitor {
+    gap: 4px;
+    padding: 4px;
+  }
+  .pali-monitor-item {
+    gap: 2px;
+  }
 }
 .pali-header-actions {
   display: flex;
