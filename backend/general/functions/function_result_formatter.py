@@ -3,8 +3,8 @@
 #
 # Description:
 # Generic formatter for PostgreSQL function results.
-# Normalizes values for metadata-selected JSON, table,
-# chart, text, value, and tree presentation.
+# Normalizes values for metadata-selected JSON, structured report,
+# table, chart, text, value, and tree presentation.
 #
 # Author: MHKolahi@gmail.com
 # In collaboration with GPT4 Chat Assistant: Bahram
