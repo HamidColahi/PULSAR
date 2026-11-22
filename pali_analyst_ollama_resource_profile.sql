@@ -24,25 +24,31 @@ BEGIN
             ),
         c_updated_at = CURRENT_TIMESTAMP
     FROM (
-        SELECT definition_operation.c_ai_operation_id
-        FROM pulsar.t_ai_definition_operation AS definition_operation
-        JOIN pulsar.t_ai_definition AS definition
-          ON definition.c_ai_definition_id = definition_operation.c_ai_definition_id
-        JOIN pulsar.t_ai_operation AS configured_operation
-          ON configured_operation.c_ai_operation_id = definition_operation.c_ai_operation_id
+        SELECT
+            definition_operation.c_ai_operation_id
+        FROM pulsar.t_ai_definition AS definition
+        JOIN pulsar.t_ai_definition_model AS definition_model
+          ON definition_model.c_ai_definition_id = definition.c_ai_definition_id
         JOIN pulsar.t_ai_model AS model
-          ON model.c_ai_model_id = configured_operation.c_ai_model_id
+          ON model.c_ai_model_id = definition_model.c_ai_model_id
         JOIN pulsar.t_ai_provider AS provider
           ON provider.c_ai_provider_id = model.c_ai_provider_id
+        JOIN pulsar.t_ai_operation AS configured_operation
+          ON configured_operation.c_ai_model_id = model.c_ai_model_id
+        JOIN pulsar.t_ai_definition_operation AS definition_operation
+          ON definition_operation.c_ai_definition_id = definition.c_ai_definition_id
+         AND definition_operation.c_ai_operation_id = configured_operation.c_ai_operation_id
         WHERE definition.c_definition_code = 'PULSAR_ANALYST'
           AND definition.c_enabled = TRUE
           AND upper(definition.c_state) = 'ACTIVE'
-          AND definition_operation.c_is_default = TRUE
-          AND upper(definition_operation.c_state) = 'ACTIVE'
-          AND upper(configured_operation.c_state) = 'ACTIVE'
+          AND definition_model.c_is_default = TRUE
+          AND upper(definition_model.c_state) = 'ACTIVE'
           AND upper(model.c_state) = 'ACTIVE'
           AND upper(provider.c_state) = 'ACTIVE'
           AND upper(provider.c_provider_code) = 'OLLAMA'
+          AND definition_operation.c_is_default = TRUE
+          AND upper(definition_operation.c_state) = 'ACTIVE'
+          AND upper(configured_operation.c_state) = 'ACTIVE'
     ) AS target_operation
     WHERE target_operation.c_ai_operation_id = operation.c_ai_operation_id;
 
