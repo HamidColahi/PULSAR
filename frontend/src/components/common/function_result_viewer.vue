@@ -912,7 +912,7 @@ function buildStructuredReportText() {
     const value = resolveReportPath(data.value, section.path)
 
     if (section.type === 'fields' || section.type === 'record') {
-      const record = section.type === 'record' ? value : data.value
+      const record = value ?? data.value
       for (const field of section.fields || []) {
         lines.push(`**${field.label || field.path}:** ${reportValue(resolveReportPath(record, field.path))}`)
       }
@@ -976,6 +976,8 @@ function escapeHtml(value) {
 
 function printStructuredReport() {
   const report = buildStructuredReportText()
+    .replace(/^#{1,6}\\s+/gm, '')
+    .replace(/\\*\\*(.*?)\\*\\*/g, '$1')
   const printWindow = window.open('', '_blank')
 
   if (!printWindow) {
