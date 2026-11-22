@@ -40,6 +40,8 @@ FROM (
         ('pulsar.pali_analyst.noConcepts', 'fa', 'مفهوم فعال و مرتبطی برای این بخش پیدا نشد.'),
         ('pulsar.function_result.copy_report', 'en', 'Copy report'),
         ('pulsar.function_result.copy_report', 'fa', 'کپی گزارش'),
+        ('pulsar.function_result.raw_json', 'en', 'Show raw JSON'),
+        ('pulsar.function_result.raw_json', 'fa', 'نمایش JSON خام'),
         ('pulsar.function_result.print_report', 'en', 'Print report'),
         ('pulsar.function_result.print_report', 'fa', 'چاپ گزارش'),
         ('pulsar.pali_analyst.resumeAnalysis', 'en', 'Analyze Current Section'),
