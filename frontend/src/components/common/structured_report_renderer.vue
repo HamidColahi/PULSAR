@@ -40,12 +40,12 @@ Last Modified: 2026-11-22 23:26 (Asia/Baku)
             <span
               v-if="field.display === 'status'"
               class="structured-report-badge"
-              :class="badgeClass(resolvePath(data, field.path))"
+              :class="badgeClass(resolvePath(resolvePath(data, section.path), field.path))"
             >
-              {{ formatValue(resolvePath(data, field.path)) }}
+              {{ formatValue(resolvePath(resolvePath(data, section.path), field.path)) }}
             </span>
-            <pre v-else-if="isComplex(resolvePath(data, field.path))">{{ formatValue(resolvePath(data, field.path)) }}</pre>
-            <span v-else>{{ formatValue(resolvePath(data, field.path)) }}</span>
+            <pre v-else-if="isComplex(resolvePath(resolvePath(data, section.path), field.path))">{{ formatValue(resolvePath(resolvePath(data, section.path), field.path)) }}</pre>
+            <span v-else>{{ formatValue(resolvePath(resolvePath(data, section.path), field.path)) }}</span>
           </dd>
         </template>
       </dl>
