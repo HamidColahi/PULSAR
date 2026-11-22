@@ -104,7 +104,16 @@ Last Modified: 2026-11-22 23:26 (Asia/Baku)
             :key="field.path"
           >
             <dt>{{ translateLabel(`field.${field.path}`, field.label || field.path) }}</dt>
-            <dd>{{ formatValue(resolvePath(resolvePath(data, section.path), field.path)) }}</dd>
+            <dd>
+              <span
+                v-if="field.display === 'status'"
+                class="structured-report-badge"
+                :class="badgeClass(resolvePath(resolvePath(data, section.path), field.path))"
+              >
+                {{ formatValue(resolvePath(resolvePath(data, section.path), field.path)) }}
+              </span>
+              <span v-else>{{ formatValue(resolvePath(resolvePath(data, section.path), field.path)) }}</span>
+            </dd>
           </template>
         </dl>
       </div>
