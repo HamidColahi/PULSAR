@@ -8,7 +8,7 @@ Last Modified: 2026-11-22 23:26 (Asia/Baku)
 <template>
   <article class="structured-report" :dir="direction">
     <header v-if="headerTitle || headerBadges.length" class="structured-report-header">
-      <h2 v-if="headerTitle">{{ headerTitle }}</h2>
+      <h2 v-if="headerTitle">{{ translateLabel('header', headerTitle) }}</h2>
       <div v-if="headerBadges.length" class="structured-report-badges">
         <span
           v-for="badge in headerBadges"
@@ -16,7 +16,7 @@ Last Modified: 2026-11-22 23:26 (Asia/Baku)
           class="structured-report-badge"
           :class="badgeClass(badge.value)"
         >
-          <strong v-if="badge.label">{{ badge.label }}:</strong>
+          <strong v-if="badge.label">{{ translateLabel(`badge.${badge.path}`, badge.label) }}:</strong>
           {{ formatValue(badge.value) }}
         </span>
       </div>
@@ -28,14 +28,14 @@ Last Modified: 2026-11-22 23:26 (Asia/Baku)
       class="structured-report-section"
       :class="`section-${section.type || 'fields'}`"
     >
-      <h3 v-if="section.title">{{ section.title }}</h3>
+      <h3 v-if="section.title">{{ translateLabel(`section.${section.key}`, section.title) }}</h3>
 
       <dl v-if="section.type === 'fields'" class="structured-report-fields">
         <template
           v-for="field in section.fields || []"
           :key="field.path"
         >
-          <dt>{{ field.label || field.path }}</dt>
+          <dt>{{ translateLabel(`field.${field.path}`, field.label || field.path) }}</dt>
           <dd>
             <span
               v-if="field.display === 'status'"
@@ -103,7 +103,7 @@ Last Modified: 2026-11-22 23:26 (Asia/Baku)
             v-for="field in section.fields || []"
             :key="field.path"
           >
-            <dt>{{ field.label || field.path }}</dt>
+            <dt>{{ translateLabel(`field.${field.path}`, field.label || field.path) }}</dt>
             <dd>{{ formatValue(resolvePath(resolvePath(data, section.path), field.path)) }}</dd>
           </template>
         </dl>
@@ -117,7 +117,7 @@ Last Modified: 2026-11-22 23:26 (Asia/Baku)
     </section>
 
     <section v-if="unmappedKeys.length" class="structured-report-section">
-      <h3>{{ definition.unmapped_title || 'Additional Data' }}</h3>
+      <h3>{{ translateLabel('additional_data', definition.unmapped_title || 'Additional Data') }}</h3>
       <dl class="structured-report-fields">
         <template v-for="key in unmappedKeys" :key="key">
           <dt>{{ key }}</dt>
@@ -129,7 +129,11 @@ Last Modified: 2026-11-22 23:26 (Asia/Baku)
 </template>
 
 <script setup>
-import { computed } from 'vue'
+import { computed, ref, watch } from 'vue'
+import { useTranslation } from '@/composables/useTranslation'
+
+const { translate, currentLanguage } = useTranslation()
+const translations = ref({})
 
 const props = defineProps({
   data: {
@@ -147,6 +151,62 @@ const props = defineProps({
 })
 
 const headerTitle = computed(() => props.definition.header?.title || props.definition.title || '')
+
+const translationKeys = computed(() => {
+  const prefix = props.definition.translation_prefix
+  if (!prefix) return ['pulsar.common.yes', 'pulsar.common.no', 'pulsar.function_result.null_value']
+
+  const keys = [
+    'pulsar.common.yes',
+    'pulsar.common.no',
+    'pulsar.function_result.null_value',
+    `${prefix}.header`,
+    `${prefix}.additional_data`
+  ]
+
+  for (const badge of props.definition.header?.badges || []) {
+    keys.push(`${prefix}.badge.${badge.path}`)
+  }
+
+  for (const section of props.definition.sections || []) {
+    if (section.key) keys.push(`${prefix}.section.${section.key}`)
+    for (const field of section.fields || []) {
+      if (field.path) keys.push(`${prefix}.field.${field.path}`)
+    }
+    for (const column of section.columns || []) {
+      if (column.path) keys.push(`${prefix}.field.${column.path}`)
+    }
+  }
+
+  return [...new Set(keys)]
+})
+
+async function loadTranslations() {
+  const languageCode = currentLanguage.value
+  const keys = translationKeys.value
+  const loaded = {}
+
+  await Promise.all(keys.map(async key => {
+    loaded[key] = await translate(key, languageCode)
+  }))
+
+  if (languageCode === currentLanguage.value) {
+    translations.value = loaded
+  }
+}
+
+watch([translationKeys, currentLanguage], loadTranslations, {
+  deep: true,
+  immediate: true
+})
+
+function translateLabel(suffix, fallback) {
+  const prefix = props.definition.translation_prefix
+  if (!prefix) return fallback
+  const key = `${prefix}.${suffix}`
+  const value = translations.value[key]
+  return value && value !== key ? value : fallback
+}
 const headerBadges = computed(() => {
   const configured = props.definition.header?.badges
   if (!Array.isArray(configured)) return []
@@ -201,8 +261,18 @@ function isComplex(value) {
 }
 
 function formatValue(value) {
-  if (value === null || value === undefined || value === '') return '—'
-  if (typeof value === 'boolean') return value ? 'Yes' : 'No'
+  if (value === null || value === undefined || value === '') {
+    const key = 'pulsar.function_result.null_value'
+    return translations.value[key] && translations.value[key] !== key
+      ? translations.value[key]
+      : '—'
+  }
+  if (typeof value === 'boolean') {
+    const key = value ? 'pulsar.common.yes' : 'pulsar.common.no'
+    return translations.value[key] && translations.value[key] !== key
+      ? translations.value[key]
+      : (value ? 'Yes' : 'No')
+  }
   if (isComplex(value)) return JSON.stringify(value, null, 2)
   return String(value)
 }
