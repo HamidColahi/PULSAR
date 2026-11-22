@@ -7,7 +7,28 @@ In collaboration with GPT4 Chat Assistant: Bahram
 
 BEGIN;
 
-DO $$
+DO $
+DECLARE
+    v_updated integer;
+BEGIN
+    UPDATE pulsar.t_ai_provider
+    SET
+        c_runtime_code = 'OLLAMA',
+        c_updated_at = CURRENT_TIMESTAMP
+    WHERE c_provider_code = 'PULSAR_ANALYST'
+      AND upper(c_state) = 'ACTIVE';
+
+    GET DIAGNOSTICS v_updated = ROW_COUNT;
+
+    IF v_updated <> 1 THEN
+        RAISE EXCEPTION
+            'Expected exactly one active PULSAR_ANALYST provider; updated % rows.',
+            v_updated;
+    END IF;
+END;
+$;
+
+DO $
 DECLARE
     v_updated integer;
 BEGIN
@@ -45,7 +66,7 @@ BEGIN
           AND upper(definition_model.c_state) = 'ACTIVE'
           AND upper(model.c_state) = 'ACTIVE'
           AND upper(provider.c_state) = 'ACTIVE'
-          AND upper(provider.c_provider_code) = 'OLLAMA'
+          AND upper(provider.c_runtime_code) = 'OLLAMA'
           AND definition_operation.c_is_default = TRUE
           AND upper(definition_operation.c_state) = 'ACTIVE'
           AND upper(configured_operation.c_state) = 'ACTIVE'
@@ -56,7 +77,7 @@ BEGIN
 
     IF v_updated <> 1 THEN
         RAISE EXCEPTION
-            'Expected exactly one active default Ollama operation for PULSAR_ANALYST; updated % rows.',
+            'Expected exactly one active default OLLAMA runtime operation for PULSAR_ANALYST; updated % rows.',
             v_updated;
     END IF;
 END;
@@ -69,6 +90,7 @@ SELECT
     operation.c_operation_code,
     model.c_model_code,
     provider.c_provider_code,
+    provider.c_runtime_code,
     operation.c_parameters->'runtime_limits' AS runtime_limits,
     operation.c_updated_at
 FROM pulsar.t_ai_definition AS definition
@@ -84,4 +106,4 @@ WHERE definition.c_definition_code = 'PULSAR_ANALYST'
   AND definition_operation.c_is_default = TRUE
   AND upper(definition_operation.c_state) = 'ACTIVE'
   AND upper(operation.c_state) = 'ACTIVE'
-  AND upper(provider.c_provider_code) = 'OLLAMA';
+  AND upper(provider.c_runtime_code) = 'OLLAMA';
