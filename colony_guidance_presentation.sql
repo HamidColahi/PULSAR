@@ -39,6 +39,7 @@ SET
               "version": 1,
               "translation_prefix": "pulsar.colony.guidance",
               "title": "Colony Item Guidance",
+              "hide_header_title": true,
               "show_unmapped": false,
               "header": {
                 "title": "Colony Item Guidance",
