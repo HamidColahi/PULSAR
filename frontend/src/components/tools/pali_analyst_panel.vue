@@ -18,11 +18,11 @@ In collaboration with GPT4 Chat Assistant: Bahram
       <div class="pali-header-monitor" :title="systemMonitorTooltip" role="status" aria-label="System resource monitor">
         <span class="pali-monitor-item">
           <span>CPU</span>
-          <strong>{{ formatMetric(systemMetrics.cpu) }}</strong>
+          <strong>{{ systemMetricsOnline ? formatMetric(systemMetrics.cpu) : '--' }}</strong>
         </span>
         <span class="pali-monitor-item">
           <span>RAM</span>
-          <strong>{{ formatMetric(systemMetrics.memory) }}</strong>
+          <strong>{{ systemMetricsOnline ? formatMetric(systemMetrics.memory) : '--' }}</strong>
         </span>
         <span class="pali-monitor-indicator" :class="{ 'is-online': systemMetricsOnline }"></span>
       </div>
@@ -391,7 +391,7 @@ const systemMonitorTooltip = computed(() => {
     `Memory Usage: ${formatMetric(systemMetrics.value.memory)}`,
     `Memory Used: ${formatBytes(systemMetrics.value.memoryUsed)}`,
     `Total Memory: ${formatBytes(systemMetrics.value.memoryTotal)}`
-  ].join('\\n')
+  ].join('\n')
 })
 
 function formatMetric(value) {
