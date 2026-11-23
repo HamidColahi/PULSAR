@@ -60,6 +60,12 @@ from source_trace.routes import (
 from general.permissions.routes import (
     router as permission_router
 )
+from reporting.routes import (
+    router as report_router
+)
+from general.permissions.routes import (
+    router as permission_router
+)
 
 
 # -----------------------------------------------
@@ -257,6 +263,14 @@ app.include_router(
 # ===============================================
 app.include_router(
     source_trace_router
+)
+
+app.include_router(
+    permission_router
+)
+
+app.include_router(
+    report_router
 )
 
 app.include_router(
