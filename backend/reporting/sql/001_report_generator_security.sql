@@ -762,6 +762,39 @@ INSERT INTO pulsar.translation_dictionary
     form_name
 )
 VALUES
+('security.reportConfig', 'en', 'Report Generator Page Configuration', 'security', 't_report_page_config', 'permission_manager'),
+('security.reportConfig', 'fa', 'تنظیمات گزارش‌ساز صفحات', 'security', 't_report_page_config', 'permission_manager'),
+('security.reportConfigNote', 'en', 'Enable Report Generator independently for each PULSAR page.', 'security', 't_report_page_config', 'permission_manager'),
+('security.reportConfigNote', 'fa', 'گزارش‌ساز را برای هر صفحه PULSAR به‌صورت مستقل فعال کنید.', 'security', 't_report_page_config', 'permission_manager'),
+('security.reportEnabled', 'en', 'Enable Report Generator', 'security', 't_report_page_config', 'permission_manager'),
+('security.reportEnabled', 'fa', 'فعال‌سازی گزارش‌ساز', 'security', 't_report_page_config', 'permission_manager'),
+('security.allowSharing', 'en', 'Allow report sharing', 'security', 't_report_page_config', 'permission_manager'),
+('security.allowSharing', 'fa', 'اجازه اشتراک‌گذاری گزارش', 'security', 't_report_page_config', 'permission_manager'),
+('security.allowPublic', 'en', 'Allow public publishing', 'security', 't_report_page_config', 'permission_manager'),
+('security.allowPublic', 'fa', 'اجازه انتشار عمومی', 'security', 't_report_page_config', 'permission_manager'),
+('security.saveConfig', 'en', 'Save configuration', 'security', 't_report_page_config', 'permission_manager'),
+('security.saveConfig', 'fa', 'ذخیره تنظیمات', 'security', 't_report_page_config', 'permission_manager'),
+('security.noReportPages', 'en', 'No PULSAR pages are available.', 'security', 't_report_page_config', 'permission_manager'),
+('security.noReportPages', 'fa', 'صفحه‌ای در PULSAR موجود نیست.', 'security', 't_report_page_config', 'permission_manager'),
+('security.error.reportConfig', 'en', 'Unable to load or save Report Generator configuration.', 'security', 't_report_page_config', 'permission_manager'),
+('security.error.reportConfig', 'fa', 'بارگذاری یا ذخیره تنظیمات گزارش‌ساز ناموفق بود.', 'security', 't_report_page_config', 'permission_manager')
+ON CONFLICT (item_code, language_code)
+DO UPDATE SET
+    translated_text = EXCLUDED.translated_text,
+    context_type = EXCLUDED.context_type,
+    owner_column_table = EXCLUDED.owner_column_table,
+    form_name = EXCLUDED.form_name;
+
+INSERT INTO pulsar.translation_dictionary
+(
+    item_code,
+    language_code,
+    translated_text,
+    context_type,
+    owner_column_table,
+    form_name
+)
+VALUES
 ('report.manager', 'en', 'Report Manager', 'report_generator', 't_report', 'report_generator'),
 ('report.manager', 'fa', 'مدیریت گزارش‌ها', 'report_generator', 't_report', 'report_generator'),
 ('report.unsaved', 'en', 'Unsaved report', 'report_generator', 't_report', 'report_generator'),
