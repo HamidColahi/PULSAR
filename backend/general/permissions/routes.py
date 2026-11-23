@@ -522,6 +522,12 @@ async def update_permission_grant(
     if grant is None:
         raise HTTPException(status_code=404, detail="Permission grant was not found.")
 
+    if grant["c_user_id"] == current_user.id:
+        raise HTTPException(
+            status_code=403,
+            detail="Administrators cannot modify their own permission grants.",
+        )
+
     await require_grant_authority(
         session,
         str(current_user.id),
