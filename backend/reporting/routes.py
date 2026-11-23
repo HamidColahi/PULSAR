@@ -703,6 +703,12 @@ async def update_report(
         str(current_user.id),
         report["page_key"],
     )
+    await validate_report_page(
+        session,
+        str(current_user.id),
+        report["page_key"],
+        report["source_component_name"],
+    )
     await require_report_edit_access(
         session,
         report,
@@ -823,6 +829,12 @@ async def delete_report(
         session,
         str(current_user.id),
         report["page_key"],
+    )
+    await validate_report_page(
+        session,
+        str(current_user.id),
+        report["page_key"],
+        report["source_component_name"],
     )
     await require_report_delete_access(
         session,
@@ -976,6 +988,12 @@ async def lookup_report_share_users(
         str(current_user.id),
         report["page_key"],
     )
+    await validate_report_page(
+        session,
+        str(current_user.id),
+        report["page_key"],
+        report["source_component_name"],
+    )
     await require_report_edit_access(
         session,
         report,
@@ -1029,6 +1047,12 @@ async def share_report(
         session,
         str(current_user.id),
         report["page_key"],
+    )
+    await validate_report_page(
+        session,
+        str(current_user.id),
+        report["page_key"],
+        report["source_component_name"],
     )
     await require_report_edit_access(
         session,
@@ -1124,6 +1148,12 @@ async def list_report_shares(
         str(current_user.id),
         report["page_key"],
     )
+    await validate_report_page(
+        session,
+        str(current_user.id),
+        report["page_key"],
+        report["source_component_name"],
+    )
     await require_report_edit_access(
         session,
         report,
@@ -1176,6 +1206,12 @@ async def unshare_report(
         session,
         str(current_user.id),
         report["page_key"],
+    )
+    await validate_report_page(
+        session,
+        str(current_user.id),
+        report["page_key"],
+        report["source_component_name"],
     )
     await require_report_edit_access(
         session,
@@ -1252,6 +1288,12 @@ async def publish_report(
         str(current_user.id),
         report["page_key"],
     )
+    await validate_report_page(
+        session,
+        str(current_user.id),
+        report["page_key"],
+        report["source_component_name"],
+    )
     await require_permission(
         session,
         str(current_user.id),
@@ -1298,6 +1340,12 @@ async def unpublish_report(
         session,
         str(current_user.id),
         report["page_key"],
+    )
+    await validate_report_page(
+        session,
+        str(current_user.id),
+        report["page_key"],
+        report["source_component_name"],
     )
     await require_permission(
         session,
@@ -1364,6 +1412,12 @@ async def list_report_versions(
         session,
         str(current_user.id),
         report["page_key"],
+    )
+    await validate_report_page(
+        session,
+        str(current_user.id),
+        report["page_key"],
+        report["source_component_name"],
     )
     await require_report_view_access(
         session,
