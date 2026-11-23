@@ -397,7 +397,7 @@ const canDelete = computed(() => {
     hasEffectivePermission('REPORT.DESIGN.DELETE')
 })
 
-const canShare = computed(() => canEdit.value)
+const canShare = computed(() => Boolean(selectedReportId.value) && canEdit.value)
 
 const canPublish = computed(() =>
   hasEffectivePermission('PAGE.SUPERVISOR') &&
