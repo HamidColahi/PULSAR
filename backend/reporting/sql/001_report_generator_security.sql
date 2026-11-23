@@ -521,7 +521,7 @@ BEGIN
         );
     END LOOP;
 END;
-$;
+$$;
 
 -- Seed page configuration after its audit trigger is installed.
 INSERT INTO pulsar.t_report_page_config
