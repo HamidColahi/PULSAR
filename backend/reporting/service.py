@@ -200,7 +200,15 @@ async def can_edit_report(
     if str(report["owner_user_id"]) == str(user_id):
         return True
 
-    if report["sharing_policy"] in {"SHARED", "PUBLIC"}:
+    if report["sharing_policy"] == "PUBLIC":
+        return await has_permission(
+            session,
+            user_id,
+            "PAGE.SUPERVISOR",
+            report["page_key"],
+        )
+
+    if report["sharing_policy"] == "SHARED":
         sharing_config = await session.execute(
             text(
                 """
@@ -213,35 +221,27 @@ async def can_edit_report(
             {"page_key": report["page_key"]},
         )
         sharing_row = sharing_config.mappings().first()
-        if sharing_row is not None and sharing_row["allow_sharing"] is True:
-            share_result = await session.execute(
-                text(
-                    """
-                    SELECT 1
-                    FROM pulsar.t_report_share
-                    WHERE report_id = :report_id
-                      AND target_user_id = :user_id
-                      AND is_active IS TRUE
-                      AND permission_level = 'EDIT'
-                    LIMIT 1
-                    """
-                ),
-                {
-                    "report_id": str(report["report_id"]),
-                    "user_id": str(user_id),
-                },
-            )
+        if sharing_row is None or sharing_row["allow_sharing"] is not True:
+            return False
 
-            if share_result.scalar_one_or_none() is not None:
-                return True
-
-    if report["sharing_policy"] == "PUBLIC":
-        return await has_permission(
-            session,
-            user_id,
-            "PAGE.SUPERVISOR",
-            report["page_key"],
+        share_result = await session.execute(
+            text(
+                """
+                SELECT 1
+                FROM pulsar.t_report_share
+                WHERE report_id = :report_id
+                  AND target_user_id = :user_id
+                  AND is_active IS TRUE
+                  AND permission_level = 'EDIT'
+                LIMIT 1
+                """
+            ),
+            {
+                "report_id": str(report["report_id"]),
+                "user_id": str(user_id),
+            },
         )
+        return share_result.scalar_one_or_none() is not None
 
     return False
 
