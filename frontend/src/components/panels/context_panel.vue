@@ -157,7 +157,8 @@ import {
 
   onBeforeUnmount,
 
-  watch
+  watch,
+  nextTick
 
 } from 'vue'
 
@@ -356,12 +357,17 @@ function handlePanelMouseLeave() {
 }
 
 function handlePanelFocusOut(event) {
-  if (
-    !isPinned.value &&
-    !event.currentTarget.contains(event.relatedTarget)
-  ) {
-    isOpen.value = false
-  }
+  const panel = event.currentTarget
+
+  nextTick(() => {
+    if (
+      !isPinned.value &&
+      !panel.contains(document.activeElement) &&
+      !panel.matches(':hover')
+    ) {
+      isOpen.value = false
+    }
+  })
 }
 
 async function openPanelManually() {
