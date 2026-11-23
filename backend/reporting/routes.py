@@ -538,12 +538,6 @@ async def preview_report(
         payload.source_component_name,
     )
 
-    if not payload.report_title.strip():
-        raise HTTPException(
-            status_code=422,
-            detail="Report title cannot be empty.",
-        )
-
     field_metadata = await _load_field_metadata(
         session,
         payload.source_component_name,
