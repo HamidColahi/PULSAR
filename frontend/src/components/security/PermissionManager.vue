@@ -186,7 +186,13 @@ const translationKeys = {
   revoke: 'security.revoke',
   loading: 'security.loading',
   auditNote: 'security.auditNote',
-  close: 'security.close'
+  close: 'security.close',
+  errorData: 'security.error.data',
+  errorSearch: 'security.error.search',
+  errorHistory: 'security.error.history',
+  errorGrant: 'security.error.grant',
+  errorRevoke: 'security.error.revoke',
+  errorAdmin: 'security.error.admin'
 }
 
 async function loadLabels() {
@@ -256,10 +262,10 @@ async function loadManagerData() {
     catalog.value = catalogResponse.data || []
 
     if (!adminGrants.value.length) {
-      throw new Error('Permission administration is not available to this user.')
+      throw new Error(labels.value.errorAdmin)
     }
   } catch (err) {
-    error.value = err?.response?.data?.detail || err?.message || 'Permission data could not be loaded.'
+    error.value = err?.response?.data?.detail || err?.message || labels.value.errorData
   } finally {
     loading.value = false
   }
@@ -276,7 +282,7 @@ async function searchUsers() {
     })
     users.value = response.data || []
   } catch (err) {
-    error.value = err?.response?.data?.detail || err?.message || 'User search failed.'
+    error.value = err?.response?.data?.detail || err?.message || labels.value.errorSearch
   } finally {
     loading.value = false
   }
@@ -301,7 +307,7 @@ async function loadHistory() {
     const response = await axios.get('/permissions/users/' + selectedUserId.value + '/grants')
     history.value = response.data || []
   } catch (err) {
-    error.value = err?.response?.data?.detail || err?.message || 'Permission history could not be loaded.'
+    error.value = err?.response?.data?.detail || err?.message || labels.value.errorHistory
   } finally {
     loading.value = false
   }
@@ -325,7 +331,7 @@ async function grantPermission() {
     validUntil.value = ''
     await loadHistory()
   } catch (err) {
-    error.value = err?.response?.data?.detail || err?.message || 'Permission could not be granted.'
+    error.value = err?.response?.data?.detail || err?.message || labels.value.errorGrant
   } finally {
     loading.value = false
   }
@@ -339,7 +345,7 @@ async function revokeGrant(permitId) {
     await axios.delete('/permissions/grants/' + permitId)
     await loadHistory()
   } catch (err) {
-    error.value = err?.response?.data?.detail || err?.message || 'Permission could not be revoked.'
+    error.value = err?.response?.data?.detail || err?.message || labels.value.errorRevoke
   } finally {
     loading.value = false
   }
