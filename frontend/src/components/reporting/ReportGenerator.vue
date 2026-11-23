@@ -351,15 +351,26 @@ function accessLabel(mode) {
 function buildFilterTree() {
   const children = filterConditions.value
     .filter(filter => filter.field_name && filter.operator_code)
-    .map((filter, index) => ({
-      node_type: 'CONDITION',
-      field_name: filter.field_name,
-      operator_code: filter.operator_code,
-      value: filter.value === '' ? null : filter.value,
-      parameter_code: filter.parameter_code || null,
-      display_order: index + 1,
-      children: []
-    }))
+    .map((filter, index) => {
+      let value = filter.value === '' ? null : filter.value
+
+      if (['IN', 'NOT_IN', 'BETWEEN', 'NOT_BETWEEN'].includes(filter.operator_code)) {
+        value = String(value || '')
+          .split(',')
+          .map(item => item.trim())
+          .filter(Boolean)
+      }
+
+      return {
+        node_type: 'CONDITION',
+        field_name: filter.field_name,
+        operator_code: filter.operator_code,
+        value,
+        parameter_code: filter.parameter_code || null,
+        display_order: index + 1,
+        children: []
+      }
+    })
 
   return children.length
     ? [{
@@ -415,11 +426,12 @@ function updateColumns(nextColumns) {
   }))
 }
 
-function resetDesign() {
+async function resetDesign() {
   columns.value = defaultColumns.value.map(item => ({ ...item }))
+  await loadDefaultSortPreference()
   filterConditions.value = []
   filterLogic.value = 'AND'
-  runReport()
+  await runReport()
 }
 
 function reportPayload() {
@@ -460,6 +472,45 @@ async function runReport() {
   }
 }
 
+async function loadDefaultSortPreference() {
+  try {
+    const response = await axios.get('/config/grid_sort', {
+      params: {
+        component_name: props.sourceComponentName,
+        field_mode: props.config?.field_mode || 'list'
+      }
+    })
+
+    const sortSpec = Array.isArray(response.data?.user_sort_spec)
+      ? response.data.user_sort_spec
+      : []
+
+    const sortMap = new Map(
+      sortSpec
+        .filter(item =>
+          ['asc', 'desc'].includes(item.direction) &&
+          Number(item.field_sort_order) > 0
+        )
+        .map(item => [item.field, item])
+    )
+
+    columns.value = columns.value.map(column => {
+      const sort = sortMap.get(column.field_name)
+      return {
+        ...column,
+        sort_direction: sort?.direction || null,
+        sort_order: sort ? Number(sort.field_sort_order) : null
+      }
+    })
+  } catch {
+    columns.value = columns.value.map(column => ({
+      ...column,
+      sort_direction: null,
+      sort_order: null
+    }))
+  }
+}
+
 async function loadReports() {
   const response = await axios.get('/reports/pages/' + encodeURIComponent(props.pageKey))
   reports.value = response.data || []
@@ -470,6 +521,7 @@ async function loadReports() {
     selectedReportId.value = ''
     reportTitle.value = labels.value.defaultTitle || 'New Report'
     columns.value = defaultColumns.value.map(item => ({ ...item }))
+    await loadDefaultSortPreference()
     filterConditions.value = []
     sharingPolicy.value = 'PRIVATE'
     await runReport()
