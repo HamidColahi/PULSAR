@@ -568,7 +568,6 @@ async def update_report_page_configuration(
 
     if payload.is_enabled:
         permission_definitions = [
-            ("REPORT.DESIGN.EDIT", "Edit users reports", "Edit reports created by other users for this page."),
             ("REPORT.DESIGN.DELETE", "Delete users reports", "Delete reports created by other users for this page."),
         ]
         permission_definitions.append(
@@ -626,7 +625,6 @@ async def update_report_page_configuration(
             WHERE page_key = :page_key
               AND permission_code IN (
                     'REPORT.PUBLIC.PUBLISH',
-                    'REPORT.DESIGN.EDIT',
                     'REPORT.DESIGN.DELETE'
               )
             """
