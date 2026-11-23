@@ -652,7 +652,6 @@ async function selectReport(reportId) {
     columns.value = defaultColumns.value.map(item => ({ ...item }))
     await loadDefaultSortPreference()
     filterGroups.value = []
-    filterLogic.value = 'AND'
     await runReport()
     return
   }
