@@ -24,6 +24,7 @@
     :gridName="gridName"
     :formName="formName"
     :pageTitleKey="pageKey"
+    :pageLevel="runtime?.page_level"
     :runtimeContext="runtimeContext"
     :c_page_view="pageAccess.c_page_view"
     :c_page_insert="pageAccess.c_page_insert"
