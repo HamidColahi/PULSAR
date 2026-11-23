@@ -640,7 +640,6 @@ async def update_report_page_configuration(
         {
             "page_key": page_key,
             "is_enabled": payload.is_enabled,
-            "allow_public": payload.allow_public,
             "user_id": str(current_user.id),
         },
     )
