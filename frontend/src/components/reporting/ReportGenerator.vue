@@ -134,7 +134,7 @@ In collaboration with GPT4 Chat Assistant: Bahram
               <label class="text-[10px] text-muted">{{ labels.searchUsers }}</label>
               <div class="flex gap-2">
                 <input v-model="shareUserQuery" class="min-w-0 flex-1 rounded border border-border bg-panel px-2 py-1.5 text-xs" :placeholder="labels.shareUserSearch" @input="targetUserId = ''" @keyup.enter="searchShareUsers" />
-                <button class="report-action" :disabled="loading || shareUserQuery.trim().length < 2" @click="searchShareUsers">{{ labels.search }}</button>
+                <button class="report-action" :disabled="loading || !props.pageConfig?.allow_sharing || shareUserQuery.trim().length < 2" @click="searchShareUsers">{{ labels.search }}</button>
               </div>
               <div v-if="shareUsers.length" class="max-h-32 overflow-y-auto rounded border border-border">
                 <button
@@ -156,7 +156,7 @@ In collaboration with GPT4 Chat Assistant: Bahram
               <option value="VIEW">{{ labels.viewPermission }}</option>
               <option value="EDIT">{{ labels.editPermission }}</option>
             </select>
-            <button class="report-action report-primary w-full" :disabled="loading || !selectedReportId || !targetUserId.trim()" @click="shareReport">{{ labels.share }}</button>
+            <button class="report-action report-primary w-full"  :disabled="loading || !props.pageConfig?.allow_sharing || !selectedReportId || !targetUserId.trim()" @click="shareReport">{{ labels.share }}</button>
             <div class="border-t border-border pt-3">
               <div class="mb-2 text-xs font-semibold">{{ labels.sharedUsers }}</div>
               <div v-for="share in shares" :key="share.share_id" class="mb-2 flex items-center gap-2 rounded-lg border border-border p-2">
@@ -832,7 +832,7 @@ async function loadShares() {
 }
 
 async function searchShareUsers() {
-  if (!selectedReportId.value || shareUserQuery.value.trim().length < 2) return
+  if (!props.pageConfig?.allow_sharing || !selectedReportId.value || shareUserQuery.value.trim().length < 2) return
   loading.value = true
   error.value = ''
 
@@ -856,7 +856,7 @@ function selectShareUser(user) {
 }
 
 async function shareReport() {
-  if (!selectedReportId.value || !targetUserId.value.trim()) return
+  if (!props.pageConfig?.allow_sharing || !selectedReportId.value || !targetUserId.value.trim()) return
   loading.value = true
   error.value = ''
 
