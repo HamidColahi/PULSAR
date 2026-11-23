@@ -479,7 +479,10 @@ async def list_page_reports(
               AND (
                     report.owner_user_id = :user_id
                     OR report.sharing_policy = 'PUBLIC'
-                    OR share.share_id IS NOT NULL
+                    OR (
+                        report.sharing_policy = 'SHARED'
+                        AND share.share_id IS NOT NULL
+                    )
               )
             ORDER BY
                 CASE WHEN report.owner_user_id = :user_id THEN 0 ELSE 1 END,
