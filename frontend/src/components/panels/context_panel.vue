@@ -58,7 +58,6 @@ Last Modified: 2026-11-23 22:55:00 (Asia/Baku)
               v-if="isPinned"
               viewBox="0 0 24 24"
               class="h-4 w-4"
-              viewBox="0 0 24 24"
               fill="currentColor"
               stroke="currentColor"
               stroke-width="1.2"
