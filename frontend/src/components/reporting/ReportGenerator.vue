@@ -90,7 +90,7 @@
             <div v-for="column in sortableColumns" :key="column.field_name" class="rounded-lg border border-border p-2">
               <div class="mb-1 text-xs">{{ fieldLabel(column.field_name) }}</div>
               <div class="flex gap-2">
-                <select v-model="column.sort_direction" class="min-w-0 flex-1 rounded border border-border bg-panel px-2 py-1.5 text-xs">
+                <select v-model="column.sort_direction" class="min-w-0 flex-1 rounded border border-border bg-panel px-2 py-1.5 text-xs" @change="setSortDirection(column)">
                   <option :value="null">{{ labels.noSort }}</option>
                   <option value="asc">{{ labels.ascending }}</option>
                   <option value="desc">{{ labels.descending }}</option>
@@ -434,6 +434,20 @@ function addFilter() {
 
 function removeFilter(index) {
   filterConditions.value.splice(index, 1)
+}
+
+function setSortDirection(column) {
+  if (!column.sort_direction) {
+    column.sort_order = null
+    return
+  }
+
+  if (!column.sort_order) {
+    const currentOrders = columns.value
+      .filter(item => item.field_name !== column.field_name && item.sort_order)
+      .map(item => Number(item.sort_order))
+    column.sort_order = Math.max(0, ...currentOrders) + 1
+  }
 }
 
 function updateColumns(nextColumns) {
