@@ -697,7 +697,7 @@ async def list_page_reports(
     current_user: UserProfileResponse = Depends(get_current_user),
     session: AsyncSession = Depends(get_audited_session),
 ):
-    """List the authenticated user's own, shared, and public reports for a Report.Gen page."""
+    """List the authenticated user's own, shared, and public reports for a configured PULSAR page."""
     await require_page_view_access(
         session,
         str(current_user.id),
