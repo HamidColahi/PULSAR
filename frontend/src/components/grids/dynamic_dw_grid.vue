@@ -23,10 +23,6 @@ import {
 import axios from '@/utils/axiosInstance'
 
 import {
-  userIdentity
-} from '@/stores/uiStore'
-
-import {
   useDomainOptions
 } from '@/composables/useDomainOptions'
 
@@ -512,12 +508,11 @@ function getSortLabel(field) {
 }
 
 async function loadSortPreference() {
-  const identity = userIdentity.value?.profile_id
   const name = componentName.value
 
   sortPreferenceReady.value = false
 
-  if (!identity || !name) {
+  if (!name) {
     sortSpec.value = []
     sortPreferenceReady.value = true
     return
@@ -675,14 +670,9 @@ const sortedItems = computed(() => {
 })
 
 watch(
-  () => userIdentity.value?.profile_id,
+  componentName,
   loadSortPreference,
   { immediate: true }
-)
-
-watch(
-  () => componentName.value,
-  loadSortPreference
 )
 
 
