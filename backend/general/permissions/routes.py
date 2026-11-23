@@ -146,6 +146,36 @@ async def read_my_permission_history(
     session: AsyncSession = Depends(get_audited_session),
 ):
     """Return the authenticated user's complete permission grant history."""
+    authority_result = await session.execute(
+        text(
+            """
+            SELECT EXISTS (
+                SELECT 1
+                FROM pulsar.t_permit_usracc admin_grant
+                INNER JOIN pulsar.t_permission admin_permission
+                    ON admin_permission.permission_id = admin_grant.permission_id
+                   AND admin_permission.permission_code = admin_grant.permission_code
+                WHERE admin_grant.c_user_id = :admin_user_id
+                  AND admin_permission.permission_code = 'SECURITY.PERMISSION.GRANT'
+                  AND admin_permission.is_active IS TRUE
+                  AND admin_grant.is_active IS TRUE
+                  AND admin_grant.valid_from <= CURRENT_TIMESTAMP
+                  AND (
+                        admin_grant.valid_until IS NULL
+                        OR CURRENT_TIMESTAMP < admin_grant.valid_until
+                  )
+            )
+            """
+        ),
+        {"admin_user_id": str(current_user.id)},
+    )
+
+    if not bool(authority_result.scalar()):
+        raise HTTPException(
+            status_code=403,
+            detail="Permission administration is not available to this user.",
+        )
+
     result = await session.execute(
         text(
             """
@@ -156,6 +186,8 @@ async def read_my_permission_history(
                 permission_row.permission_title,
                 permission_row.page_key,
                 permission_row.scope_type,
+                permission_row.scope_key,
+                permission_row.subsystem_key,
                 grant_row.valid_from,
                 grant_row.valid_until,
                 grant_row.is_active,
@@ -178,6 +210,33 @@ async def read_my_permission_history(
                 ON permission_row.permission_id = grant_row.permission_id
                AND permission_row.permission_code = grant_row.permission_code
             WHERE grant_row.c_user_id = :user_id
+              AND EXISTS (
+                    SELECT 1
+                    FROM pulsar.t_permit_usracc admin_grant
+                    INNER JOIN pulsar.t_permission admin_permission
+                        ON admin_permission.permission_id = admin_grant.permission_id
+                       AND admin_permission.permission_code = admin_grant.permission_code
+                    WHERE admin_grant.c_user_id = :admin_user_id
+                      AND admin_permission.permission_code = 'SECURITY.PERMISSION.GRANT'
+                      AND admin_permission.is_active IS TRUE
+                      AND admin_grant.is_active IS TRUE
+                      AND admin_grant.valid_from <= CURRENT_TIMESTAMP
+                      AND (
+                            admin_grant.valid_until IS NULL
+                            OR CURRENT_TIMESTAMP < admin_grant.valid_until
+                      )
+                      AND (
+                            admin_permission.scope_type = 'SYSTEM'
+                            OR (
+                                admin_permission.scope_type = 'SUBSYSTEM'
+                                AND permission_row.subsystem_key = admin_permission.scope_key
+                            )
+                            OR (
+                                admin_permission.scope_type = 'PAGE'
+                                AND permission_row.page_key = admin_permission.page_key
+                            )
+                      )
+              )
             ORDER BY grant_row.granted_at DESC, grant_row.permit_id DESC
             """
         ),
@@ -185,6 +244,73 @@ async def read_my_permission_history(
     )
 
     return [dict(row) for row in result.mappings().all()]
+
+
+@router.get("/users/lookup")
+async def lookup_permission_target_users(
+    query: str = Query(min_length=2, max_length=120),
+    current_user: UserProfileResponse = Depends(get_current_user),
+    session: AsyncSession = Depends(get_audited_session),
+):
+    """Search active users for administrators without exposing the full user directory."""
+    authority_result = await session.execute(
+        text(
+            """
+            SELECT EXISTS (
+                SELECT 1
+                FROM pulsar.t_permit_usracc grant_row
+                INNER JOIN pulsar.t_permission permission_row
+                    ON permission_row.permission_id = grant_row.permission_id
+                   AND permission_row.permission_code = grant_row.permission_code
+                WHERE grant_row.c_user_id = :user_id
+                  AND permission_row.permission_code = 'SECURITY.PERMISSION.GRANT'
+                  AND permission_row.is_active IS TRUE
+                  AND grant_row.is_active IS TRUE
+                  AND grant_row.valid_from <= CURRENT_TIMESTAMP
+                  AND (
+                        grant_row.valid_until IS NULL
+                        OR CURRENT_TIMESTAMP < grant_row.valid_until
+                  )
+            )
+            """
+        ),
+        {"user_id": str(current_user.id)},
+    )
+
+    if not bool(authority_result.scalar()):
+        raise HTTPException(
+            status_code=403,
+            detail="Permission administration is not available to this user.",
+        )
+
+    result = await session.execute(
+        text(
+            """
+            SELECT
+                c_user_id,
+                c_user_email,
+                c_user_full_name
+            FROM pulsar.t_user
+            WHERE c_user_active IS TRUE
+              AND (
+                    c_user_email ILIKE :search
+                    OR c_user_full_name ILIKE :search
+              )
+            ORDER BY c_user_full_name NULLS LAST, c_user_email
+            LIMIT 20
+            """
+        ),
+        {"search": "%" + query.strip() + "%"},
+    )
+
+    return [
+        {
+            "c_user_id": str(row["c_user_id"]),
+            "c_user_email": row["c_user_email"],
+            "c_user_full_name": row["c_user_full_name"],
+        }
+        for row in result.mappings().all()
+    ]
 
 
 @router.get("/users/{user_id}/grants")
@@ -228,7 +354,10 @@ async def read_user_permission_history(
             ORDER BY grant_row.granted_at DESC, grant_row.permit_id DESC
             """
         ),
-        {"user_id": str(user_id)},
+        {
+            "user_id": str(user_id),
+            "admin_user_id": str(current_user.id),
+        },
     )
 
     rows = [dict(row) for row in result.mappings().all()]
@@ -390,6 +519,12 @@ async def update_permission_grant(
             )
 
     is_active = changes.get("is_active", grant["is_active"])
+    if is_active is None:
+        raise HTTPException(
+            status_code=422,
+            detail="is_active must be true or false.",
+        )
+
     revoked_by = None if is_active else str(current_user.id)
     revoked_at = None if is_active else datetime.now(timezone.utc)
 
