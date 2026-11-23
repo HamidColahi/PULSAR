@@ -397,7 +397,76 @@ BEGIN
         );
     END LOOP;
 END;
-$$;
+$;
+
+-- ============================================================
+-- Protect audit logs from UPDATE, DELETE, and TRUNCATE.
+-- Audit rows are append-only; ordinary database operations cannot
+-- rewrite or remove historical records.
+-- ============================================================
+
+CREATE OR REPLACE FUNCTION pulsar.fn_prevent_audit_log_mutation()
+RETURNS TRIGGER
+LANGUAGE plpgsql
+SECURITY DEFINER
+SET search_path = pg_catalog
+AS $function$
+BEGIN
+    RAISE EXCEPTION
+        'Audit log tables are append-only; % is not permitted on %.%.',
+        TG_OP,
+        TG_TABLE_SCHEMA,
+        TG_TABLE_NAME;
+END;
+$function$;
+
+DO $
+DECLARE
+    v_table_name TEXT;
+BEGIN
+    FOREACH v_table_name IN ARRAY ARRAY[
+        't_permission',
+        't_permit_usracc',
+        't_report_page_config',
+        't_report',
+        't_report_column',
+        't_report_filter',
+        't_report_share',
+        't_report_version'
+    ]
+    LOOP
+        EXECUTE FORMAT(
+            'DROP TRIGGER IF EXISTS %I ON pulsar_log.%I',
+            'trg_audit_log_immutable_row_' || v_table_name,
+            v_table_name || '_log'
+        );
+
+        EXECUTE FORMAT(
+            'CREATE TRIGGER %I
+             BEFORE UPDATE OR DELETE ON pulsar_log.%I
+             FOR EACH ROW
+             EXECUTE FUNCTION pulsar.fn_prevent_audit_log_mutation()',
+            'trg_audit_log_immutable_row_' || v_table_name,
+            v_table_name || '_log'
+        );
+
+        EXECUTE FORMAT(
+            'DROP TRIGGER IF EXISTS %I ON pulsar_log.%I',
+            'trg_audit_log_immutable_truncate_' || v_table_name,
+            v_table_name || '_log'
+        );
+
+        EXECUTE FORMAT(
+            'CREATE TRIGGER %I
+             BEFORE TRUNCATE ON pulsar_log.%I
+             FOR EACH STATEMENT
+             EXECUTE FUNCTION pulsar.fn_prevent_audit_log_mutation()',
+            'trg_audit_log_immutable_truncate_' || v_table_name,
+            v_table_name || '_log'
+        );
+    END LOOP;
+END;
+$;
 
 -- ============================================================
 -- Generic audit trigger
@@ -690,7 +759,103 @@ BEGIN
         );
     END IF;
 END;
-$$;
+$;
+
+DO $function_catalog$
+DECLARE
+    v_existing_source TEXT;
+    v_installed_source TEXT;
+BEGIN
+    v_installed_source := pg_get_functiondef(
+        'pulsar.fn_prevent_audit_log_mutation()'::REGPROCEDURE
+    );
+
+    SELECT source_code
+    INTO v_existing_source
+    FROM pulsar.t_function_definition
+    WHERE schema_name = 'pulsar'
+      AND function_name = 'fn_prevent_audit_log_mutation';
+
+    IF FOUND THEN
+        IF v_existing_source IS DISTINCT FROM v_installed_source THEN
+            RAISE EXCEPTION
+                'Function fn_prevent_audit_log_mutation is already registered with a different source. Explicit versioning is required.';
+        END IF;
+    ELSE
+        INSERT INTO pulsar.t_function_definition
+        (
+            function_name,
+            schema_name,
+            source_code,
+            call_template,
+            description,
+            documentation,
+            return_type,
+            state,
+            version,
+            is_active,
+            created_by,
+            created_at,
+            updated_by,
+            updated_at,
+            parameter_definition,
+            output_definition
+        )
+        VALUES
+        (
+            'fn_prevent_audit_log_mutation',
+            'pulsar',
+            v_installed_source,
+            'Trigger function; invoked automatically by audit log protection triggers.',
+            'Prevent UPDATE, DELETE, and TRUNCATE operations on PULSAR audit log tables.',
+            'Enforces append-only audit history for Permission Management and Report Generator logs.',
+            'trigger',
+            'ACTIVE',
+            1,
+            TRUE,
+            CURRENT_USER,
+            CURRENT_TIMESTAMP,
+            CURRENT_USER,
+            CURRENT_TIMESTAMP,
+            '[]'::JSONB,
+            '{"kind":"trigger","log_schema":"pulsar_log","mutation_policy":"append_only"}'::JSONB
+        );
+    END IF;
+END;
+$function_catalog$;
+
+INSERT INTO pulsar.translation_dictionary
+(
+    item_code,
+    language_code,
+    translated_text,
+    context_type,
+    owner_column_table,
+    form_name
+)
+VALUES
+(
+    'fn_prevent_audit_log_mutation',
+    'en',
+    'Prevent Audit Log Mutation',
+    'function',
+    't_function_definition',
+    'function_catalog'
+),
+(
+    'fn_prevent_audit_log_mutation',
+    'fa',
+    'جلوگیری از تغییر سوابق ممیزی',
+    'function',
+    't_function_definition',
+    'function_catalog'
+)
+ON CONFLICT (item_code, language_code)
+DO UPDATE SET
+    translated_text = EXCLUDED.translated_text,
+    context_type = EXCLUDED.context_type,
+    owner_column_table = EXCLUDED.owner_column_table,
+    form_name = EXCLUDED.form_name;
 
 INSERT INTO pulsar.translation_dictionary
 (
