@@ -573,10 +573,9 @@ async def update_report_page_configuration(
             ("REPORT.DESIGN.EDIT", "Edit users reports", "Edit reports created by other users for this page."),
             ("REPORT.DESIGN.DELETE", "Delete users reports", "Delete reports created by other users for this page."),
         ]
-        if payload.allow_public:
-            permission_definitions.append(
-                ("REPORT.PUBLIC.PUBLISH", "Publish public reports", "Publish reports as public for this Report Generator page.")
-            )
+        permission_definitions.append(
+            ("REPORT.PUBLIC.PUBLISH", "Publish public reports", "Publish reports as public for this Report Generator page.")
+        )
 
         for code, title, description in permission_definitions:
             await session.execute(
@@ -625,7 +624,7 @@ async def update_report_page_configuration(
             SET
                 is_active = CASE
                     WHEN :is_enabled IS FALSE THEN FALSE
-                    WHEN permission_code = 'REPORT.PUBLIC.PUBLISH' THEN :allow_public
+                    WHEN permission_code = 'REPORT.PUBLIC.PUBLISH' THEN TRUE
                     ELSE TRUE
                 END,
                 updated_by = :user_id,
@@ -1623,7 +1622,6 @@ async def unpublish_report(
         report["page_key"],
         report["source_component_name"],
     )
-    await _require_report_page_option(session, report["page_key"], "allow_public")
     await require_permission(
         session,
         str(current_user.id),
