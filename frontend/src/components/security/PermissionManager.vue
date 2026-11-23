@@ -110,9 +110,9 @@ In collaboration with GPT4 Chat Assistant: Bahram
                 <div class="mt-2 grid grid-cols-2 gap-2 text-[10px] text-muted">
                   <span>{{ labels.startAt }}: {{ formatDate(grant.valid_from) }}</span>
                   <span>{{ labels.endAt }}: {{ grant.valid_until ? formatDate(grant.valid_until) : '—' }}</span>
-                  <span>{{ labels.grantedBy }}: {{ grant.granted_by }}</span>
+                  <span>{{ labels.grantedBy }}: {{ grant.granted_by_name || grant.granted_by_email || grant.granted_by }}</span>
                   <span>{{ labels.grantedAt }}: {{ formatDate(grant.granted_at) }}</span>
-                  <span v-if="grant.revoked_by">{{ labels.revokedBy }}: {{ grant.revoked_by }}</span>
+                  <span v-if="grant.revoked_by">{{ labels.revokedBy }}: {{ grant.revoked_by_name || grant.revoked_by_email || grant.revoked_by }}</span>
                   <span v-if="grant.revoked_at">{{ labels.revokedAt }}: {{ formatDate(grant.revoked_at) }}</span>
                 </div>
                 <div v-if="grant.grant_reason" class="mt-2 text-[10px] text-muted">{{ grant.grant_reason }}</div>
