@@ -1,3 +1,10 @@
+<!-- ===============================================
+File: frontend/src/components/security/PermissionManager.vue
+Description: Scoped permission administration interface
+Modified: 2026-11-24 (Asia/Baku)
+In collaboration with GPT4 Chat Assistant: Bahram
+=============================================== -->
+
 <template>
   <div v-if="modelValue" class="fixed inset-0 z-[90] flex items-center justify-center bg-black/50 p-3" @click.self="close">
     <section class="flex max-h-[92vh] w-full max-w-5xl flex-col overflow-hidden rounded-2xl border border-border bg-panel shadow-2xl">
