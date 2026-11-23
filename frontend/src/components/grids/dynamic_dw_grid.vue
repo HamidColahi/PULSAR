@@ -2,7 +2,7 @@
 <!-- ===============================================
 File: frontend/src/components/grids/dynamic_dw_grid.vue
 Description: Metadata-driven dynamic data grid with user-specific multi-column sorting
-Last Modified: 2026-11-23 23:35 (Asia/Baku)
+Last Modified: 2026-11-23 23:58 (Asia/Baku)
 Author: MHKolahi@gmail.com
 In collaboration with GPT4 Chat Assistant: Bahram
 =============================================== -->
@@ -473,7 +473,7 @@ const filteredItems = computed(() => {
 
 
 // --------------------------------------------------
-// User-Specific Multi-Column Sorting
+// Supervisor and User Multi-Column Sorting
 // --------------------------------------------------
 const componentName = computed(() => {
   return props.config?.component_name ||
@@ -481,26 +481,60 @@ const componentName = computed(() => {
     ''
 })
 
+const forcedSortSpec = ref([])
+
+function getSortMode(field) {
+  return Number(props.config?.fields?.[field]?.field_sort ?? 0)
+}
+
 function isSortEnabled(field) {
-  return props.config?.fields?.[field]?.field_sort === true
+  return [1, 2, 3].includes(getSortMode(field))
+}
+
+function isForcedSort(field) {
+  return [2, 3].includes(getSortMode(field))
 }
 
 function getSortDirection(field) {
+  const forced = forcedSortSpec.value.find(
+    item => item.field === field
+  )
+
+  if (forced) {
+    return forced.direction
+  }
+
   return sortSpec.value.find(
     item => item.field === field
   )?.direction || 'none'
 }
 
 function getSortPriority(field) {
-  return sortSpec.value.findIndex(
+  const forcedIndex = forcedSortSpec.value.findIndex(
     item => item.field === field
-  ) + 1
+  )
+
+  if (forcedIndex >= 0) {
+    return forcedIndex + 1
+  }
+
+  const userTerm = sortSpec.value.find(
+    item => item.field === field
+  )
+
+  return userTerm
+    ? forcedSortSpec.value.length + userTerm.field_sort_order
+    : 0
 }
 
 function getSortLabel(field) {
   const direction = getSortDirection(field)
   const label = sortLabels.value[direction] || sortLabels.value.none
   const priority = getSortPriority(field)
+
+  if (isForcedSort(field)) {
+    return `${label}, ${sortLabels.value.forced}, priority ${priority}`
+  }
 
   return priority > 0
     ? `${label}, priority ${priority}`
@@ -513,6 +547,7 @@ async function loadSortPreference() {
   sortPreferenceReady.value = false
 
   if (!name) {
+    forcedSortSpec.value = []
     sortSpec.value = []
     sortPreferenceReady.value = true
     return
@@ -526,20 +561,53 @@ async function loadSortPreference() {
       }
     })
 
-    const allowed = new Set(
-      Object.entries(props.config?.fields || {})
-        .filter(([, meta]) => meta?.field_sort === true)
+    const fieldMetadata = props.config?.fields || {}
+    const allowedUserFields = new Set(
+      Object.entries(fieldMetadata)
+        .filter(([, meta]) => Number(meta?.field_sort ?? 0) === 1)
         .map(([field]) => field)
     )
 
-    sortSpec.value = (Array.isArray(response.data?.sort_spec)
-      ? response.data.sort_spec
-      : []
-    ).filter(item =>
-      allowed.has(item?.field) &&
-      ['asc', 'desc'].includes(item?.direction)
+    const allowedForcedFields = new Set(
+      Object.entries(fieldMetadata)
+        .filter(([, meta]) => [2, 3].includes(Number(meta?.field_sort ?? 0)))
+        .map(([field]) => field)
     )
+
+    forcedSortSpec.value = (
+      Array.isArray(response.data?.forced_sort_spec)
+        ? response.data.forced_sort_spec
+        : []
+    )
+      .filter(item =>
+        allowedForcedFields.has(item?.field) &&
+        ['asc', 'desc'].includes(item?.direction)
+      )
+      .sort((a, b) =>
+        Number(a.field_sort_order) - Number(b.field_sort_order)
+      )
+
+    sortSpec.value = (
+      Array.isArray(response.data?.user_sort_spec)
+        ? response.data.user_sort_spec
+        : []
+    )
+      .filter(item =>
+        allowedUserFields.has(item?.field) &&
+        ['asc', 'desc'].includes(item?.direction) &&
+        Number.isInteger(Number(item?.field_sort_order)) &&
+        Number(item.field_sort_order) > 0
+      )
+      .map(item => ({
+        field: item.field,
+        direction: item.direction,
+        field_sort_order: Number(item.field_sort_order)
+      }))
+      .sort((a, b) =>
+        a.field_sort_order - b.field_sort_order
+      )
   } catch (err) {
+    forcedSortSpec.value = []
     sortSpec.value = []
     console.error('dynamic_dw_grid: failed to load sort preference', err)
   } finally {
@@ -571,8 +639,15 @@ async function persistSortPreference() {
   }
 }
 
+function normalizeUserSortOrder(items) {
+  return items.map((item, index) => ({
+    ...item,
+    field_sort_order: index + 1
+  }))
+}
+
 function cycleSort(field) {
-  if (!isSortEnabled(field)) {
+  if (getSortMode(field) !== 1) {
     return
   }
 
@@ -587,8 +662,8 @@ function cycleSort(field) {
   )
 
   if (nextDirection === 'none') {
-    sortSpec.value = sortSpec.value.filter(
-      item => item.field !== field
+    sortSpec.value = normalizeUserSortOrder(
+      sortSpec.value.filter(item => item.field !== field)
     )
   } else if (current) {
     sortSpec.value = sortSpec.value.map(item =>
@@ -599,9 +674,14 @@ function cycleSort(field) {
   } else {
     sortSpec.value = [
       ...sortSpec.value,
-      { field, direction: nextDirection }
+      {
+        field,
+        direction: nextDirection,
+        field_sort_order: sortSpec.value.length + 1
+      }
     ]
   }
+
   persistSortPreference()
 }
 
@@ -649,17 +729,23 @@ function compareSortValues(left, right, field, direction) {
   return direction === 'desc' ? -result : result
 }
 
+const effectiveSortSpec = computed(() => [
+  ...forcedSortSpec.value,
+  ...sortSpec.value
+])
+
 const sortedItems = computed(() => {
   const source = [...filteredItems.value]
+  const effectiveSpec = effectiveSortSpec.value
 
-  if (!sortSpec.value.length) {
+  if (!effectiveSpec.length) {
     return source
   }
 
   return source
     .map((item, index) => ({ item, index }))
     .sort((left, right) => {
-      for (const term of sortSpec.value) {
+      for (const term of effectiveSpec) {
         const result = compareSortValues(
           left.item,
           right.item,
@@ -714,16 +800,18 @@ async function loadTranslations() {
 
   translations.value = result
 
-  const [none, asc, desc] = await Promise.all([
+  const [none, asc, desc, forced] = await Promise.all([
     translate('pulsar.grid.sortNone', lang.value, 'Default'),
     translate('pulsar.grid.sortAscending', lang.value, 'Default'),
-    translate('pulsar.grid.sortDescending', lang.value, 'Default')
+    translate('pulsar.grid.sortDescending', lang.value, 'Default'),
+    translate('pulsar.grid.sortForced', lang.value, 'Default')
   ])
 
   sortLabels.value = {
     none: none && none !== 'pulsar.grid.sortNone' ? none : 'No sorting',
     asc: asc && asc !== 'pulsar.grid.sortAscending' ? asc : 'Sort ascending',
-    desc: desc && desc !== 'pulsar.grid.sortDescending' ? desc : 'Sort descending'
+    desc: desc && desc !== 'pulsar.grid.sortDescending' ? desc : 'Sort descending',
+    forced: forced && forced !== 'pulsar.grid.sortForced' ? forced : 'Forced sorting'
   }
 }
 
@@ -935,9 +1023,13 @@ onBeforeUnmount(() => {
                   <button
                     v-if="isSortEnabled(col.field)"
                     type="button"
-                    :disabled="!sortPreferenceReady"
-                    class="inline-flex h-5 w-5 items-center justify-center rounded text-muted transition hover:bg-hover hover:text-primary focus-visible:outline focus-visible:outline-1 focus-visible:outline-primary disabled:cursor-wait disabled:opacity-40"
-                    :class="getSortDirection(col.field) !== 'none' ? 'text-primary' : ''"
+                    :disabled="!sortPreferenceReady || isForcedSort(col.field)"
+                    class="inline-flex h-5 w-5 items-center justify-center rounded transition focus-visible:outline focus-visible:outline-1 disabled:cursor-not-allowed disabled:opacity-100"
+                    :class="isForcedSort(col.field)
+                      ? 'text-amber-500 cursor-not-allowed'
+                      : getSortDirection(col.field) !== 'none'
+                        ? 'text-primary hover:bg-hover'
+                        : 'text-muted hover:bg-hover hover:text-primary'"
                     :aria-label="getSortLabel(col.field)"
                     :title="getSortLabel(col.field)"
                     @click.stop="cycleSort(col.field)"
