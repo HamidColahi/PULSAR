@@ -124,6 +124,7 @@
               :source-component-name="derivedGridName"
               :grid-component="gridComponent"
               :config="gridRuntimeConfig"
+              :page-config="reportPageConfig"
               :base-config="gridBase"
               :items="records"
               :runtime-context="props.runtimeContext"
@@ -345,6 +346,7 @@ const {
 const pageLoading = ref(false)
 const pageError = ref(null)
 const reportGeneratorEnabled = ref(false)
+const reportPageConfig = ref({ is_enabled: false, allow_sharing: true, allow_public: false })
 const formError = ref(null)
 
 const {
@@ -668,7 +670,8 @@ async function loadReportPageConfiguration() {
   const response = await axios.get(
     '/reports/pages/' + encodeURIComponent(props.pageTitleKey) + '/configuration'
   )
-  reportGeneratorEnabled.value = response.data?.is_enabled === true
+  reportPageConfig.value = response.data || { is_enabled: false, allow_sharing: true, allow_public: false }
+  reportGeneratorEnabled.value = reportPageConfig.value.is_enabled === true
 }
 
 async function loadRecords(options = {}) {
