@@ -248,6 +248,12 @@ def _validate_columns(
 
         normalized.append(column.model_dump())
 
+    if not any(item["is_visible"] for item in normalized):
+        raise HTTPException(
+            status_code=422,
+            detail="At least one report column must be visible.",
+        )
+
     sort_orders = [
         item["sort_order"]
         for item in normalized
@@ -512,6 +518,12 @@ async def preview_report(
         payload.source_component_name,
     )
 
+    if not payload.report_title.strip():
+        raise HTTPException(
+            status_code=422,
+            detail="Report title cannot be empty.",
+        )
+
     field_metadata = await _load_field_metadata(
         session,
         payload.source_component_name,
@@ -649,6 +661,12 @@ async def read_report(
         session,
         report,
         str(current_user.id),
+    )
+    await validate_report_page(
+        session,
+        str(current_user.id),
+        report["page_key"],
+        report["source_component_name"],
     )
 
     definition = await load_report_definition(
@@ -849,6 +867,12 @@ async def clone_report(
         source,
         str(current_user.id),
     )
+    await validate_report_page(
+        session,
+        str(current_user.id),
+        source["page_key"],
+        source["source_component_name"],
+    )
 
     source_definition = await load_report_definition(
         session,
@@ -860,6 +884,11 @@ async def clone_report(
         if payload.report_title
         else f'{source["report_title"]} Copy'
     )
+    if not title:
+        raise HTTPException(
+            status_code=422,
+            detail="Report title cannot be empty.",
+        )
 
     result = await session.execute(
         text(
