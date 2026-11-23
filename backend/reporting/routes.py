@@ -18,14 +18,12 @@ from core.audit_context import get_audited_session
 from general.auth.dependencies import get_current_user
 from general.user.schemas.user import UserProfileResponse
 from general.permissions.service import (
-    has_permission,
     require_page_view_access,
     require_permission,
 )
 from reporting.service import (
     DYNAMIC_PARAMETERS,
     FILTER_OPERATORS,
-    can_edit_report,
     execute_report,
     json_safe,
     load_report,
