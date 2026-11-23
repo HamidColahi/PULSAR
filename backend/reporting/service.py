@@ -243,12 +243,7 @@ async def can_edit_report(
             report["page_key"],
         )
 
-    return await has_permission(
-        session,
-        user_id,
-        "REPORT.DESIGN.EDIT",
-        report["page_key"],
-    )
+    return False
 
 async def require_report_edit_access(
     session: AsyncSession,
