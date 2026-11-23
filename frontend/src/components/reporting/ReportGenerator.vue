@@ -31,7 +31,7 @@ In collaboration with GPT4 Chat Assistant: Bahram
         <button class="report-action" :disabled="loading" @click="panelOpen = !panelOpen">{{ panelOpen ? labels.hideDesigner : labels.showDesigner }}</button>
         <button v-if="canShare" class="report-action" :disabled="loading" @click="openDesigner('sharing')">{{ labels.share }}</button>
         <button v-if="canPublish && sharingPolicy !== 'PUBLIC'" class="report-action" :disabled="loading || !selectedReportId" @click="publishReport">{{ labels.publish }}</button>
-        <button v-if="canPublish && sharingPolicy === 'PUBLIC'" class="report-action" :disabled="loading || !selectedReportId" @click="unpublishReport">{{ labels.unpublish }}</button>
+        <button v-if="canManagePublic && sharingPolicy === 'PUBLIC'" class="report-action" :disabled="loading || !selectedReportId" @click="unpublishReport">{{ labels.unpublish }}</button>
         <button v-if="selectedReportId && canDelete" class="report-action report-danger" :disabled="loading" @click="deleteReport">{{ labels.delete }}</button>
       </div>
     </header>
@@ -214,6 +214,7 @@ const props = defineProps({
   sourceComponentName: { type: String, required: true },
   gridComponent: { type: Object, required: true },
   config: { type: Object, required: true },
+  pageConfig: { type: Object, default: () => ({}) },
   baseConfig: { type: Object, default: () => ({}) },
   items: { type: Array, default: () => [] },
   runtimeContext: { type: Object, default: () => ({}) },
@@ -421,9 +422,14 @@ const canDelete = computed(() => {
 
 const canShare = computed(() => Boolean(selectedReportId.value) && canEdit.value)
 
-const canPublish = computed(() =>
+const canManagePublic = computed(() =>
   hasEffectivePermission('PAGE.SUPERVISOR') &&
   hasEffectivePermission('REPORT.PUBLIC.PUBLISH')
+)
+
+const canPublish = computed(() =>
+  canManagePublic.value &&
+  props.pageConfig?.allow_public === true
 )
 
 const canSave = computed(() => !selectedReportId.value || canEdit.value)
@@ -903,7 +909,7 @@ async function publishReport() {
 }
 
 async function unpublishReport() {
-  if (!selectedReportId.value || !canPublish.value) return
+  if (!selectedReportId.value || !canManagePublic.value) return
   loading.value = true
   error.value = ''
 
