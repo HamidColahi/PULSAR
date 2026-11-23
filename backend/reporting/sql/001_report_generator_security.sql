@@ -403,6 +403,30 @@ BEGIN
         inet_client_addr()
     );
 
+    IF v_log_user IS NULL THEN
+        RAISE EXCEPTION
+            'Audit identity is required: set pulsar.log_user before modifying %.%',
+            TG_TABLE_SCHEMA,
+            TG_TABLE_NAME;
+    END IF;
+
+    IF v_log_ip IS NULL THEN
+        RAISE EXCEPTION
+            'Audit client IP is required: set pulsar.log_ip before modifying %.%',
+            TG_TABLE_SCHEMA,
+            TG_TABLE_NAME;
+    END IF;
+
+    IF NOT EXISTS (
+        SELECT 1
+        FROM pulsar.t_user
+        WHERE c_user_id = v_log_user
+    ) THEN
+        RAISE EXCEPTION
+            'Audit user % does not exist in pulsar.t_user.',
+            v_log_user;
+    END IF;
+
     IF TG_OP = 'INSERT' THEN
         v_old_data := NULL;
         v_new_data := TO_JSONB(NEW);
