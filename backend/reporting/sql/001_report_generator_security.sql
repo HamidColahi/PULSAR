@@ -1041,6 +1041,12 @@ COMMIT;
 
 -- ============================================================
 -- Subsystem security administrator definitions are developer-owned.
+-- Before executing developer-owned permission catalog INSERT/UPDATE statements,
+-- set the authenticated database audit context in the same session:
+--
+-- SELECT set_config('pulsar.log_user', '<ACTIVE_PULSAR_USER_UUID>', FALSE);
+-- SELECT set_config('pulsar.log_ip', '<DEVELOPER_CLIENT_IP>', FALSE);
+--
 -- For each subsystem, create one SECURITY.PERMISSION.GRANT catalog row:
 --
 -- INSERT INTO pulsar.t_permission
