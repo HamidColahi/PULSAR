@@ -968,6 +968,57 @@ async def share_report(
     }
 
 
+@router.get("/{report_id}/shares")
+async def list_report_shares(
+    report_id: UUID,
+    current_user: UserProfileResponse = Depends(get_current_user),
+    session: AsyncSession = Depends(get_audited_session),
+):
+    report = await load_report(session, report_id)
+    await require_page_view_access(
+        session,
+        str(current_user.id),
+        report["page_key"],
+    )
+    await require_report_edit_access(
+        session,
+        report,
+        str(current_user.id),
+    )
+
+    result = await session.execute(
+        text(
+            """
+            SELECT
+                share.share_id,
+                share.target_user_id,
+                user_row.c_user_email,
+                user_row.c_user_full_name,
+                share.permission_level,
+                share.shared_by,
+                share.created_at,
+                share.is_active
+            FROM pulsar.t_report_share share
+            INNER JOIN pulsar.t_user user_row
+                ON user_row.c_user_id = share.target_user_id
+            WHERE share.report_id = :report_id
+            ORDER BY share.created_at DESC, share.target_user_id
+            """
+        ),
+        {"report_id": str(report_id)},
+    )
+
+    return [
+        {
+            **dict(row),
+            "share_id": str(row["share_id"]),
+            "target_user_id": str(row["target_user_id"]),
+            "shared_by": str(row["shared_by"]),
+        }
+        for row in result.mappings().all()
+    ]
+
+
 @router.delete("/{report_id}/shares/{target_user_id}")
 async def unshare_report(
     report_id: UUID,
@@ -1060,6 +1111,12 @@ async def publish_report(
     await require_permission(
         session,
         str(current_user.id),
+        "PAGE.SUPERVISOR",
+        report["page_key"],
+    )
+    await require_permission(
+        session,
+        str(current_user.id),
         "REPORT.PUBLIC.PUBLISH",
         report["page_key"],
     )
@@ -1096,6 +1153,12 @@ async def unpublish_report(
     await require_page_view_access(
         session,
         str(current_user.id),
+        report["page_key"],
+    )
+    await require_permission(
+        session,
+        str(current_user.id),
+        "PAGE.SUPERVISOR",
         report["page_key"],
     )
     await require_permission(
@@ -1210,6 +1273,12 @@ async def run_report(
         session,
         report,
         str(current_user.id),
+    )
+    await validate_report_page(
+        session,
+        str(current_user.id),
+        report["page_key"],
+        report["source_component_name"],
     )
 
     definition = await load_report_definition(
