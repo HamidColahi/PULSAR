@@ -622,11 +622,7 @@ async def update_report_page_configuration(
             """
             UPDATE pulsar.t_permission
             SET
-                is_active = CASE
-                    WHEN :is_enabled IS FALSE THEN FALSE
-                    WHEN permission_code = 'REPORT.PUBLIC.PUBLISH' THEN TRUE
-                    ELSE TRUE
-                END,
+                is_active = :is_enabled,
                 updated_by = :user_id,
                 updated_at = CURRENT_TIMESTAMP
             WHERE page_key = :page_key
