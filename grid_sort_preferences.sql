@@ -88,6 +88,9 @@ BEGIN
     THEN
         ALTER TABLE pulsar.t_user_grid_sort
             RENAME TO t_user_grid_sort_legacy;
+
+        ALTER INDEX IF EXISTS pulsar.t_user_grid_sort_pkey
+            RENAME TO t_user_grid_sort_legacy_pkey;
     END IF;
 END;
 $migration$;
