@@ -397,7 +397,7 @@ BEGIN
         );
     END LOOP;
 END;
-$;
+$$;
 
 -- ============================================================
 -- Protect audit logs from UPDATE, DELETE, and TRUNCATE.
@@ -420,7 +420,7 @@ BEGIN
 END;
 $function$;
 
-DO $
+DO $$
 DECLARE
     v_table_name TEXT;
 BEGIN
@@ -466,7 +466,7 @@ BEGIN
         );
     END LOOP;
 END;
-$;
+$$;
 
 -- ============================================================
 -- Generic audit trigger
@@ -759,7 +759,7 @@ BEGIN
         );
     END IF;
 END;
-$;
+$$;
 
 DO $function_catalog$
 DECLARE
