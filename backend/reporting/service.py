@@ -215,22 +215,22 @@ async def can_edit_report(
         sharing_row = sharing_config.mappings().first()
         if sharing_row is not None and sharing_row["allow_sharing"] is True:
             share_result = await session.execute(
-            text(
-                """
-                SELECT 1
-                FROM pulsar.t_report_share
-                WHERE report_id = :report_id
-                  AND target_user_id = :user_id
-                  AND is_active IS TRUE
-                  AND permission_level = 'EDIT'
-                LIMIT 1
-                """
-            ),
-            {
-                "report_id": str(report["report_id"]),
-                "user_id": str(user_id),
-            },
-        )
+                text(
+                    """
+                    SELECT 1
+                    FROM pulsar.t_report_share
+                    WHERE report_id = :report_id
+                      AND target_user_id = :user_id
+                      AND is_active IS TRUE
+                      AND permission_level = 'EDIT'
+                    LIMIT 1
+                    """
+                ),
+                {
+                    "report_id": str(report["report_id"]),
+                    "user_id": str(user_id),
+                },
+            )
 
             if share_result.scalar_one_or_none() is not None:
                 return True
