@@ -402,8 +402,14 @@ function hasEffectivePermission(code) {
 const canEdit = computed(() => {
   if (!selectedReportId.value) return true
   const report = reports.value.find(item => item.report_id === selectedReportId.value)
-  return report?.access_mode === 'OWNER' ||
-    report?.access_mode === 'SHARED_EDIT' ||
+
+  if (report?.access_mode === 'OWNER') return true
+
+  if (report?.sharing_policy === 'PUBLIC') {
+    return hasEffectivePermission('PAGE.SUPERVISOR')
+  }
+
+  return report?.access_mode === 'SHARED_EDIT' ||
     hasEffectivePermission('REPORT.DESIGN.EDIT')
 })
 
