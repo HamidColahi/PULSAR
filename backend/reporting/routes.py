@@ -962,6 +962,60 @@ async def clone_report(
     }
 
 
+@router.get("/{report_id}/users/lookup")
+async def lookup_report_share_users(
+    report_id: UUID,
+    query: str = Query(min_length=2, max_length=120),
+    current_user: UserProfileResponse = Depends(get_current_user),
+    session: AsyncSession = Depends(get_audited_session),
+):
+    """Search active users who can be selected as report recipients."""
+    report = await load_report(session, report_id)
+    await require_page_view_access(
+        session,
+        str(current_user.id),
+        report["page_key"],
+    )
+    await require_report_edit_access(
+        session,
+        report,
+        str(current_user.id),
+    )
+
+    result = await session.execute(
+        text(
+            """
+            SELECT
+                c_user_id,
+                c_user_email,
+                c_user_full_name
+            FROM pulsar.t_user
+            WHERE c_user_active IS TRUE
+              AND c_user_id <> :current_user_id
+              AND (
+                    c_user_email ILIKE :search
+                    OR c_user_full_name ILIKE :search
+              )
+            ORDER BY c_user_full_name NULLS LAST, c_user_email
+            LIMIT 20
+            """
+        ),
+        {
+            "current_user_id": str(current_user.id),
+            "search": "%" + query.strip() + "%",
+        },
+    )
+
+    return [
+        {
+            "c_user_id": str(row["c_user_id"]),
+            "c_user_email": row["c_user_email"],
+            "c_user_full_name": row["c_user_full_name"],
+        }
+        for row in result.mappings().all()
+    ]
+
+
 @router.post("/{report_id}/shares")
 async def share_report(
     report_id: UUID,
