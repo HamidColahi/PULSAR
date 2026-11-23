@@ -5,6 +5,11 @@
 -- In collaboration with GPT4 Chat Assistant: Bahram
 --
 -- Apply once to the PULSAR PostgreSQL database.
+-- For attributable deployment DDL/seed audit entries, set these values
+-- in the same database session before executing this file:
+--   SELECT set_config('pulsar.log_user', '<deployment_actor_user_uuid>', FALSE);
+--   SELECT set_config('pulsar.log_ip', '<deployment_client_ip>', FALSE);
+-- The application sets both values transaction-locally for API mutations.
 -- This migration is additive and does not alter existing page,
 -- component, or user metadata contracts.
 -- ============================================================
@@ -425,7 +430,7 @@ $$;
 -- ============================================================
 
 INSERT INTO pulsar.t_permission
-    (permission_code, permission_title, page_key, scope_type, scope_key, permission_desc)
+    (permission_code, permission_title, page_key, scope_type, scope_key, permission_desc, created_by, created_at)
 VALUES
     (
         'SECURITY.PERMISSION.GRANT',
@@ -433,43 +438,51 @@ VALUES
         NULL,
         'SYSTEM',
         NULL,
-        'Grant, change, deactivate, and revoke permissions within the administrator scope.'
+        'Grant, change, deactivate, and revoke permissions within the administrator scope.',
+        NULLIF(current_setting('pulsar.log_user', TRUE), '')::UUID,
+        CURRENT_TIMESTAMP
     )
 ON CONFLICT DO NOTHING;
 
 INSERT INTO pulsar.t_permission
-    (permission_code, permission_title, page_key, scope_type, scope_key, permission_desc)
+    (permission_code, permission_title, page_key, scope_type, scope_key, permission_desc, created_by, created_at)
 SELECT
     'SECURITY.PERMISSION.GRANT',
     'Manage page permissions',
     dp.page_key,
     'PAGE',
     dp.page_key,
-    'Manage permissions scoped to this page.'
+    'Manage permissions scoped to this page.',
+    NULLIF(current_setting('pulsar.log_user', TRUE), '')::UUID,
+    CURRENT_TIMESTAMP
 FROM pulsar.dynamic_page dp
 ON CONFLICT DO NOTHING;
 
 INSERT INTO pulsar.t_permission
-    (permission_code, permission_title, page_key, scope_type, scope_key, permission_desc)
+    (permission_code, permission_title, page_key, scope_type, scope_key, permission_desc, created_by, created_at)
 SELECT
     'PAGE.SUPERVISOR',
     'Page supervisor',
     dp.page_key,
     'PAGE',
     dp.page_key,
-    'Supervisor capability for the associated page.'
+    'Supervisor capability for the associated page.',
+    NULLIF(current_setting('pulsar.log_user', TRUE), '')::UUID,
+    CURRENT_TIMESTAMP
 FROM pulsar.dynamic_page dp
 ON CONFLICT DO NOTHING;
 
 INSERT INTO pulsar.t_permission
-    (permission_code, permission_title, page_key, scope_type, scope_key, permission_desc)
+    (permission_code, permission_title, page_key, scope_type, scope_key, permission_desc, created_by, created_at)
 SELECT
     permission_def.permission_code,
     permission_def.permission_title,
     dp.page_key,
     'PAGE',
     dp.page_key,
-    permission_def.permission_desc
+    permission_def.permission_desc,
+    NULLIF(current_setting('pulsar.log_user', TRUE), '')::UUID,
+    CURRENT_TIMESTAMP
 FROM pulsar.dynamic_page dp
 CROSS JOIN (
     VALUES
