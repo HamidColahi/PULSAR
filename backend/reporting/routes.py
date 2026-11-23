@@ -145,6 +145,20 @@ class ReportRunInput(BaseModel):
     offset: int = Field(default=0, ge=0)
 
 
+class ReportPageConfigUpdate(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+
+    is_enabled: bool
+    allow_sharing: bool = True
+    allow_public: bool = False
+
+    @model_validator(mode="after")
+    def validate_options(self):
+        if self.allow_public and not self.is_enabled:
+            raise ValueError("Public reports require Report Generator to be enabled.")
+        return self
+
+
 async def _load_field_metadata(
     session: AsyncSession,
     component_name: str,
@@ -394,6 +408,33 @@ async def _create_report_version(
     )
 
 
+async def _require_report_page_option(
+    session: AsyncSession,
+    page_key: str,
+    option_name: str,
+) -> None:
+    if option_name not in {"allow_sharing", "allow_public"}:
+        raise ValueError("Unsupported Report Generator page option.")
+
+    result = await session.execute(
+        text(
+            f"""
+            SELECT 1
+            FROM pulsar.t_report_page_config
+            WHERE page_key = :page_key
+              AND is_enabled IS TRUE
+              AND {option_name} IS TRUE
+            """
+        ),
+        {"page_key": page_key},
+    )
+    if result.scalar_one_or_none() is None:
+        raise HTTPException(
+            status_code=403,
+            detail=f"Report Generator option '{option_name}' is disabled for this page.",
+        )
+
+
 async def _load_target_user(
     session: AsyncSession,
     user_id: UUID,
@@ -417,6 +458,203 @@ async def _load_target_user(
         )
 
 
+@router.get("/config/pages")
+async def list_report_page_configuration(
+    current_user: UserProfileResponse = Depends(get_current_user),
+    session: AsyncSession = Depends(get_audited_session),
+):
+    """List Report Generator configuration for every dynamic page."""
+    await require_permission(
+        session,
+        str(current_user.id),
+        "SECURITY.PERMISSION.GRANT",
+        None,
+    )
+
+    result = await session.execute(
+        text(
+            """
+            SELECT
+                page.page_key,
+                page.page_type,
+                page.page_level,
+                page."Page_desc" AS page_desc,
+                COALESCE(config.is_enabled, FALSE) AS is_enabled,
+                COALESCE(config.allow_sharing, TRUE) AS allow_sharing,
+                COALESCE(config.allow_public, FALSE) AS allow_public,
+                config.created_by,
+                config.created_at,
+                config.updated_by,
+                config.updated_at
+            FROM pulsar.dynamic_page page
+            LEFT JOIN pulsar.t_report_page_config config
+                ON config.page_key = page.page_key
+            ORDER BY page.page_key
+            """
+        )
+    )
+    return [
+        {
+            **dict(row),
+            "created_by": str(row["created_by"]) if row["created_by"] else None,
+            "updated_by": str(row["updated_by"]) if row["updated_by"] else None,
+        }
+        for row in result.mappings().all()
+    ]
+
+
+@router.put("/config/pages/{page_key}")
+async def update_report_page_configuration(
+    page_key: str,
+    payload: ReportPageConfigUpdate,
+    current_user: UserProfileResponse = Depends(get_current_user),
+    session: AsyncSession = Depends(get_audited_session),
+):
+    """Enable or disable Report Generator features for one dynamic page."""
+    await require_permission(
+        session,
+        str(current_user.id),
+        "SECURITY.PERMISSION.GRANT",
+        None,
+    )
+
+    page_result = await session.execute(
+        text("SELECT page_key FROM pulsar.dynamic_page WHERE page_key = :page_key"),
+        {"page_key": page_key},
+    )
+    if page_result.scalar_one_or_none() is None:
+        raise HTTPException(status_code=404, detail="PULSAR page was not found.")
+
+    await session.execute(
+        text(
+            """
+            INSERT INTO pulsar.t_report_page_config
+            (
+                page_key,
+                is_enabled,
+                allow_sharing,
+                allow_public,
+                created_by,
+                created_at,
+                updated_by,
+                updated_at
+            )
+            VALUES
+            (
+                :page_key,
+                :is_enabled,
+                :allow_sharing,
+                :allow_public,
+                :user_id,
+                CURRENT_TIMESTAMP,
+                :user_id,
+                CURRENT_TIMESTAMP
+            )
+            ON CONFLICT (page_key)
+            DO UPDATE SET
+                is_enabled = EXCLUDED.is_enabled,
+                allow_sharing = EXCLUDED.allow_sharing,
+                allow_public = EXCLUDED.allow_public,
+                updated_by = EXCLUDED.updated_by,
+                updated_at = CURRENT_TIMESTAMP
+            """
+        ),
+        {
+            "page_key": page_key,
+            "is_enabled": payload.is_enabled,
+            "allow_sharing": payload.allow_sharing,
+            "allow_public": payload.allow_public,
+            "user_id": str(current_user.id),
+        },
+    )
+
+    if payload.is_enabled:
+        permission_definitions = [
+            ("REPORT.DESIGN.EDIT", "Edit users reports", "Edit reports created by other users for this page."),
+            ("REPORT.DESIGN.DELETE", "Delete users reports", "Delete reports created by other users for this page."),
+        ]
+        if payload.allow_public:
+            permission_definitions.append(
+                ("REPORT.PUBLIC.PUBLISH", "Publish public reports", "Publish reports as public for this Report Generator page.")
+            )
+
+        for code, title, description in permission_definitions:
+            await session.execute(
+                text(
+                    """
+                    INSERT INTO pulsar.t_permission
+                    (
+                        permission_code,
+                        permission_title,
+                        page_key,
+                        scope_type,
+                        scope_key,
+                        permission_desc,
+                        is_active,
+                        created_by,
+                        created_at
+                    )
+                    VALUES
+                    (
+                        :permission_code,
+                        :permission_title,
+                        :page_key,
+                        'PAGE',
+                        :page_key,
+                        :permission_desc,
+                        TRUE,
+                        :user_id,
+                        CURRENT_TIMESTAMP
+                    )
+                    ON CONFLICT DO NOTHING
+                    """
+                ),
+                {
+                    "permission_code": code,
+                    "permission_title": title,
+                    "page_key": page_key,
+                    "permission_desc": description,
+                    "user_id": str(current_user.id),
+                },
+            )
+
+    await session.execute(
+        text(
+            """
+            UPDATE pulsar.t_permission
+            SET
+                is_active = CASE
+                    WHEN :is_enabled IS FALSE THEN FALSE
+                    WHEN permission_code = 'REPORT.PUBLIC.PUBLISH' THEN :allow_public
+                    ELSE TRUE
+                END,
+                updated_by = :user_id,
+                updated_at = CURRENT_TIMESTAMP
+            WHERE page_key = :page_key
+              AND permission_code IN (
+                    'REPORT.PUBLIC.PUBLISH',
+                    'REPORT.DESIGN.EDIT',
+                    'REPORT.DESIGN.DELETE'
+              )
+            """
+        ),
+        {
+            "page_key": page_key,
+            "is_enabled": payload.is_enabled,
+            "allow_public": payload.allow_public,
+            "user_id": str(current_user.id),
+        },
+    )
+
+    await session.commit()
+    return {
+        "page_key": page_key,
+        "is_enabled": payload.is_enabled,
+        "allow_sharing": payload.allow_sharing,
+        "allow_public": payload.allow_public,
+    }
+
+
 @router.get("/pages/{page_key}")
 async def list_page_reports(
     page_key: str,
@@ -433,38 +671,19 @@ async def list_page_reports(
     page_result = await session.execute(
         text(
             """
-            SELECT page_level
-            FROM pulsar.dynamic_page
+            SELECT is_enabled, allow_public
+            FROM pulsar.t_report_page_config
             WHERE page_key = :page_key
-            LIMIT 1
             """
         ),
         {"page_key": page_key},
     )
-    page_row = page_result.mappings().first()
+    page_config = page_result.mappings().first()
 
-    if not page_row or page_row["page_level"] != "Report.Gen":
+    if page_config is None or page_config["is_enabled"] is not True:
         raise HTTPException(
             status_code=404,
             detail="Report Generator is not enabled for this page.",
-        )
-
-    page_result = await session.execute(
-        text(
-            """
-            SELECT page_key
-            FROM pulsar.dynamic_page
-            WHERE page_key = :page_key
-              AND page_level = 'Report.Gen'
-            """
-        ),
-        {"page_key": page_key},
-    )
-
-    if page_result.scalar_one_or_none() is None:
-        raise HTTPException(
-            status_code=404,
-            detail="Report Generator is not configured for this page.",
         )
 
     result = await session.execute(
@@ -487,6 +706,9 @@ async def list_page_reports(
                     ELSE 'PUBLIC_VIEW'
                 END AS access_mode
             FROM pulsar.t_report report
+            INNER JOIN pulsar.t_report_page_config page_config
+                ON page_config.page_key = report.page_key
+               AND page_config.is_enabled IS TRUE
             LEFT JOIN pulsar.t_report_share share
                 ON share.report_id = report.report_id
                AND share.target_user_id = :user_id
@@ -495,7 +717,10 @@ async def list_page_reports(
               AND report.is_active IS TRUE
               AND (
                     report.owner_user_id = :user_id
-                    OR report.sharing_policy = 'PUBLIC'
+                    OR (
+                        report.sharing_policy = 'PUBLIC'
+                        AND page_config.allow_public IS TRUE
+                    )
                     OR (
                         report.sharing_policy = 'SHARED'
                         AND share.share_id IS NOT NULL
@@ -720,6 +945,7 @@ async def update_report(
         report["page_key"],
         report["source_component_name"],
     )
+    await _require_report_page_option(session, report["page_key"], "allow_sharing")
     await require_report_edit_access(
         session,
         report,
@@ -1305,6 +1531,7 @@ async def publish_report(
         report["page_key"],
         report["source_component_name"],
     )
+    await _require_report_page_option(session, report["page_key"], "allow_public")
     await require_permission(
         session,
         str(current_user.id),
