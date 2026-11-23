@@ -758,7 +758,7 @@ async def list_page_reports(
                         AND page_config.allow_public IS TRUE
                     )
                     OR (
-                        report.sharing_policy = 'SHARED'
+                        report.sharing_policy IN ('SHARED', 'PUBLIC')
                         AND page_config.allow_sharing IS TRUE
                         AND share.share_id IS NOT NULL
                     )
