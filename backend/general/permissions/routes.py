@@ -6,7 +6,6 @@
 # ===============================================
 
 from datetime import datetime, timezone
-from typing import Any
 from uuid import UUID
 
 from fastapi import APIRouter, Depends, HTTPException, Query
@@ -345,6 +344,7 @@ async def update_permission_grant(
                 grant_row.valid_from,
                 grant_row.valid_until,
                 grant_row.is_active,
+                grant_row.grant_reason,
                 permission_row.page_key,
                 permission_row.scope_type,
                 permission_row.scope_key,
@@ -411,7 +411,7 @@ async def update_permission_grant(
             "valid_from": valid_from,
             "valid_until": valid_until,
             "is_active": is_active,
-            "grant_reason": changes.get("grant_reason", None),
+            "grant_reason": changes.get("grant_reason", grant["grant_reason"]),
             "revoked_by": revoked_by,
             "revoked_at": revoked_at,
             "permit_id": permit_id,
