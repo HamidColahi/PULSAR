@@ -105,6 +105,8 @@
                   <span>{{ labels.endAt }}: {{ grant.valid_until ? formatDate(grant.valid_until) : '—' }}</span>
                   <span>{{ labels.grantedBy }}: {{ grant.granted_by }}</span>
                   <span>{{ labels.grantedAt }}: {{ formatDate(grant.granted_at) }}</span>
+                  <span v-if="grant.revoked_by">{{ labels.revokedBy }}: {{ grant.revoked_by }}</span>
+                  <span v-if="grant.revoked_at">{{ labels.revokedAt }}: {{ formatDate(grant.revoked_at) }}</span>
                 </div>
                 <div v-if="grant.grant_reason" class="mt-2 text-[10px] text-muted">{{ grant.grant_reason }}</div>
                 <div v-if="grant.is_active" class="mt-2 flex justify-end">
@@ -183,6 +185,8 @@ const translationKeys = {
   inactive: 'security.inactive',
   grantedBy: 'security.grantedBy',
   grantedAt: 'security.grantedAt',
+  revokedBy: 'security.revokedBy',
+  revokedAt: 'security.revokedAt',
   revoke: 'security.revoke',
   loading: 'security.loading',
   auditNote: 'security.auditNote',
