@@ -156,7 +156,7 @@ In collaboration with GPT4 Chat Assistant: Bahram
               <option value="VIEW">{{ labels.viewPermission }}</option>
               <option value="EDIT">{{ labels.editPermission }}</option>
             </select>
-            <button class="report-action report-primary w-full"  :disabled="loading || !props.pageConfig?.allow_sharing || !selectedReportId || !targetUserId.trim()" @click="shareReport">{{ labels.share }}</button>
+            <button class="report-action report-primary w-full" :disabled="loading || !props.pageConfig?.allow_sharing || !selectedReportId || !targetUserId.trim()" @click="shareReport">{{ labels.share }}</button>
             <div class="border-t border-border pt-3">
               <div class="mb-2 text-xs font-semibold">{{ labels.sharedUsers }}</div>
               <div v-for="share in shares" :key="share.share_id" class="mb-2 flex items-center gap-2 rounded-lg border border-border p-2">
