@@ -552,7 +552,8 @@ async function loadDefaultSortPreference() {
       sortSpec
         .filter(item =>
           ['asc', 'desc'].includes(item.direction) &&
-          Number(item.field_sort_order) > 0
+          Number(item.field_sort_order) > 0 &&
+          Number(props.config?.fields?.[item.field]?.field_sort || 0) === 1
         )
         .map(item => [item.field, item])
     )
