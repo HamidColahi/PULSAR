@@ -61,34 +61,53 @@ In collaboration with GPT4 Chat Assistant: Bahram
 
           <section v-else-if="activeTab === 'filters'" class="space-y-3">
             <div class="text-xs font-semibold">{{ labels.filterDesigner }}</div>
-            <div class="flex items-center gap-2">
-              <label class="text-[10px] text-muted">{{ labels.match }}</label>
-              <select v-model="filterLogic" class="flex-1 rounded border border-border bg-panel px-2 py-1.5 text-xs">
-                <option value="AND">AND</option>
-                <option value="OR">OR</option>
-              </select>
-            </div>
 
-            <div v-for="(filter, index) in filterConditions" :key="filter.local_id" class="space-y-2 rounded-lg border border-border p-2">
-              <div class="flex items-center justify-between">
-                <span class="text-[10px] font-semibold text-muted">{{ labels.condition }} {{ index + 1 }}</span>
-                <button class="text-xs text-red-500" @click="removeFilter(index)">×</button>
+            <div
+              v-for="(group, groupIndex) in filterGroups"
+              :key="group.local_id"
+              class="space-y-2 rounded-lg border border-border p-2"
+            >
+              <div class="flex items-center gap-2">
+                <span class="flex-1 text-[10px] font-semibold text-muted">{{ labels.group }} {{ groupIndex + 1 }}</span>
+                <select v-model="group.logical_operator" class="rounded border border-border bg-panel px-2 py-1 text-xs">
+                  <option value="AND">AND</option>
+                  <option value="OR">OR</option>
+                </select>
+                <button class="text-xs text-red-500" @click="removeGroup(groupIndex)">×</button>
               </div>
-              <select v-model="filter.field_name" class="w-full rounded border border-border bg-panel px-2 py-1.5 text-xs">
-                <option value="">{{ labels.selectField }}</option>
-                <option v-for="field in searchableFields" :key="field" :value="field">{{ fieldLabel(field) }}</option>
-              </select>
-              <select v-model="filter.operator_code" class="w-full rounded border border-border bg-panel px-2 py-1.5 text-xs">
-                <option v-for="operator in operators" :key="operator" :value="operator">{{ labels['operator_' + operator] || operator }}</option>
-              </select>
-              <select v-model="filter.parameter_code" class="w-full rounded border border-border bg-panel px-2 py-1.5 text-xs">
-                <option value="">{{ labels.fixedValue }}</option>
-                <option v-for="parameter in parameters" :key="parameter" :value="parameter">{{ labels['parameter_' + parameter] || parameter }}</option>
-              </select>
-              <input v-if="!filter.parameter_code && !['IS_NULL', 'IS_NOT_NULL'].includes(filter.operator_code)" v-model="filter.value" class="w-full rounded border border-border bg-panel px-2 py-1.5 text-xs" :placeholder="labels.value" />
+
+              <div
+                v-for="(filter, index) in group.conditions"
+                :key="filter.local_id"
+                class="space-y-2 rounded-lg border border-border bg-panel p-2"
+              >
+                <div class="flex items-center justify-between">
+                  <span class="text-[10px] font-semibold text-muted">{{ labels.condition }} {{ index + 1 }}</span>
+                  <button class="text-xs text-red-500" @click="removeFilter(groupIndex, index)">×</button>
+                </div>
+                <select v-model="filter.field_name" class="w-full rounded border border-border bg-panel px-2 py-1.5 text-xs">
+                  <option value="">{{ labels.selectField }}</option>
+                  <option v-for="field in searchableFields" :key="field" :value="field">{{ fieldLabel(field) }}</option>
+                </select>
+                <select v-model="filter.operator_code" class="w-full rounded border border-border bg-panel px-2 py-1.5 text-xs">
+                  <option v-for="operator in operators" :key="operator" :value="operator">{{ labels['operator_' + operator] || operator }}</option>
+                </select>
+                <select v-model="filter.parameter_code" class="w-full rounded border border-border bg-panel px-2 py-1.5 text-xs">
+                  <option value="">{{ labels.fixedValue }}</option>
+                  <option v-for="parameter in parameters" :key="parameter" :value="parameter">{{ labels['parameter_' + parameter] || parameter }}</option>
+                </select>
+                <input
+                  v-if="!filter.parameter_code && !['IS_NULL', 'IS_NOT_NULL'].includes(filter.operator_code)"
+                  v-model="filter.value"
+                  class="w-full rounded border border-border bg-panel px-2 py-1.5 text-xs"
+                  :placeholder="labels.value"
+                />
+              </div>
+
+              <button class="report-action w-full" @click="addFilter(groupIndex)">{{ labels.addCondition }}</button>
             </div>
 
-            <button class="report-action w-full" @click="addFilter">{{ labels.addCondition }}</button>
+            <button class="report-action w-full" @click="addGroup">{{ labels.addGroup }}</button>
             <button class="report-action report-primary w-full" :disabled="loading" @click="runReport">{{ labels.applyFilters }}</button>
           </section>
 
@@ -195,8 +214,7 @@ const reportTitle = ref('')
 const reportDescription = ref('')
 const sharingPolicy = ref('PRIVATE')
 const columns = ref([])
-const filterConditions = ref([])
-const filterLogic = ref('AND')
+const filterGroups = ref([])
 const shares = ref([])
 const permissions = ref([])
 const gridItems = ref([...props.items])
@@ -247,6 +265,8 @@ const labelDictionary = {
   filterDesigner: 'report.filterDesigner',
   match: 'report.match',
   condition: 'report.condition',
+  group: 'report.group',
+  addGroup: 'report.addGroup',
   selectField: 'report.selectField',
   fixedValue: 'report.fixedValue',
   value: 'report.value',
@@ -387,89 +407,121 @@ function accessLabel(mode) {
 }
 
 function buildFilterTree() {
-  const children = filterConditions.value
-    .filter(filter => filter.field_name && filter.operator_code)
-    .map((filter, index) => {
-      let value = filter.value === '' ? null : filter.value
+  return filterGroups.value
+    .map((group, groupIndex) => {
+      const children = group.conditions
+        .filter(filter => filter.field_name && filter.operator_code)
+        .map((filter, index) => {
+          let value = filter.value === '' ? null : filter.value
 
-      if (['IN', 'NOT_IN', 'BETWEEN', 'NOT_BETWEEN'].includes(filter.operator_code)) {
-        value = String(value || '')
-          .split(',')
-          .map(item => item.trim())
-          .filter(Boolean)
-      }
+          if (['IN', 'NOT_IN', 'BETWEEN', 'NOT_BETWEEN'].includes(filter.operator_code)) {
+            value = String(value || '')
+              .split(',')
+              .map(item => item.trim())
+              .filter(Boolean)
+          }
+
+          return {
+            node_type: 'CONDITION',
+            field_name: filter.field_name,
+            operator_code: filter.operator_code,
+            value,
+            parameter_code: filter.parameter_code || null,
+            display_order: index + 1,
+            children: []
+          }
+        })
+
+      if (!children.length) return null
 
       return {
-        node_type: 'CONDITION',
-        field_name: filter.field_name,
-        operator_code: filter.operator_code,
-        value,
-        parameter_code: filter.parameter_code || null,
-        display_order: index + 1,
-        children: []
+        node_type: 'GROUP',
+        logical_operator: group.logical_operator,
+        display_order: groupIndex + 1,
+        children
       }
     })
+    .filter(Boolean)
+}
 
-  return children.length
+function loadFilterTree(tree) {
+  const nodes = Array.isArray(tree) ? tree : []
+  const groups = nodes.filter(node => node.node_type === 'GROUP')
+
+  if (groups.length) {
+    filterGroups.value = groups.map((group, groupIndex) => ({
+      local_id: String(groupIndex) + '-group',
+      logical_operator: group.logical_operator || 'AND',
+      conditions: (group.children || [])
+        .filter(node => node.node_type === 'CONDITION')
+        .map((node, index) => ({
+          local_id: String(groupIndex) + '-' + String(index) + '-' + (node.field_name || 'condition'),
+          field_name: node.field_name || searchableFields.value[0] || '',
+          operator_code: node.operator_code || 'EQ',
+          value: Array.isArray(node.value) ? node.value.join(', ') : (node.value ?? ''),
+          parameter_code: node.parameter_code || '',
+          display_order: node.display_order || index + 1
+        }))
+    }))
+    return
+  }
+
+  const conditions = nodes.filter(node => node.node_type === 'CONDITION')
+  filterGroups.value = conditions.length
     ? [{
-        node_type: 'GROUP',
-        logical_operator: filterLogic.value,
-        display_order: 1,
-        children
+        local_id: 'legacy-group',
+        logical_operator: 'AND',
+        conditions: conditions.map((node, index) => ({
+          local_id: 'legacy-' + String(index) + '-' + (node.field_name || 'condition'),
+          field_name: node.field_name || searchableFields.value[0] || '',
+          operator_code: node.operator_code || 'EQ',
+          value: Array.isArray(node.value) ? node.value.join(', ') : (node.value ?? ''),
+          parameter_code: node.parameter_code || '',
+          display_order: node.display_order || index + 1
+        }))
       }]
     : []
 }
 
-function loadFilterTree(tree) {
-  const root = Array.isArray(tree) ? tree[0] : null
-  const nodes = root?.node_type === 'GROUP'
-    ? (root.children || [])
-    : (tree || [])
-
-  if (root?.node_type === 'GROUP') {
-    filterLogic.value = root.logical_operator || 'AND'
-  }
-
-  filterConditions.value = nodes
-    .filter(node => node.node_type === 'CONDITION')
-    .map((node, index) => ({
-      local_id: String(index) + '-' + (node.field_name || 'condition'),
-      field_name: node.field_name || searchableFields.value[0] || '',
-      operator_code: node.operator_code || 'EQ',
-      value: node.value ?? '',
-      parameter_code: node.parameter_code || '',
-      display_order: node.display_order || index + 1
-    }))
+function addGroup() {
+  filterGroups.value.push({
+    local_id: String(Date.now()) + '-' + String(Math.random()),
+    logical_operator: 'AND',
+    conditions: [{
+      local_id: String(Date.now()) + '-' + String(Math.random()),
+      field_name: searchableFields.value[0] || '',
+      operator_code: 'EQ',
+      value: '',
+      parameter_code: '',
+      display_order: 1
+    }]
+  })
 }
 
-function addFilter() {
-  filterConditions.value.push({
+function removeGroup(groupIndex) {
+  filterGroups.value.splice(groupIndex, 1)
+}
+
+function addFilter(groupIndex) {
+  const group = filterGroups.value[groupIndex]
+  if (!group) return
+
+  group.conditions.push({
     local_id: String(Date.now()) + '-' + String(Math.random()),
     field_name: searchableFields.value[0] || '',
     operator_code: 'EQ',
     value: '',
     parameter_code: '',
-    display_order: filterConditions.value.length + 1
+    display_order: group.conditions.length + 1
   })
 }
 
-function removeFilter(index) {
-  filterConditions.value.splice(index, 1)
+function removeFilter(groupIndex, filterIndex) {
+  const group = filterGroups.value[groupIndex]
+  if (!group) return
+  group.conditions.splice(filterIndex, 1)
 }
 
-function setSortDirection(column) {
-  if (!column.sort_direction) {
-    column.sort_order = null
-    return
-  }
-
-  if (!column.sort_order) {
-    const currentOrders = columns.value
-      .filter(item => item.field_name !== column.field_name && item.sort_order)
-      .map(item => Number(item.sort_order))
-    column.sort_order = Math.max(0, ...currentOrders) + 1
-  }
-}
 
 function updateColumns(nextColumns) {
   columns.value = nextColumns.map((column, index) => ({
@@ -481,8 +533,7 @@ function updateColumns(nextColumns) {
 async function resetDesign() {
   columns.value = defaultColumns.value.map(item => ({ ...item }))
   await loadDefaultSortPreference()
-  filterConditions.value = []
-  filterLogic.value = 'AND'
+  filterGroups.value = []
   await runReport()
 }
 
@@ -586,7 +637,7 @@ async function loadReports() {
     reportTitle.value = labels.value.defaultTitle
     columns.value = defaultColumns.value.map(item => ({ ...item }))
     await loadDefaultSortPreference()
-    filterConditions.value = []
+    filterGroups.value = []
     sharingPolicy.value = 'PRIVATE'
     await runReport()
   }
@@ -600,7 +651,7 @@ async function selectReport(reportId) {
     sharingPolicy.value = 'PRIVATE'
     columns.value = defaultColumns.value.map(item => ({ ...item }))
     await loadDefaultSortPreference()
-    filterConditions.value = []
+    filterGroups.value = []
     filterLogic.value = 'AND'
     await runReport()
     return
@@ -703,7 +754,7 @@ async function deleteReport() {
     sharingPolicy.value = 'PRIVATE'
     reportTitle.value = labels.value.defaultTitle
     columns.value = defaultColumns.value.map(item => ({ ...item }))
-    filterConditions.value = []
+    filterGroups.value = []
     shares.value = []
     await refreshReportList()
     await runReport()
