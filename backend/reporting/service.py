@@ -149,6 +149,24 @@ async def require_report_view_access(
             detail="You do not have access to this report.",
         )
 
+    config_result = await session.execute(
+        text(
+            """
+            SELECT allow_sharing
+            FROM pulsar.t_report_page_config
+            WHERE page_key = :page_key
+              AND is_enabled IS TRUE
+            """
+        ),
+        {"page_key": report["page_key"]},
+    )
+    config = config_result.mappings().first()
+    if config is None or config["allow_sharing"] is not True:
+        raise HTTPException(
+            status_code=403,
+            detail="Report sharing is disabled for this page.",
+        )
+
     result = await session.execute(
         text(
             """
