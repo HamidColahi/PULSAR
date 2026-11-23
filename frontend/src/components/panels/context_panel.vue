@@ -2,13 +2,13 @@
 
 File: frontend/src/components/panels/context_panel.vue
 
-Description: Resizable metadata-driven context panel with isolated scrolling
+Description: Metadata-driven operational panel with hover collapse, pinning, and isolated scrolling
 
 Author: MHKolahi@gmail.com
 
 In collaboration with GPT4 Chat Assistant: Bahram
 
-Last Modified: 2026-10-08 13:11:00 (Asia/Baku)
+Last Modified: 2026-11-23 22:55:00 (Asia/Baku)
 
 =============================================== -->
 
@@ -112,7 +112,8 @@ Last Modified: 2026-10-08 13:11:00 (Asia/Baku)
       v-else
       type="button"
       class="flex h-full w-full flex-col items-center justify-center gap-2 bg-panel px-1 text-muted transition hover:bg-hover hover:text-primary focus-visible:outline focus-visible:outline-2 focus-visible:outline-primary"
-      :aria-label="panelLabels.open"
+       :aria-label="panelLabels.open"
+      :aria-expanded="isOpen"
       :title="panelLabels.open"
       @click="openPanelManually"
     >
@@ -347,7 +348,7 @@ function handlePanelMouseEnter() {
 }
 
 function handlePanelMouseLeave() {
-  if (!isPinned.value) {
+  if (!isPinned.value && !resizing.value) {
     isOpen.value = false
   }
 }
