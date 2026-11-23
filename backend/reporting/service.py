@@ -813,9 +813,18 @@ async def execute_report(
     })
 
     definitions = analyze_where_clause(base.get("where_clause"))
+    selected_scope_record = dict(selected_record or {})
+
+    for definition in definitions:
+        field_name = str(definition.get("field", "")).lower()
+        if field_name == "profile_id":
+            selected_scope_record[definition["field"]] = profile_id
+        elif field_name in {"c_user_id", "user_id"}:
+            selected_scope_record[definition["field"]] = user_id
+
     parameters, _ = resolve_runtime_parameters(
         definitions,
-        selected_record or {},
+        selected_scope_record,
     )
     resolver.update(parameters)
 
@@ -826,6 +835,15 @@ async def execute_report(
         model=Model,
         converter=_convert_value_for_column,
     )
+
+    if raw_sql:
+        raise HTTPException(
+            status_code=500,
+            detail=(
+                "Report execution requires a structured metadata where_clause. "
+                "Unstructured SQL scope expressions are not accepted."
+            ),
+        )
 
     query = select(
         *[
