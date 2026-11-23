@@ -45,7 +45,10 @@ Last Modified: 2026-11-23 22:55:00 (Asia/Baku)
           <button
             ref="pinButton"
             type="button"
-            class="inline-flex h-7 w-7 items-center justify-center rounded-md border border-border text-muted transition hover:bg-hover hover:text-primary"
+            class="inline-flex h-7 w-7 items-center justify-center rounded-md border transition hover:bg-hover hover:text-primary"
+            :class="isPinned
+              ? 'border-primary bg-primary/10 text-primary'
+              : 'border-border text-muted'"
             :aria-label="isPinned ? panelLabels.unpin : panelLabels.pin"
             :title="isPinned ? panelLabels.unpin : panelLabels.pin"
             :aria-pressed="isPinned"
@@ -55,14 +58,15 @@ Last Modified: 2026-11-23 22:55:00 (Asia/Baku)
               v-if="isPinned"
               viewBox="0 0 24 24"
               class="h-4 w-4"
-              fill="none"
+              viewBox="0 0 24 24"
+              fill="currentColor"
               stroke="currentColor"
-              stroke-width="1.8"
+              stroke-width="1.2"
               stroke-linecap="round"
               stroke-linejoin="round"
               aria-hidden="true"
             >
-              <path d="m16 3 5 5-4 1-4 4 3 3-1 1-4-4-5 5-1-1 5-5-4-4 1-1 3 3 4-4z" />
+              <path d="M16 3 21 8 17 9 13 13 16 16 14 18 10 14 5 19 4 18 9 13 5 9 7 7 10 10 14 6 16 3Z" />
             </svg>
             <svg
               v-else
@@ -75,8 +79,8 @@ Last Modified: 2026-11-23 22:55:00 (Asia/Baku)
               stroke-linejoin="round"
               aria-hidden="true"
             >
-              <path d="m16 3 5 5-4 1-4 4 3 3-1 1-4-4-5 5-1-1 5-5-4-4 1-1 3 3 4-4z" />
-              <path d="m5 19 3-3" />
+              <path d="M16 3 21 8 17 9 13 13 16 16 14 18 10 14 5 19 4 18 9 13 5 9 7 7 10 10 14 6 16 3Z" />
+              <path d="m3 21 18-18" />
             </svg>
           </button>
         </div>
