@@ -267,7 +267,11 @@ CREATE TABLE IF NOT EXISTS pulsar.t_report_column
         CHECK (
             (sort_direction IS NULL AND sort_order IS NULL)
             OR
-            (sort_direction IS NOT NULL AND sort_order >= 1)
+            (
+                sort_direction IS NOT NULL
+                AND sort_order IS NOT NULL
+                AND sort_order >= 1
+            )
         )
 );
 
