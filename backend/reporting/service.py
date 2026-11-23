@@ -813,7 +813,16 @@ async def execute_report(
     })
 
     definitions = analyze_where_clause(base.get("where_clause"))
-    selected_scope_record = dict(selected_record or {})
+    selected_record_values = selected_record or {}
+    required_scope_fields = {
+        definition["field"]
+        for definition in definitions
+    }
+    selected_scope_record = {
+        field_name: selected_record_values[field_name]
+        for field_name in required_scope_fields
+        if field_name in selected_record_values
+    }
 
     for definition in definitions:
         field_name = str(definition.get("field", "")).lower()
