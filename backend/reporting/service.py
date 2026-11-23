@@ -169,7 +169,7 @@ async def can_edit_report(
     if str(report["owner_user_id"]) == str(user_id):
         return True
 
-    if report["sharing_policy"] in ("SHARED", "PUBLIC"):
+    if report["sharing_policy"] == "SHARED":
         share_result = await session.execute(
             text(
                 """
@@ -190,6 +190,14 @@ async def can_edit_report(
 
         if share_result.scalar_one_or_none() is not None:
             return True
+
+    if report["sharing_policy"] == "PUBLIC":
+        return await has_permission(
+            session,
+            user_id,
+            "PAGE.SUPERVISOR",
+            report["page_key"],
+        )
 
     return await has_permission(
         session,
