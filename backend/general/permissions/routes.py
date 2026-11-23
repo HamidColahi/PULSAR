@@ -479,6 +479,8 @@ async def update_permission_grant(
                 grant_row.valid_from,
                 grant_row.valid_until,
                 grant_row.is_active,
+                grant_row.revoked_by,
+                grant_row.revoked_at,
                 grant_row.grant_reason,
                 permission_row.page_key,
                 permission_row.scope_type,
@@ -531,8 +533,12 @@ async def update_permission_grant(
             detail="is_active must be true or false.",
         )
 
-    revoked_by = None if is_active else str(current_user.id)
-    revoked_at = None if is_active else datetime.now(timezone.utc)
+    if "is_active" in changes:
+        revoked_by = None if is_active else str(current_user.id)
+        revoked_at = None if is_active else datetime.now(timezone.utc)
+    else:
+        revoked_by = grant["revoked_by"]
+        revoked_at = grant["revoked_at"]
 
     await session.execute(
         text(
