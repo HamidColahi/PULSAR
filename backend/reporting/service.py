@@ -130,6 +130,12 @@ async def require_report_view_access(
     if report["sharing_policy"] == "PUBLIC":
         return
 
+    if report["sharing_policy"] != "SHARED":
+        raise HTTPException(
+            status_code=403,
+            detail="You do not have access to this report.",
+        )
+
     result = await session.execute(
         text(
             """
@@ -163,8 +169,10 @@ async def can_edit_report(
     if str(report["owner_user_id"]) == str(user_id):
         return True
 
-    share_result = await session.execute(
-        text(
+    if report["sharing_policy"] not in ("SHARED", "PUBLIC"):
+        share_result = None
+    else:
+            text(
             """
             SELECT 1
             FROM pulsar.t_report_share
@@ -181,7 +189,7 @@ async def can_edit_report(
         },
     )
 
-    if share_result.scalar_one_or_none() is not None:
+    if share_result is not None and share_result.scalar_one_or_none() is not None:
         return True
 
     return await has_permission(
