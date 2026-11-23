@@ -5,6 +5,7 @@
 # In collaboration with GPT4 Chat Assistant: Bahram
 # ===============================================
 
+import ipaddress
 from typing import AsyncGenerator
 
 from fastapi import Depends, HTTPException, Request
@@ -22,6 +23,26 @@ async def set_audit_context(
     client_ip: str | None,
 ) -> None:
     """Set transaction-local identity values consumed by PostgreSQL audit triggers."""
+    if not user_id:
+        raise HTTPException(
+            status_code=401,
+            detail="Authenticated audit identity is required.",
+        )
+
+    if not client_ip:
+        raise HTTPException(
+            status_code=400,
+            detail="A verifiable client IP address is required for audited operations.",
+        )
+
+    try:
+        normalized_ip = str(ipaddress.ip_address(client_ip))
+    except ValueError as exc:
+        raise HTTPException(
+            status_code=400,
+            detail="The client IP address is invalid.",
+        ) from exc
+
     await session.execute(
         text(
             """
@@ -32,7 +53,7 @@ async def set_audit_context(
         ),
         {
             "user_id": str(user_id),
-            "client_ip": client_ip or "",
+            "client_ip": normalized_ip,
         },
     )
 
@@ -61,11 +82,13 @@ async def get_audited_session(
             detail="Authenticated user identity is not available.",
         )
 
-    client_ip = (
-        request.client.host
-        if request.client is not None
-        else None
-    )
+    client_ip = request.client.host if request.client is not None else None
+
+    if not client_ip:
+        raise HTTPException(
+            status_code=400,
+            detail="The request does not provide a verifiable client IP address.",
+        )
 
     await set_audit_context(
         session=session,
