@@ -162,8 +162,12 @@ async def read_my_permission_history(
                 grant_row.valid_until,
                 grant_row.is_active,
                 grant_row.granted_by,
+                grantor_user.c_user_full_name AS granted_by_name,
+                grantor_user.c_user_email AS granted_by_email,
                 grant_row.granted_at,
                 grant_row.revoked_by,
+                revoker_user.c_user_full_name AS revoked_by_name,
+                revoker_user.c_user_email AS revoked_by_email,
                 grant_row.revoked_at,
                 grant_row.grant_reason,
                 (
@@ -179,6 +183,10 @@ async def read_my_permission_history(
             INNER JOIN pulsar.t_permission permission_row
                 ON permission_row.permission_id = grant_row.permission_id
                AND permission_row.permission_code = grant_row.permission_code
+            LEFT JOIN pulsar.t_user grantor_user
+                ON grantor_user.c_user_id = grant_row.granted_by
+            LEFT JOIN pulsar.t_user revoker_user
+                ON revoker_user.c_user_id = grant_row.revoked_by
             WHERE grant_row.c_user_id = :user_id
             ORDER BY grant_row.granted_at DESC, grant_row.permit_id DESC
             """
@@ -315,8 +323,12 @@ async def read_user_permission_history(
                 grant_row.valid_until,
                 grant_row.is_active,
                 grant_row.granted_by,
+                grantor_user.c_user_full_name AS granted_by_name,
+                grantor_user.c_user_email AS granted_by_email,
                 grant_row.granted_at,
                 grant_row.revoked_by,
+                revoker_user.c_user_full_name AS revoked_by_name,
+                revoker_user.c_user_email AS revoked_by_email,
                 grant_row.revoked_at,
                 grant_row.grant_reason,
                 (
@@ -332,6 +344,10 @@ async def read_user_permission_history(
             INNER JOIN pulsar.t_permission permission_row
                 ON permission_row.permission_id = grant_row.permission_id
                AND permission_row.permission_code = grant_row.permission_code
+            LEFT JOIN pulsar.t_user grantor_user
+                ON grantor_user.c_user_id = grant_row.granted_by
+            LEFT JOIN pulsar.t_user revoker_user
+                ON revoker_user.c_user_id = grant_row.revoked_by
             WHERE grant_row.c_user_id = :user_id
               AND EXISTS (
                     SELECT 1
