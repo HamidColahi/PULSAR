@@ -836,7 +836,7 @@ async def create_report(
     current_user: UserProfileResponse = Depends(get_current_user),
     session: AsyncSession = Depends(get_audited_session),
 ):
-    """Create a private report bound to a Report.Gen page and one list component."""
+    """Create a private report bound to a configured PULSAR page and one list component."""
     await validate_report_page(
         session,
         str(current_user.id),
