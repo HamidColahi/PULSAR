@@ -183,6 +183,38 @@ CREATE INDEX IF NOT EXISTS t_permit_usracc_grantor_idx
     ON pulsar.t_permit_usracc(granted_by, granted_at DESC);
 
 -- ============================================================
+-- Report Generator Page Configuration
+-- Every dynamic page is eligible; enablement is explicit and defaults off.
+-- ============================================================
+
+CREATE TABLE IF NOT EXISTS pulsar.t_report_page_config
+(
+    page_key TEXT PRIMARY KEY
+        REFERENCES pulsar.dynamic_page(page_key) ON UPDATE CASCADE ON DELETE RESTRICT,
+    is_enabled BOOLEAN NOT NULL DEFAULT FALSE,
+    allow_sharing BOOLEAN NOT NULL DEFAULT TRUE,
+    allow_public BOOLEAN NOT NULL DEFAULT FALSE,
+    created_by UUID NULL REFERENCES pulsar.t_user(c_user_id) ON DELETE SET NULL,
+    created_at TIMESTAMPTZ NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    updated_by UUID NULL REFERENCES pulsar.t_user(c_user_id) ON DELETE SET NULL,
+    updated_at TIMESTAMPTZ NULL,
+    CONSTRAINT t_report_page_config_public_ck
+        CHECK (allow_public IS FALSE OR is_enabled IS TRUE)
+);
+
+INSERT INTO pulsar.t_report_page_config
+    (page_key, is_enabled, allow_sharing, allow_public, created_by, created_at)
+SELECT
+    dp.page_key,
+    FALSE,
+    TRUE,
+    FALSE,
+    NULLIF(current_setting('pulsar.log_user', TRUE), '')::UUID,
+    CURRENT_TIMESTAMP
+FROM pulsar.dynamic_page dp
+ON CONFLICT (page_key) DO NOTHING;
+
+-- ============================================================
 -- Report Definitions
 -- ============================================================
 
@@ -351,6 +383,7 @@ BEGIN
     FOREACH v_table_name IN ARRAY ARRAY[
         't_permission',
         't_permit_usracc',
+        't_report_page_config',
         't_report',
         't_report_column',
         't_report_filter',
@@ -476,6 +509,7 @@ BEGIN
     FOREACH v_table_name IN ARRAY ARRAY[
         't_permission',
         't_permit_usracc',
+        't_report_page_config',
         't_report',
         't_report_column',
         't_report_filter',
@@ -561,7 +595,9 @@ SELECT
     permission_def.permission_desc,
     NULLIF(current_setting('pulsar.log_user', TRUE), '')::UUID,
     CURRENT_TIMESTAMP
-FROM pulsar.dynamic_page dp
+FROM pulsar.t_report_page_config config
+INNER JOIN pulsar.dynamic_page dp
+    ON dp.page_key = config.page_key
 CROSS JOIN (
     VALUES
         (
@@ -580,7 +616,11 @@ CROSS JOIN (
             'Delete reports created by other users for this page.'
         )
 ) AS permission_def(permission_code, permission_title, permission_desc)
-WHERE dp.page_level = 'Report.Gen'
+WHERE config.is_enabled IS TRUE
+  AND (
+        permission_def.permission_code <> 'REPORT.PUBLIC.PUBLISH'
+        OR config.allow_public IS TRUE
+  )
 ON CONFLICT DO NOTHING;
 
 -- ============================================================
