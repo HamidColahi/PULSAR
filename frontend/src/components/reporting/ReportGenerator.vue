@@ -131,8 +131,26 @@ In collaboration with GPT4 Chat Assistant: Bahram
           <section v-else class="space-y-3">
             <div class="text-xs font-semibold">{{ labels.sharing }}</div>
             <div class="space-y-1">
-              <label class="text-[10px] text-muted">{{ labels.targetUserId }}</label>
-              <input v-model="targetUserId" class="w-full rounded border border-border bg-panel px-2 py-1.5 text-xs" placeholder="UUID" />
+              <label class="text-[10px] text-muted">{{ labels.searchUsers }}</label>
+              <div class="flex gap-2">
+                <input v-model="shareUserQuery" class="min-w-0 flex-1 rounded border border-border bg-panel px-2 py-1.5 text-xs" :placeholder="labels.shareUserSearch" @keyup.enter="searchShareUsers" />
+                <button class="report-action" :disabled="loading || shareUserQuery.trim().length < 2" @click="searchShareUsers">{{ labels.search }}</button>
+              </div>
+              <div v-if="shareUsers.length" class="max-h-32 overflow-y-auto rounded border border-border">
+                <button
+                  v-for="user in shareUsers"
+                  :key="user.c_user_id"
+                  class="flex w-full flex-col border-b border-border px-2 py-1.5 text-left last:border-0 hover:bg-hover"
+                  @click="selectShareUser(user)"
+                >
+                  <span class="text-xs font-medium">{{ user.c_user_full_name || user.c_user_email }}</span>
+                  <span class="text-[10px] text-muted">{{ user.c_user_email }}</span>
+                </button>
+              </div>
+              <div v-if="targetUserId" class="rounded bg-hover px-2 py-1.5 text-[10px] text-label">
+                {{ labels.selectedShareUser }}: {{ targetUserId }}
+                <button class="ml-2 text-red-500" @click="targetUserId = ''">×</button>
+              </div>
             </div>
             <select v-model="sharePermission" class="w-full rounded border border-border bg-panel px-2 py-1.5 text-xs">
               <option value="VIEW">{{ labels.viewPermission }}</option>
@@ -224,6 +242,8 @@ const offset = ref(0)
 const panelOpen = ref(true)
 const activeTab = ref('columns')
 const targetUserId = ref('')
+const shareUserQuery = ref('')
+const shareUsers = ref([])
 const sharePermission = ref('VIEW')
 const labels = ref({})
 
@@ -281,6 +301,10 @@ const labelDictionary = {
   applySorting: 'report.applySorting',
   sharing: 'report.sharing',
   targetUserId: 'report.targetUserId',
+  searchUsers: 'report.searchUsers',
+  shareUserSearch: 'report.shareUserSearch',
+  selectedShareUser: 'report.selectedShareUser',
+  search: 'report.search',
   viewPermission: 'report.viewPermission',
   editPermission: 'report.editPermission',
   sharedUsers: 'report.sharedUsers',
@@ -776,6 +800,30 @@ async function loadShares() {
   } catch {
     shares.value = []
   }
+}
+
+async function searchShareUsers() {
+  if (!selectedReportId.value || shareUserQuery.value.trim().length < 2) return
+  loading.value = true
+  error.value = ''
+
+  try {
+    const response = await axios.get(
+      '/reports/' + selectedReportId.value + '/users/lookup',
+      { params: { query: shareUserQuery.value.trim() } }
+    )
+    shareUsers.value = response.data || []
+  } catch (err) {
+    error.value = errorMessage(err, labels.value.errorShare)
+  } finally {
+    loading.value = false
+  }
+}
+
+function selectShareUser(user) {
+  targetUserId.value = user.c_user_id
+  shareUserQuery.value = user.c_user_full_name || user.c_user_email
+  shareUsers.value = []
 }
 
 async function shareReport() {
