@@ -918,6 +918,27 @@ DO UPDATE SET
     owner_column_table = EXCLUDED.owner_column_table,
     form_name = EXCLUDED.form_name;
 
+INSERT INTO pulsar.translation_dictionary
+(
+    item_code,
+    language_code,
+    translated_text,
+    context_type,
+    owner_column_table,
+    form_name
+)
+VALUES
+('security.revokedBy', 'en', 'Revoked by', 'permission_manager', 't_permission', 'permission_manager'),
+('security.revokedBy', 'fa', 'لغوشده توسط', 'permission_manager', 't_permission', 'permission_manager'),
+('security.revokedAt', 'en', 'Revoked at', 'permission_manager', 't_permission', 'permission_manager'),
+('security.revokedAt', 'fa', 'زمان لغو', 'permission_manager', 't_permission', 'permission_manager')
+ON CONFLICT (item_code, language_code)
+DO UPDATE SET
+    translated_text = EXCLUDED.translated_text,
+    context_type = EXCLUDED.context_type,
+    owner_column_table = EXCLUDED.owner_column_table,
+    form_name = EXCLUDED.form_name;
+
 COMMIT;
 
 -- ============================================================
