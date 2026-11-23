@@ -44,15 +44,17 @@ BEGIN
             'The migration audit actor does not exist or is inactive.';
     END IF;
 
-    v_ip_text := COALESCE(
-        NULLIF(current_setting('pulsar.log_ip', TRUE), ''),
-        inet_client_addr()::TEXT
+    v_ip_text := NULLIF(
+        current_setting('pulsar.log_ip', TRUE),
+        ''
     );
 
     IF v_ip_text IS NULL THEN
         RAISE EXCEPTION
-            'Set pulsar.log_ip or execute the migration from a database client with a known IP address.';
+            'Set pulsar.log_ip to the deployment client IP before applying this migration.';
     END IF;
+
+    PERFORM v_ip_text::INET;
 
     PERFORM set_config('pulsar.log_user', v_actor::TEXT, TRUE);
     PERFORM set_config('pulsar.log_ip', v_ip_text, TRUE);
@@ -398,10 +400,10 @@ BEGIN
         ''
     )::UUID;
 
-    v_log_ip := COALESCE(
-        NULLIF(current_setting('pulsar.log_ip', TRUE), '')::INET,
-        inet_client_addr()
-    );
+    v_log_ip := NULLIF(
+        current_setting('pulsar.log_ip', TRUE),
+        ''
+    )::INET;
 
     IF v_log_user IS NULL THEN
         RAISE EXCEPTION
@@ -421,6 +423,7 @@ BEGIN
         SELECT 1
         FROM pulsar.t_user
         WHERE c_user_id = v_log_user
+          AND c_user_active IS TRUE
     ) THEN
         RAISE EXCEPTION
             'Audit user % does not exist in pulsar.t_user.',
