@@ -7,7 +7,7 @@
 #
 # Author: MHKolahi@gmail.com
 # In collaboration with GPT4 Chat Assistant: Bahram
-# Last Modified: 2026-11-19 00:35 (Asia/Baku)
+# Last Modified: 2026-11-24 (Asia/Baku)
 # ===============================================
 
 import json
@@ -62,9 +62,6 @@ from general.permissions.routes import (
 )
 from reporting.routes import (
     router as report_router
-)
-from general.permissions.routes import (
-    router as permission_router
 )
 
 
@@ -273,9 +270,6 @@ app.include_router(
     report_router
 )
 
-app.include_router(
-    permission_router
-)
 
 
 # ===============================================
