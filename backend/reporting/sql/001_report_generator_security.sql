@@ -618,10 +618,6 @@ CROSS JOIN (
         )
 ) AS permission_def(permission_code, permission_title, permission_desc)
 WHERE config.is_enabled IS TRUE
-  AND (
-        permission_def.permission_code <> 'REPORT.PUBLIC.PUBLISH'
-        OR config.allow_public IS TRUE
-  )
 ON CONFLICT DO NOTHING;
 
 -- ============================================================
