@@ -182,6 +182,28 @@ In collaboration with GPT4 Chat Assistant: Bahram
           ></span>
         </div>
 
+        <!-- Permission Management -->
+        <button
+          v-if="canManagePermissions"
+          type="button"
+          class="pulsar-icon-button"
+          :aria-label="permissionManagerTitle"
+          :title="permissionManagerTitle"
+          :aria-expanded="permissionManagerOpen"
+          @click="permissionManagerOpen = !permissionManagerOpen"
+        >
+          <svg
+            viewBox="0 0 24 24"
+            fill="none"
+            stroke="currentColor"
+            stroke-width="1.8"
+            class="h-5 w-5"
+          >
+            <path d="M12 3 4.5 6v5.2c0 4.7 3.2 8 7.5 9.8 4.3-1.8 7.5-5.1 7.5-9.8V6L12 3Z" />
+            <path d="m8.5 12 2.2 2.2 4.8-5" />
+          </svg>
+        </button>
+
         <!-- Source Trace -->
         <button
           v-if="isAuthenticated"
@@ -315,6 +337,7 @@ In collaboration with GPT4 Chat Assistant: Bahram
   </header>
 
   <SourceTracePanel v-model="sourceTraceOpen" />
+  <PermissionManager v-model="permissionManagerOpen" />
 </template>
 
 <script setup>
@@ -332,6 +355,8 @@ import {
 import { useRoute } from 'vue-router'
 
 import SourceTracePanel from '@/components/tools/source_trace_panel.vue'
+import PermissionManager from '@/components/security/PermissionManager.vue'
+import axios from '@/utils/axiosInstance'
 import { useSystemMetrics } from '@/composables/useSystemMetrics'
 
 import {
@@ -433,6 +458,9 @@ if (!aiAvatarWindow) {
 const translatedPageTitle = ref('')
 const aiAvatarTitle = ref('AI Avatar')
 const sourceTraceOpen = ref(false)
+const permissionManagerOpen = ref(false)
+const canManagePermissions = ref(false)
+const permissionManagerTitle = ref('')
 
 const colorIntensity = ref(
   Number(localStorage.getItem('colorIntensity')) || 3
@@ -476,6 +504,30 @@ const isAuthenticated = computed(() => {
     && email.trim().toLowerCase() !== 'userid'
   )
 })
+
+async function loadPermissionAdministrationAccess() {
+  if (!isAuthenticated.value) {
+    canManagePermissions.value = false
+    return
+  }
+
+  try {
+    const response = await axios.get('/permissions/me')
+    canManagePermissions.value = (response.data || []).some(grant =>
+      grant.permission_code === 'SECURITY.PERMISSION.GRANT' &&
+      grant.is_effective === true
+    )
+  } catch {
+    canManagePermissions.value = false
+  }
+}
+
+async function updatePermissionManagerTitle() {
+  permissionManagerTitle.value = await translate(
+    'security.permissionManager',
+    language.value
+  )
+}
 
 const userInitial = computed(() => {
   if (!userEmail.value) {
@@ -658,9 +710,11 @@ async function toggleAIAvatar() {
 // Lifecycle
 // =================================================
 
-onMounted(() => {
+onMounted(async () => {
   applyThemeLevel(colorIntensity.value)
   updateAIAvatarTitle()
+  await updatePermissionManagerTitle()
+  await loadPermissionAdministrationAccess()
 })
 
 onUnmounted(() => {
@@ -688,6 +742,16 @@ watch(
 watch(
   () => language.value,
   updateAIAvatarTitle
+)
+
+watch(
+  () => language.value,
+  updatePermissionManagerTitle
+)
+
+watch(
+  isAuthenticated,
+  loadPermissionAdministrationAccess
 )
 
 watch(
