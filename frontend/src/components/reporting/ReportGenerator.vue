@@ -141,6 +141,13 @@
           @report-columns-change="updateColumns"
           @row-selected="$emit('row-selected', $event)"
         />
+        <footer class="mt-2 flex shrink-0 items-center justify-between rounded-lg border border-border bg-panel px-3 py-2 text-[10px] text-muted">
+          <span>{{ labels.rows }} {{ totalRows ? offset + 1 : 0 }}–{{ Math.min(offset + pageSize, totalRows) }} {{ labels.of }} {{ totalRows }}</span>
+          <div class="flex gap-1.5">
+            <button class="report-action" :disabled="loading || offset <= 0" @click="previousPage">{{ labels.previous }}</button>
+            <button class="report-action" :disabled="loading || offset + pageSize >= totalRows" @click="nextPage">{{ labels.next }}</button>
+          </div>
+        </footer>
       </main>
     </div>
   </section>
@@ -186,6 +193,9 @@ const filterLogic = ref('AND')
 const shares = ref([])
 const permissions = ref([])
 const gridItems = ref([...props.items])
+const totalRows = ref(0)
+const pageSize = 100
+const offset = ref(0)
 const panelOpen = ref(true)
 const activeTab = ref('columns')
 const targetUserId = ref('')
@@ -261,6 +271,10 @@ const labelDictionary = {
   errorPublish: 'report.error.publish',
   errorUnpublish: 'report.error.unpublish',
   errorInitialize: 'report.error.initialize',
+  previous: 'report.previous',
+  next: 'report.next',
+  rows: 'report.rows',
+  of: 'report.of',
   access_owner: 'report.access.owner',
   access_sharedEdit: 'report.access.sharedEdit',
   access_sharedView: 'report.access.sharedView',
@@ -476,7 +490,8 @@ function reportPayload() {
   }
 }
 
-async function runReport() {
+async function runReport(resetPage = true) {
+  if (resetPage) offset.value = 0
   loading.value = true
   error.value = ''
 
@@ -489,15 +504,28 @@ async function runReport() {
       filters: payload.filters,
       selected_record: props.selectedRecord || {},
       runtime_context: props.runtimeContext || {},
-      limit: 500,
-      offset: 0
+      limit: pageSize,
+      offset: offset.value
     })
     gridItems.value = response.data?.rows || []
+    totalRows.value = Number(response.data?.total || 0)
   } catch (err) {
     error.value = errorMessage(err, labels.value.errorExecution)
   } finally {
     loading.value = false
   }
+}
+
+async function previousPage() {
+  if (offset.value <= 0) return
+  offset.value = Math.max(0, offset.value - pageSize)
+  await runReport(false)
+}
+
+async function nextPage() {
+  if (offset.value + pageSize >= totalRows.value) return
+  offset.value += pageSize
+  await runReport(false)
 }
 
 async function loadDefaultSortPreference() {
