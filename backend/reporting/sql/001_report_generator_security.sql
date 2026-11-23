@@ -1012,6 +1012,31 @@ DO UPDATE SET
     owner_column_table = EXCLUDED.owner_column_table,
     form_name = EXCLUDED.form_name;
 
+INSERT INTO pulsar.translation_dictionary
+(
+    item_code,
+    language_code,
+    translated_text,
+    context_type,
+    owner_column_table,
+    form_name
+)
+VALUES
+('report.search', 'en', 'Search', 'report_generator', 't_report', 'report_generator'),
+('report.search', 'fa', 'جست‌وجو', 'report_generator', 't_report', 'report_generator'),
+('report.searchUsers', 'en', 'Find recipient', 'report_generator', 't_report', 'report_generator'),
+('report.searchUsers', 'fa', 'یافتن دریافت‌کننده', 'report_generator', 't_report', 'report_generator'),
+('report.shareUserSearch', 'en', 'Search users by name or email', 'report_generator', 't_report', 'report_generator'),
+('report.shareUserSearch', 'fa', 'جست‌وجوی کاربران با نام یا ایمیل', 'report_generator', 't_report', 'report_generator'),
+('report.selectedShareUser', 'en', 'Selected recipient', 'report_generator', 't_report', 'report_generator'),
+('report.selectedShareUser', 'fa', 'دریافت‌کننده انتخاب‌شده', 'report_generator', 't_report', 'report_generator')
+ON CONFLICT (item_code, language_code)
+DO UPDATE SET
+    translated_text = EXCLUDED.translated_text,
+    context_type = EXCLUDED.context_type,
+    owner_column_table = EXCLUDED.owner_column_table,
+    form_name = EXCLUDED.form_name;
+
 COMMIT;
 
 -- ============================================================
