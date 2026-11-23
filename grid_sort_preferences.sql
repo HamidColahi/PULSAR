@@ -24,6 +24,9 @@ BEGIN
             ADD COLUMN field_sort SMALLINT NOT NULL DEFAULT 0;
     ELSIF current_type = 'boolean' THEN
         ALTER TABLE pulsar.components_config
+            ALTER COLUMN field_sort DROP DEFAULT;
+
+        ALTER TABLE pulsar.components_config
             ALTER COLUMN field_sort TYPE SMALLINT
             USING CASE WHEN field_sort THEN 1 ELSE 0 END;
     ELSIF current_type <> 'smallint' THEN
@@ -64,6 +67,11 @@ COMMENT ON COLUMN pulsar.components_config.field_sort IS
 
 COMMENT ON COLUMN pulsar.components_config.field_sort_order IS
     'Supervisor-defined priority for forced sorting; NULL for disabled and user-controlled fields';
+
+CREATE UNIQUE INDEX IF NOT EXISTS components_config_forced_sort_order_uidx
+    ON pulsar.components_config
+        (component_name, field_mode, field_sort_order)
+    WHERE field_sort IN (2, 3);
 
 -- Preserve existing JSON-based user preferences before replacing the table structure.
 DO $migration$
