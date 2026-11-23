@@ -44,6 +44,7 @@ class ComponentsConfig(Base):
     visible_in_grid = Column(Boolean, nullable=True)
     visible_in_form = Column(Boolean, nullable=True)
     visible_in_search = Column(Boolean, nullable=True)
+    field_sort = Column(Boolean, nullable=False, default=False, server_default=text("false"))
 
     is_readonly = Column(Boolean, nullable=True)
 
