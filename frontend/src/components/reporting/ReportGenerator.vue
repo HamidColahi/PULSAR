@@ -1,3 +1,10 @@
+<!-- ===============================================
+File: frontend/src/components/reporting/ReportGenerator.vue
+Description: Metadata-driven Report Generator designer and manager
+Modified: 2026-11-24 (Asia/Baku)
+In collaboration with GPT4 Chat Assistant: Bahram
+=============================================== -->
+
 <template>
   <section class="flex min-h-0 min-w-0 flex-1 flex-col gap-2">
     <header class="flex shrink-0 flex-wrap items-end gap-2 rounded-xl border border-border bg-panel p-2">
