@@ -133,7 +133,7 @@ In collaboration with GPT4 Chat Assistant: Bahram
             <div class="space-y-1">
               <label class="text-[10px] text-muted">{{ labels.searchUsers }}</label>
               <div class="flex gap-2">
-                <input v-model="shareUserQuery" class="min-w-0 flex-1 rounded border border-border bg-panel px-2 py-1.5 text-xs" :placeholder="labels.shareUserSearch" @keyup.enter="searchShareUsers" />
+                <input v-model="shareUserQuery" class="min-w-0 flex-1 rounded border border-border bg-panel px-2 py-1.5 text-xs" :placeholder="labels.shareUserSearch" @input="targetUserId = ''" @keyup.enter="searchShareUsers" />
                 <button class="report-action" :disabled="loading || shareUserQuery.trim().length < 2" @click="searchShareUsers">{{ labels.search }}</button>
               </div>
               <div v-if="shareUsers.length" class="max-h-32 overflow-y-auto rounded border border-border">
@@ -148,7 +148,7 @@ In collaboration with GPT4 Chat Assistant: Bahram
                 </button>
               </div>
               <div v-if="targetUserId" class="rounded bg-hover px-2 py-1.5 text-[10px] text-label">
-                {{ labels.selectedShareUser }}: {{ targetUserId }}
+                {{ labels.selectedShareUser }}: {{ shareUserQuery || targetUserId }}
                 <button class="ml-2 text-red-500" @click="targetUserId = ''">×</button>
               </div>
             </div>
@@ -837,6 +837,8 @@ async function shareReport() {
       permission_level: sharePermission.value
     })
     targetUserId.value = ''
+    shareUserQuery.value = ''
+    shareUsers.value = []
     await loadShares()
     await refreshReportList()
   } catch (err) {
