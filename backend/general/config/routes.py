@@ -7,7 +7,7 @@
 #
 # Author: MHKolahi@gmail.com
 # In collaboration with GPT4 Chat Assistant: Bahram
-# Last Modified: 2026-11-23 23:35 (Asia/Baku)
+# Last Modified: 2026-11-23 23:55 (Asia/Baku)
 # ===============================================
 
 from typing import List, Literal
@@ -50,7 +50,8 @@ router = APIRouter(
 
 class ComponentFieldConfig(BaseModel):
     field_name: str
-    field_sort: bool = False
+    field_sort: int = 0
+    field_sort_order: int | None = None
 
     label: str | None = None
 
@@ -285,7 +286,8 @@ async def read_component_config(
                 visible_in_grid=config.visible_in_grid,
                 visible_in_form=config.visible_in_form,
                 visible_in_search=config.visible_in_search,
-                field_sort=bool(config.field_sort),
+                field_sort=int(config.field_sort or 0),
+                field_sort_order=config.field_sort_order,
 
                 is_readonly=config.is_readonly,
 
@@ -322,6 +324,7 @@ async def read_component_config(
 class GridSortTerm(BaseModel):
     field: str
     direction: Literal["asc", "desc"]
+    field_sort_order: int
 
 
 class GridSortPreferenceUpdate(BaseModel):
@@ -337,14 +340,48 @@ async def read_grid_sort_preference(
     db: AsyncSession = Depends(get_async_session),
     current_user = Depends(get_current_user),
 ):
-    """Return the authenticated user's sort specification for one Grid."""
-    result = await db.execute(
+    """Return forced sorting metadata and the authenticated user's ordered preferences."""
+    config_result = await db.execute(
+        select(
+            ComponentsConfig.field_name,
+            ComponentsConfig.field_sort,
+            ComponentsConfig.field_sort_order,
+        ).where(
+            ComponentsConfig.component_name == component_name,
+            ComponentsConfig.field_mode == field_mode,
+        )
+    )
+    field_configs = config_result.all()
+
+    forced_sort_spec = []
+    user_sortable_fields = set()
+
+    for field_name, sort_mode, sort_order in field_configs:
+        mode = int(sort_mode or 0)
+        if mode == 1:
+            user_sortable_fields.add(field_name)
+        elif mode in (2, 3):
+            if sort_order is None or int(sort_order) < 1:
+                raise HTTPException(
+                    status_code=500,
+                    detail=f"Invalid forced sort order for field '{field_name}'.",
+                )
+            forced_sort_spec.append({
+                "field": field_name,
+                "direction": "desc" if mode == 2 else "asc",
+                "field_sort_order": int(sort_order),
+            })
+
+    forced_sort_spec.sort(key=lambda item: item["field_sort_order"])
+
+    user_result = await db.execute(
         text("""
-            SELECT sort_spec
+            SELECT field_name, direction, field_sort_order
             FROM pulsar.t_user_grid_sort
             WHERE c_user_id = :user_id
               AND component_name = :component_name
               AND field_mode = :field_mode
+            ORDER BY field_sort_order, field_name
         """),
         {
             "user_id": str(current_user.id),
@@ -352,27 +389,24 @@ async def read_grid_sort_preference(
             "field_mode": field_mode,
         },
     )
-    row = result.mappings().first()
-    saved_spec = row["sort_spec"] if row else []
 
-    allowed_result = await db.execute(
-        select(ComponentsConfig.field_name).where(
-            ComponentsConfig.component_name == component_name,
-            ComponentsConfig.field_mode == field_mode,
-            ComponentsConfig.field_sort.is_(True),
-        )
-    )
-    allowed_fields = set(allowed_result.scalars().all())
+    user_sort_spec = [
+        {
+            "field": row["field_name"],
+            "direction": row["direction"],
+            "field_sort_order": int(row["field_sort_order"]),
+        }
+        for row in user_result.mappings().all()
+        if row["field_name"] in user_sortable_fields
+        and row["direction"] in ("asc", "desc")
+    ]
 
     return {
         "component_name": component_name,
         "field_mode": field_mode,
-        "sort_spec": [
-            item for item in (saved_spec or [])
-            if isinstance(item, dict)
-            and item.get("field") in allowed_fields
-            and item.get("direction") in ("asc", "desc")
-        ],
+        "forced_sort_spec": forced_sort_spec,
+        "user_sort_spec": user_sort_spec,
+        "sort_spec": forced_sort_spec + user_sort_spec,
     }
 
 
@@ -382,15 +416,24 @@ async def save_grid_sort_preference(
     db: AsyncSession = Depends(get_async_session),
     current_user = Depends(get_current_user),
 ):
-    """Persist a validated, ordered multi-column sort for the current user."""
-    allowed_result = await db.execute(
-        select(ComponentsConfig.field_name).where(
+    """Persist ordered user-controlled sorting without changing forced metadata."""
+    config_result = await db.execute(
+        select(
+            ComponentsConfig.field_name,
+            ComponentsConfig.field_sort,
+        ).where(
             ComponentsConfig.component_name == payload.component_name,
             ComponentsConfig.field_mode == payload.field_mode,
-            ComponentsConfig.field_sort.is_(True),
         )
     )
-    allowed_fields = set(allowed_result.scalars().all())
+    modes = {
+        field_name: int(sort_mode or 0)
+        for field_name, sort_mode in config_result.all()
+    }
+    allowed_fields = {
+        field_name for field_name, mode in modes.items()
+        if mode == 1
+    }
 
     requested_fields = [item.field for item in payload.sort_spec]
     if len(requested_fields) != len(set(requested_fields)):
@@ -409,36 +452,56 @@ async def save_grid_sort_preference(
             },
         )
 
-    sort_spec = [
-        item.model_dump()
-        for item in payload.sort_spec
-    ]
+    orders = [item.field_sort_order for item in payload.sort_spec]
+    if any(order < 1 for order in orders) or len(orders) != len(set(orders)):
+        raise HTTPException(
+            status_code=422,
+            detail="User sort orders must be unique positive integers.",
+        )
 
     await db.execute(
         text("""
-            INSERT INTO pulsar.t_user_grid_sort
-                (c_user_id, component_name, field_mode, sort_spec, updated_at)
-            VALUES
-                (:user_id, :component_name, :field_mode,
-                 CAST(:sort_spec AS jsonb), CURRENT_TIMESTAMP)
-            ON CONFLICT (c_user_id, component_name, field_mode)
-            DO UPDATE SET
-                sort_spec = EXCLUDED.sort_spec,
-                updated_at = CURRENT_TIMESTAMP
+            DELETE FROM pulsar.t_user_grid_sort
+            WHERE c_user_id = :user_id
+              AND component_name = :component_name
+              AND field_mode = :field_mode
         """),
         {
             "user_id": str(current_user.id),
             "component_name": payload.component_name,
             "field_mode": payload.field_mode,
-            "sort_spec": json.dumps(sort_spec),
         },
     )
+
+    for item in payload.sort_spec:
+        await db.execute(
+            text("""
+                INSERT INTO pulsar.t_user_grid_sort
+                    (c_user_id, component_name, field_mode,
+                     field_name, direction, field_sort_order, updated_at)
+                VALUES
+                    (:user_id, :component_name, :field_mode,
+                     :field_name, :direction, :field_sort_order, CURRENT_TIMESTAMP)
+            """),
+            {
+                "user_id": str(current_user.id),
+                "component_name": payload.component_name,
+                "field_mode": payload.field_mode,
+                "field_name": item.field,
+                "direction": item.direction,
+                "field_sort_order": item.field_sort_order,
+            },
+        )
+
     await db.commit()
 
     return {
         "component_name": payload.component_name,
         "field_mode": payload.field_mode,
-        "sort_spec": sort_spec,
+        "sort_spec": [
+            item.model_dump()
+            for item in payload.sort_spec
+        ],
     }
 
 
