@@ -662,6 +662,10 @@ async function buildFormQueryParams() {
 }
 
 async function loadRecords(options = {}) {
+  if (props.pageLevel === 'Report.Gen') {
+    return []
+  }
+
   const filters = options.filters || {}
 
   const resolvedFilters = await resolveWhereFilters(
