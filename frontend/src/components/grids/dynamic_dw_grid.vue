@@ -547,17 +547,25 @@ async function loadSortPreference() {
   }
 }
 
+let sortSaveQueue = Promise.resolve()
+
 async function persistSortPreference() {
   if (!sortPreferenceReady.value || !componentName.value) {
     return
   }
 
+  const payload = {
+    component_name: componentName.value,
+    field_mode: props.config?.field_mode || 'list',
+    sort_spec: sortSpec.value.map(item => ({ ...item }))
+  }
+
+  sortSaveQueue = sortSaveQueue
+    .catch(() => undefined)
+    .then(() => axios.put('/config/grid_sort', payload))
+
   try {
-    await axios.put('/config/grid_sort', {
-      component_name: componentName.value,
-      field_mode: props.config?.field_mode || 'list',
-      sort_spec: sortSpec.value
-    })
+    await sortSaveQueue
   } catch (err) {
     console.error('dynamic_dw_grid: failed to save sort preference', err)
   }
