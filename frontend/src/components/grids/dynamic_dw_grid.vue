@@ -62,6 +62,16 @@ const props = defineProps({
   mode: {
     type: String,
     default: 'view'
+  },
+
+  reportMode: {
+    type: Boolean,
+    default: false
+  },
+
+  reportColumns: {
+    type: Array,
+    default: () => []
   }
 })
 
@@ -70,7 +80,8 @@ const props = defineProps({
 // Emits
 // --------------------------------------------------
 const emit = defineEmits([
-  'row-selected'
+  'row-selected',
+  'report-columns-change'
 ])
 
 
@@ -330,6 +341,10 @@ function getLabel(field, value) {
 // --------------------------------------------------
 const filteredItems = computed(() => {
 
+  if (props.reportMode) {
+    return props.items
+  }
+
   if (
     !filters.value ||
     Object.keys(
@@ -547,6 +562,13 @@ async function loadSortPreference() {
 
   sortPreferenceReady.value = false
 
+  if (props.reportMode) {
+    forcedSortSpec.value = []
+    sortSpec.value = []
+    sortPreferenceReady.value = true
+    return
+  }
+
   if (!name) {
     forcedSortSpec.value = []
     sortSpec.value = []
@@ -736,6 +758,10 @@ const effectiveSortSpec = computed(() => [
 ])
 
 const sortedItems = computed(() => {
+  if (props.reportMode) {
+    return props.items
+  }
+
   const source = [...filteredItems.value]
   const effectiveSpec = effectiveSortSpec.value
 
@@ -836,26 +862,33 @@ watch(
 // Fields
 // --------------------------------------------------
 const fields = computed(() => {
+  if (props.reportMode) {
+    return [...props.reportColumns]
+      .filter(column => column.is_visible !== false)
+      .sort((a, b) => Number(a.display_order || 0) - Number(b.display_order || 0))
+      .map(column => {
+        const field = column.field_name
+        const meta = props.config?.fields?.[field] || {}
+
+        return {
+          field,
+          width_px: column.width_px || null,
+          type: meta.control_type || meta.type || 'text',
+          control_type: meta.control_type || meta.type || 'text'
+        }
+      })
+  }
 
   return (
     props.config?.field_order || []
   ).map(field => {
-
-    const meta =
-      props.config?.fields?.[field] || {}
+    const meta = props.config?.fields?.[field] || {}
 
     return {
       field,
-
-      type:
-        meta.control_type ||
-        meta.type ||
-        'text',
-
-      control_type:
-        meta.control_type ||
-        meta.type ||
-        'text'
+      width_px: null,
+      type: meta.control_type || meta.type || 'text',
+      control_type: meta.control_type || meta.type || 'text'
     }
   })
 })
@@ -932,8 +965,99 @@ watch(
 // --------------------------------------------------
 // Lifecycle
 // --------------------------------------------------
+const draggedReportField = ref(null)
+const activeReportResize = ref(null)
+
+function startReportColumnDrag(event, column) {
+  if (!props.reportMode) return
+  draggedReportField.value = column.field
+  if (event.dataTransfer) {
+    event.dataTransfer.effectAllowed = 'move'
+    event.dataTransfer.setData('text/plain', column.field)
+  }
+}
+
+function dropReportColumn(event, targetColumn) {
+  if (!props.reportMode) return
+  const sourceField = draggedReportField.value ||
+    event.dataTransfer?.getData('text/plain')
+  const targetField = targetColumn.field
+  draggedReportField.value = null
+
+  if (!sourceField || sourceField === targetField) return
+
+  const next = [...props.reportColumns]
+    .sort((a, b) => Number(a.display_order || 0) - Number(b.display_order || 0))
+  const sourceIndex = next.findIndex(item => item.field_name === sourceField)
+  const targetIndex = next.findIndex(item => item.field_name === targetField)
+
+  if (sourceIndex < 0 || targetIndex < 0) return
+
+  const [moved] = next.splice(sourceIndex, 1)
+  next.splice(targetIndex, 0, moved)
+
+  emit(
+    'report-columns-change',
+    next.map((item, index) => ({
+      ...item,
+      display_order: index + 1
+    }))
+  )
+}
+
+function startReportColumnResize(event, column) {
+  if (!props.reportMode) return
+  event.preventDefault()
+
+  const currentWidth = column.width_px ||
+    event.currentTarget.parentElement.getBoundingClientRect().width
+
+  activeReportResize.value = {
+    field: column.field,
+    startX: event.clientX,
+    startWidth: currentWidth
+  }
+
+  window.addEventListener('mousemove', moveReportColumnResize)
+  window.addEventListener('mouseup', stopReportColumnResize)
+}
+
+function moveReportColumnResize(event) {
+  if (!activeReportResize.value) return
+
+  const width = Math.max(
+    48,
+    Math.min(
+      2000,
+      Math.round(
+        activeReportResize.value.startWidth +
+        event.clientX -
+        activeReportResize.value.startX
+      )
+    )
+  )
+
+  emit(
+    'report-columns-change',
+    props.reportColumns.map((item, index) => ({
+      ...item,
+      display_order: item.display_order || index + 1,
+      width_px: item.field_name === activeReportResize.value.field
+        ? width
+        : item.width_px
+    }))
+  )
+}
+
+function stopReportColumnResize() {
+  activeReportResize.value = null
+  window.removeEventListener('mousemove', moveReportColumnResize)
+  window.removeEventListener('mouseup', stopReportColumnResize)
+}
+
 onBeforeUnmount(() => {
   stopDomainOptionScopes()
+  stopReportColumnResize()
 })
 
 </script>
@@ -948,6 +1072,7 @@ onBeforeUnmount(() => {
 
     <div class="shrink-0">
       <dynamic_dw_search
+        v-if="!props.reportMode"
         :config="props.config"
         :base-config="props.baseConfig"
         v-model:filters="filters"
@@ -1020,16 +1145,25 @@ onBeforeUnmount(() => {
               <th
                 v-for="col in fields"
                 :key="col.field"
-                class="whitespace-nowrap border-b border-l px-3 py-2.5 text-left font-semibold"
-                style="border-color:var(--pulsar-level-border)"
+                :draggable="props.reportMode"
+                @dragstart="startReportColumnDrag($event, col)"
+                @dragover.prevent="props.reportMode"
+                @drop="dropReportColumn($event, col)"
+                class="relative whitespace-nowrap border-b border-l px-3 py-2.5 text-left font-semibold"
+                :style="{
+                  borderColor: 'var(--pulsar-level-border)',
+                  width: col.width_px ? col.width_px + 'px' : undefined,
+                  minWidth: col.width_px ? col.width_px + 'px' : undefined
+                }"
               >
                 <span class="inline-flex items-center gap-1.5">
+                  <span v-if="props.reportMode" class="cursor-grab text-muted" aria-hidden="true">⠿</span>
                   <span>{{
                     translations[col.field] ||
                     col.field
                   }}</span>
                   <button
-                    v-if="isSortEnabled(col.field)"
+                    v-if="!props.reportMode && isSortEnabled(col.field)"
                     type="button"
                     :disabled="!sortPreferenceReady || isForcedSort(col.field)"
                     class="inline-flex h-5 w-5 items-center justify-center rounded transition focus-visible:outline focus-visible:outline-1 disabled:cursor-not-allowed disabled:opacity-100"
@@ -1060,6 +1194,12 @@ onBeforeUnmount(() => {
                     >{{ getSortPriority(col.field) }}</span>
                   </button>
                 </span>
+                <span
+                  v-if="props.reportMode"
+                  class="absolute right-0 top-0 h-full w-1.5 cursor-col-resize hover:bg-primary/30"
+                  @mousedown.stop="startReportColumnResize($event, col)"
+                  aria-hidden="true"
+                ></span>
               </th>
 
             </tr>
@@ -1100,7 +1240,11 @@ onBeforeUnmount(() => {
                   )
                 "
                 class="whitespace-nowrap border-l px-3 py-2.5"
-                style="border-color:var(--pulsar-level-border)"
+                :style="{
+                  borderColor: 'var(--pulsar-level-border)',
+                  width: col.width_px ? col.width_px + 'px' : undefined,
+                  minWidth: col.width_px ? col.width_px + 'px' : undefined
+                }"
               >
                 {{
                   formatValue(
