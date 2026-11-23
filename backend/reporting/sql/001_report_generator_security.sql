@@ -115,9 +115,17 @@ CREATE TABLE IF NOT EXISTS pulsar.t_permit_usracc
 
     CONSTRAINT t_permit_usracc_revocation_ck
         CHECK (
-            (revoked_by IS NULL AND revoked_at IS NULL)
+            (
+                is_active IS TRUE
+                AND revoked_by IS NULL
+                AND revoked_at IS NULL
+            )
             OR
-            (revoked_by IS NOT NULL AND revoked_at IS NOT NULL)
+            (
+                is_active IS FALSE
+                AND revoked_by IS NOT NULL
+                AND revoked_at IS NOT NULL
+            )
         )
 );
 
@@ -522,7 +530,8 @@ BEGIN
     SELECT source_code
     INTO v_existing_source
     FROM pulsar.t_function_definition
-    WHERE function_name = 'fn_audit_record_change';
+    WHERE schema_name = 'pulsar'
+      AND function_name = 'fn_audit_record_change';
 
     IF FOUND THEN
         IF v_existing_source IS DISTINCT FROM v_installed_source THEN
