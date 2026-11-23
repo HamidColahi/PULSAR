@@ -59,6 +59,9 @@ class PermissionGrantUpdate(BaseModel):
 
     @model_validator(mode="after")
     def validate_period(self):
+        if "valid_from" in self.model_fields_set and self.valid_from is None:
+            raise ValueError("valid_from cannot be null.")
+
         if self.valid_from is not None and self.valid_from.tzinfo is None:
             raise ValueError("valid_from must include a timezone.")
 
