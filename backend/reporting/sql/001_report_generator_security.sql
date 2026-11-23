@@ -691,11 +691,6 @@ CROSS JOIN (
             'Publish reports as public for this Report Generator page.'
         ),
         (
-            'REPORT.DESIGN.EDIT',
-            'Edit users reports',
-            'Edit reports created by other users for this page.'
-        ),
-        (
             'REPORT.DESIGN.DELETE',
             'Delete users reports',
             'Delete reports created by other users for this page.'
@@ -917,8 +912,6 @@ VALUES
 ('PAGE.SUPERVISOR', 'fa', 'سوپروایزر صفحه', 'permission', 't_permission', 'permission_catalog'),
 ('REPORT.PUBLIC.PUBLISH', 'en', 'Publish public reports', 'permission', 't_permission', 'permission_catalog'),
 ('REPORT.PUBLIC.PUBLISH', 'fa', 'انتشار عمومی گزارش‌ها', 'permission', 't_permission', 'permission_catalog'),
-('REPORT.DESIGN.EDIT', 'en', 'Edit users reports', 'permission', 't_permission', 'permission_catalog'),
-('REPORT.DESIGN.EDIT', 'fa', 'ویرایش گزارش‌های کاربران', 'permission', 't_permission', 'permission_catalog'),
 ('REPORT.DESIGN.DELETE', 'en', 'Delete users reports', 'permission', 't_permission', 'permission_catalog'),
 ('REPORT.DESIGN.DELETE', 'fa', 'حذف گزارش‌های کاربران', 'permission', 't_permission', 'permission_catalog')
 ON CONFLICT (item_code, language_code)
