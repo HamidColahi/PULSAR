@@ -86,8 +86,28 @@ async def has_permission(
                         OR CURRENT_TIMESTAMP < grant_row.valid_until
                   )
                   AND (
-                        permission_row.page_key = :page_key
-                        OR permission_row.page_key IS NULL
+                        permission_row.scope_type = 'SYSTEM'
+                        OR (
+                            permission_row.scope_type = 'PAGE'
+                            AND :page_key IS NOT NULL
+                            AND permission_row.page_key = :page_key
+                        )
+                        OR (
+                            permission_row.scope_type = 'SUBSYSTEM'
+                            AND :page_key IS NOT NULL
+                            AND EXISTS (
+                                SELECT 1
+                                FROM pulsar.t_permission page_definition
+                                WHERE page_definition.permission_code = permission_row.permission_code
+                                  AND page_definition.scope_type = 'PAGE'
+                                  AND page_definition.page_key = :page_key
+                                  AND page_definition.subsystem_key = COALESCE(
+                                      permission_row.subsystem_key,
+                                      permission_row.scope_key
+                                  )
+                                  AND page_definition.is_active IS TRUE
+                            )
+                        )
                   )
             )
             """
