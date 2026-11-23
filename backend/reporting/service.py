@@ -201,7 +201,20 @@ async def can_edit_report(
         return True
 
     if report["sharing_policy"] == "SHARED":
-        share_result = await session.execute(
+        sharing_config = await session.execute(
+            text(
+                """
+                SELECT allow_sharing
+                FROM pulsar.t_report_page_config
+                WHERE page_key = :page_key
+                  AND is_enabled IS TRUE
+                """
+            ),
+            {"page_key": report["page_key"]},
+        )
+        sharing_row = sharing_config.mappings().first()
+        if sharing_row is not None and sharing_row["allow_sharing"] is True:
+            share_result = await session.execute(
             text(
                 """
                 SELECT 1
@@ -219,8 +232,8 @@ async def can_edit_report(
             },
         )
 
-        if share_result.scalar_one_or_none() is not None:
-            return True
+            if share_result.scalar_one_or_none() is not None:
+                return True
 
     if report["sharing_policy"] == "PUBLIC":
         return await has_permission(
