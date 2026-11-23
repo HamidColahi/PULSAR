@@ -133,6 +133,7 @@ CREATE TABLE IF NOT EXISTS pulsar.t_report
     report_id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
     page_key TEXT NOT NULL
         REFERENCES pulsar.dynamic_page(page_key) ON DELETE RESTRICT,
+    source_component_name TEXT NOT NULL,
     owner_user_id UUID NOT NULL
         REFERENCES pulsar.t_user(c_user_id) ON DELETE RESTRICT,
     report_title TEXT NOT NULL,
