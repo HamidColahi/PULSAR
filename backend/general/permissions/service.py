@@ -205,8 +205,13 @@ async def require_grant_authority(
                         admin_permission.scope_type = 'SYSTEM'
                         OR (
                             admin_permission.scope_type = 'SUBSYSTEM'
-                            AND :target_subsystem_key IS NOT NULL
-                            AND admin_permission.scope_key = :target_subsystem_key
+                            AND (
+                                :target_subsystem_key = admin_permission.scope_key
+                                OR (
+                                    :target_scope_type = 'SUBSYSTEM'
+                                    AND :target_scope_key = admin_permission.scope_key
+                                )
+                            )
                         )
                         OR (
                             admin_permission.scope_type = 'PAGE'
@@ -220,6 +225,8 @@ async def require_grant_authority(
         {
             "grantor_user_id": str(grantor_user_id),
             "target_subsystem_key": target_permission.get("subsystem_key"),
+            "target_scope_type": target_permission.get("scope_type"),
+            "target_scope_key": target_permission.get("scope_key"),
             "target_page_key": target_permission.get("page_key"),
         },
     )
