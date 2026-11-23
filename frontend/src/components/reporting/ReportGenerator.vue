@@ -341,6 +341,13 @@ const canPublish = computed(() =>
 
 const canSave = computed(() => !selectedReportId.value || canEdit.value)
 
+function errorMessage(errorObject, fallback) {
+  const detail = errorObject?.response?.data?.detail
+  if (typeof detail === 'string') return detail
+  if (detail && typeof detail.message === 'string') return detail.message
+  return errorObject?.message || fallback
+}
+
 function fieldLabel(field) {
   return props.config?.translations?.[field] ||
     props.config?.fields?.[field]?.label ||
@@ -473,10 +480,7 @@ async function runReport() {
     })
     gridItems.value = response.data?.rows || []
   } catch (err) {
-    error.value = err?.response?.data?.detail?.message ||
-      err?.response?.data?.detail ||
-      err?.message ||
-      labels.value.errorExecution
+    error.value = errorMessage(err, labels.value.errorExecution)
   } finally {
     loading.value = false
   }
@@ -529,7 +533,7 @@ async function loadReports() {
     await selectReport(reports.value[0].report_id)
   } else {
     selectedReportId.value = ''
-    reportTitle.value = labels.value.defaultTitle || labels.value.defaultTitle
+    reportTitle.value = labels.value.defaultTitle
     columns.value = defaultColumns.value.map(item => ({ ...item }))
     await loadDefaultSortPreference()
     filterConditions.value = []
@@ -541,8 +545,13 @@ async function loadReports() {
 async function selectReport(reportId) {
   if (!reportId) {
     selectedReportId.value = ''
+    reportTitle.value = labels.value.defaultTitle
+    reportDescription.value = ''
+    sharingPolicy.value = 'PRIVATE'
     columns.value = defaultColumns.value.map(item => ({ ...item }))
+    await loadDefaultSortPreference()
     filterConditions.value = []
+    filterLogic.value = 'AND'
     await runReport()
     return
   }
@@ -563,7 +572,7 @@ async function selectReport(reportId) {
     await loadShares()
     await runReport()
   } catch (err) {
-    error.value = err?.response?.data?.detail || err?.message || labels.value.errorLoad
+    error.value = errorMessage(err, labels.value.errorLoad)
   } finally {
     loading.value = false
   }
@@ -605,10 +614,7 @@ async function saveReport() {
     }
     await loadShares()
   } catch (err) {
-    error.value = err?.response?.data?.detail?.message ||
-      err?.response?.data?.detail ||
-      err?.message ||
-      labels.value.errorSave
+    error.value = errorMessage(err, labels.value.errorSave)
   } finally {
     loading.value = false
   }
@@ -619,7 +625,7 @@ async function saveAs() {
   error.value = ''
 
   try {
-    const originalTitle = reportTitle.value.trim() || labels.value.defaultTitle || labels.value.defaultTitle
+    const originalTitle = reportTitle.value.trim() || labels.value.defaultTitle
     const response = await axios.post('/reports', {
       ...reportPayload(),
       report_title: originalTitle + ' Copy'
@@ -630,10 +636,7 @@ async function saveAs() {
     await refreshReportList()
     await loadShares()
   } catch (err) {
-    error.value = err?.response?.data?.detail?.message ||
-      err?.response?.data?.detail ||
-      err?.message ||
-      labels.value.errorCopy
+    error.value = errorMessage(err, labels.value.errorCopy)
   } finally {
     loading.value = false
   }
@@ -648,14 +651,14 @@ async function deleteReport() {
     await axios.delete('/reports/' + selectedReportId.value)
     selectedReportId.value = ''
     sharingPolicy.value = 'PRIVATE'
-    reportTitle.value = labels.value.defaultTitle || labels.value.defaultTitle
+    reportTitle.value = labels.value.defaultTitle
     columns.value = defaultColumns.value.map(item => ({ ...item }))
     filterConditions.value = []
     shares.value = []
     await refreshReportList()
     await runReport()
   } catch (err) {
-    error.value = err?.response?.data?.detail || err?.message || labels.value.errorDelete
+    error.value = errorMessage(err, labels.value.errorDelete)
   } finally {
     loading.value = false
   }
@@ -689,7 +692,7 @@ async function shareReport() {
     await loadShares()
     await refreshReportList()
   } catch (err) {
-    error.value = err?.response?.data?.detail || err?.message || labels.value.errorShare
+    error.value = errorMessage(err, labels.value.errorShare)
   } finally {
     loading.value = false
   }
@@ -704,7 +707,7 @@ async function unshareReport(userId) {
     await loadShares()
     await refreshReportList()
   } catch (err) {
-    error.value = err?.response?.data?.detail || err?.message || labels.value.errorUnshare
+    error.value = errorMessage(err, labels.value.errorUnshare)
   } finally {
     loading.value = false
   }
@@ -720,7 +723,7 @@ async function publishReport() {
     sharingPolicy.value = 'PUBLIC'
     await refreshReportList()
   } catch (err) {
-    error.value = err?.response?.data?.detail || err?.message || labels.value.errorPublish
+    error.value = errorMessage(err, labels.value.errorPublish)
   } finally {
     loading.value = false
   }
@@ -736,7 +739,7 @@ async function unpublishReport() {
     sharingPolicy.value = response.data?.sharing_policy || 'PRIVATE'
     await refreshReportList()
   } catch (err) {
-    error.value = err?.response?.data?.detail || err?.message || labels.value.errorUnpublish
+    error.value = errorMessage(err, labels.value.errorUnpublish)
   } finally {
     loading.value = false
   }
@@ -756,7 +759,7 @@ onMounted(async () => {
     permissions.value = response.data || []
     await loadReports()
   } catch (err) {
-    error.value = err?.response?.data?.detail || err?.message || labels.value.errorInitialize
+    error.value = errorMessage(err, labels.value.errorInitialize)
   }
 })
 
