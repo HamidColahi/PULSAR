@@ -1,5 +1,5 @@
 <template>
-  <section class="flex min-h-0 min-w-0 flex-1 flex-col gap-2" :style="style">
+  <section class="flex min-h-0 min-w-0 flex-1 flex-col gap-2">
     <header class="flex shrink-0 flex-wrap items-end gap-2 rounded-xl border border-border bg-panel p-2">
       <div class="min-w-[180px] flex-1">
         <label class="mb-1 block text-[10px] text-muted">{{ labels.manager }}</label>
