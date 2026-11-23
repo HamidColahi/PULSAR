@@ -37,6 +37,7 @@
 
       <template v-else>
         <dw_toolbar
+          v-if="props.pageLevel !== 'Report.Gen'"
           class="mb-2.5"
           :style="themeStyle"
           :disabled="gridLoading || !!gridError"
@@ -116,8 +117,22 @@
               </template>
             </div>
 
+            <ReportGenerator
+              v-if="props.pageLevel === 'Report.Gen' && gridConfig"
+              :style="themeStyle"
+              :page-key="props.pageTitleKey"
+              :source-component-name="derivedGridName"
+              :grid-component="gridComponent"
+              :config="gridRuntimeConfig"
+              :base-config="gridBase"
+              :items="records"
+              :runtime-context="props.runtimeContext"
+              :selected-record="navigationRecord"
+              @row-selected="handleRowSelected"
+            />
+
             <component
-              v-if="gridConfig"
+              v-else-if="gridConfig"
               :is="gridComponent"
               :style="themeStyle"
               :config="gridRuntimeConfig"
@@ -249,6 +264,7 @@ import TopControls from '@/components/top_controls.vue'
 import dw_toolbar from '@/components/dw_toolbar.vue'
 import ContextPanel from '@/components/panels/context_panel.vue'
 import FunctionResultViewer from '@/components/common/function_result_viewer.vue'
+import ReportGenerator from '@/components/reporting/ReportGenerator.vue'
 
 import {
   useTranslation
@@ -297,6 +313,7 @@ const props = defineProps({
   gridComponent: { type: Object, required: true },
   formComponent: { type: Object, required: true },
   pageTitleKey: { type: String, default: null },
+  pageLevel: { type: String, default: null },
   gridName: { type: String, default: null },
   gridFieldMode: { type: String, default: 'list' },
   formName: { type: String, default: null },
@@ -1000,7 +1017,7 @@ async function initializePage() {
 
   try {
     if (!derivedGridName) throw new Error('Grid component name is not available')
-    if (!derivedFormName) throw new Error('Form component name is not available')
+    if (props.pageLevel !== 'Report.Gen' && !derivedFormName) throw new Error('Form component name is not available')
 
     restoreSelectedRecord()
     restoreParentRecordContext()
@@ -1012,9 +1029,12 @@ async function initializePage() {
 
     await fetchGridBase()
     await fetchGridConfig()
-    await formBaseApis.view.fetchBase()
-    await formConfigApis.view.fetchConfig()
-    await loadRecords()
+
+    if (props.pageLevel !== 'Report.Gen') {
+      await formBaseApis.view.fetchBase()
+      await formConfigApis.view.fetchConfig()
+      await loadRecords()
+    }
   } catch (err) {
     console.error('generic_page: initialization failed', err)
     pageError.value = err?.message || 'Failed to initialize page'
@@ -1038,7 +1058,7 @@ watch(
     showForm.value = false
     formError.value = null
 
-    if (!pageLoading.value) {
+    if (!pageLoading.value && props.pageLevel !== 'Report.Gen') {
       try {
         await loadRecords()
       } catch (err) {
@@ -1051,7 +1071,7 @@ watch(
 watch(language, async () => {
   await translateParentRecordContext()
 
-  if (!pageLoading.value) {
+  if (!pageLoading.value && props.pageLevel !== 'Report.Gen') {
     try {
       await loadRecords()
     } catch (err) {
