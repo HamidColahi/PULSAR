@@ -12,12 +12,19 @@ import {
   computed,
   watch,
   effectScope,
-  onBeforeUnmount
+  onBeforeUnmount,
+  onMounted
 } from 'vue'
 
 import {
   useTranslation
 } from '@/composables/useTranslation'
+
+import axios from '@/utils/axiosInstance'
+
+import {
+  userIdentity
+} from '@/stores/uiStore'
 
 import {
   useDomainOptions
@@ -79,6 +86,13 @@ const translations = ref({})
 const domainOptionsMap = ref({})
 const domainOptionRefs = ref({})
 const selectedRowLocal = ref(null)
+const sortSpec = ref([])
+const sortPreferenceReady = ref(false)
+const sortLabels = ref({
+  none: 'No sorting',
+  asc: 'Sort ascending',
+  desc: 'Sort descending'
+})
 
 const expandedField = ref({
   open: false,
@@ -463,6 +477,208 @@ const filteredItems = computed(() => {
 
 
 // --------------------------------------------------
+// User-Specific Multi-Column Sorting
+// --------------------------------------------------
+const componentName = computed(() => {
+  return props.config?.component_name ||
+    props.baseConfig?.component_name ||
+    ''
+})
+
+function isSortEnabled(field) {
+  return props.config?.fields?.[field]?.field_sort === true
+}
+
+function getSortDirection(field) {
+  return sortSpec.value.find(
+    item => item.field === field
+  )?.direction || 'none'
+}
+
+function getSortPriority(field) {
+  return sortSpec.value.findIndex(
+    item => item.field === field
+  ) + 1
+}
+
+function getSortLabel(field) {
+  const direction = getSortDirection(field)
+  const label = sortLabels.value[direction] || sortLabels.value.none
+  const priority = getSortPriority(field)
+
+  return priority > 0
+    ? `${label}, priority ${priority}`
+    : label
+}
+
+async function loadSortPreference() {
+  const identity = userIdentity.value?.profile_id
+  const name = componentName.value
+
+  sortPreferenceReady.value = false
+
+  if (!identity || !name) {
+    sortSpec.value = []
+    sortPreferenceReady.value = true
+    return
+  }
+
+  try {
+    const response = await axios.get('/config/grid_sort', {
+      params: {
+        component_name: name,
+        field_mode: props.config?.field_mode || 'list'
+      }
+    })
+
+    const allowed = new Set(
+      Object.entries(props.config?.fields || {})
+        .filter(([, meta]) => meta?.field_sort === true)
+        .map(([field]) => field)
+    )
+
+    sortSpec.value = (Array.isArray(response.data?.sort_spec)
+      ? response.data.sort_spec
+      : []
+    ).filter(item =>
+      allowed.has(item?.field) &&
+      ['asc', 'desc'].includes(item?.direction)
+    )
+  } catch (err) {
+    sortSpec.value = []
+    console.error('dynamic_dw_grid: failed to load sort preference', err)
+  } finally {
+    sortPreferenceReady.value = true
+  }
+}
+
+async function persistSortPreference() {
+  if (!sortPreferenceReady.value || !componentName.value) {
+    return
+  }
+
+  try {
+    await axios.put('/config/grid_sort', {
+      component_name: componentName.value,
+      field_mode: props.config?.field_mode || 'list',
+      sort_spec: sortSpec.value
+    })
+  } catch (err) {
+    console.error('dynamic_dw_grid: failed to save sort preference', err)
+  }
+}
+
+function cycleSort(field) {
+  if (!isSortEnabled(field)) {
+    return
+  }
+
+  const nextDirection = {
+    none: 'asc',
+    asc: 'desc',
+    desc: 'none'
+  }[getSortDirection(field)]
+
+  const next = sortSpec.value.filter(
+    item => item.field !== field
+  )
+
+  if (nextDirection !== 'none') {
+    next.push({
+      field,
+      direction: nextDirection
+    })
+  }
+
+  sortSpec.value = next
+  persistSortPreference()
+}
+
+function compareSortValues(left, right, field, direction) {
+  const meta = props.config?.fields?.[field] || {}
+  const type = String(meta.control_type || meta.type || '').toLowerCase()
+
+  let a = left?.[field]
+  let b = right?.[field]
+
+  if (a === null || a === undefined || a === '') {
+    return b === null || b === undefined || b === '' ? 0 : 1
+  }
+
+  if (b === null || b === undefined || b === '') {
+    return -1
+  }
+
+  let result = 0
+
+  if (['number', 'numeric', 'integer', 'decimal', 'float'].includes(type)) {
+    const numberA = Number(a)
+    const numberB = Number(b)
+    result = Number.isNaN(numberA) || Number.isNaN(numberB)
+      ? String(a).localeCompare(String(b), lang.value, { numeric: true })
+      : numberA - numberB
+  } else if (type === 'date' || type === 'datetime' || type === 'timestamp') {
+    const dateA = new Date(a).getTime()
+    const dateB = new Date(b).getTime()
+    result = Number.isNaN(dateA) || Number.isNaN(dateB)
+      ? String(a).localeCompare(String(b), lang.value, { numeric: true })
+      : dateA - dateB
+  } else if (typeof a === 'boolean' && typeof b === 'boolean') {
+    result = Number(a) - Number(b)
+  } else {
+    const valueA = isDDLB(meta) ? getLabel(field, a) : a
+    const valueB = isDDLB(meta) ? getLabel(field, b) : b
+    result = String(valueA).localeCompare(
+      String(valueB),
+      lang.value,
+      { numeric: true, sensitivity: 'base' }
+    )
+  }
+
+  return direction === 'desc' ? -result : result
+}
+
+const sortedItems = computed(() => {
+  const source = [...filteredItems.value]
+
+  if (!sortSpec.value.length) {
+    return source
+  }
+
+  return source
+    .map((item, index) => ({ item, index }))
+    .sort((left, right) => {
+      for (const term of sortSpec.value) {
+        const result = compareSortValues(
+          left.item,
+          right.item,
+          term.field,
+          term.direction
+        )
+
+        if (result !== 0) {
+          return result
+        }
+      }
+
+      return left.index - right.index
+    })
+    .map(entry => entry.item)
+})
+
+watch(
+  () => userIdentity.value?.profile_id,
+  loadSortPreference,
+  { immediate: true }
+)
+
+watch(
+  () => componentName.value,
+  loadSortPreference
+)
+
+
+// --------------------------------------------------
 // Translations
 // --------------------------------------------------
 async function loadTranslations() {
@@ -491,6 +707,18 @@ async function loadTranslations() {
   }
 
   translations.value = result
+
+  const [none, asc, desc] = await Promise.all([
+    translate('pulsar.grid.sortNone', lang.value, 'Default'),
+    translate('pulsar.grid.sortAscending', lang.value, 'Default'),
+    translate('pulsar.grid.sortDescending', lang.value, 'Default')
+  ])
+
+  sortLabels.value = {
+    none: none && none !== 'pulsar.grid.sortNone' ? none : 'No sorting',
+    asc: asc && asc !== 'pulsar.grid.sortAscending' ? asc : 'Sort ascending',
+    desc: desc && desc !== 'pulsar.grid.sortDescending' ? desc : 'Sort descending'
+  }
 }
 
 watch(
@@ -602,6 +830,8 @@ watch(
 // --------------------------------------------------
 // Lifecycle
 // --------------------------------------------------
+onMounted(loadSortPreference)
+
 onBeforeUnmount(() => {
   stopDomainOptionScopes()
 })
@@ -693,10 +923,38 @@ onBeforeUnmount(() => {
                 class="whitespace-nowrap border-b border-l px-3 py-2.5 text-left font-semibold"
                 style="border-color:var(--pulsar-level-border)"
               >
-                {{
-                  translations[col.field] ||
-                  col.field
-                }}
+                <span class="inline-flex items-center gap-1.5">
+                  <span>{{
+                    translations[col.field] ||
+                    col.field
+                  }}</span>
+                  <button
+                    v-if="isSortEnabled(col.field)"
+                    type="button"
+                    class="inline-flex h-5 w-5 items-center justify-center rounded text-muted transition hover:bg-hover hover:text-primary focus-visible:outline focus-visible:outline-1 focus-visible:outline-primary"
+                    :class="getSortDirection(col.field) !== 'none' ? 'text-primary' : ''"
+                    :aria-label="getSortLabel(col.field)"
+                    :title="getSortLabel(col.field)"
+                    @click.stop="cycleSort(col.field)"
+                  >
+                    <span
+                      v-if="getSortDirection(col.field) === 'asc'"
+                      class="text-sm font-bold leading-none"
+                    >↑</span>
+                    <span
+                      v-else-if="getSortDirection(col.field) === 'desc'"
+                      class="text-sm font-bold leading-none"
+                    >↓</span>
+                    <span
+                      v-else
+                      class="text-sm leading-none"
+                    >↕</span>
+                    <span
+                      v-if="getSortPriority(col.field) > 0"
+                      class="ml-0.5 text-[8px] leading-none"
+                    >{{ getSortPriority(col.field) }}</span>
+                  </button>
+                </span>
               </th>
 
             </tr>
@@ -709,7 +967,7 @@ onBeforeUnmount(() => {
             <tr
               v-for="(
                 item, index
-              ) in filteredItems"
+              ) in sortedItems"
               :key="index"
               @click="selectRow(item)"
               :class="
