@@ -410,8 +410,7 @@ const canEdit = computed(() => {
     return hasEffectivePermission('PAGE.SUPERVISOR')
   }
 
-  return report?.access_mode === 'SHARED_EDIT' ||
-    hasEffectivePermission('REPORT.DESIGN.EDIT')
+  return report?.access_mode === 'SHARED_EDIT'
 })
 
 const canDelete = computed(() => {
