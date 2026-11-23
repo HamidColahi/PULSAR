@@ -251,6 +251,16 @@ const labelDictionary = {
   noShares: 'report.noShares',
   loading: 'report.loading',
   defaultTitle: 'report.defaultTitle',
+  errorExecution: 'report.error.execution',
+  errorLoad: 'report.error.load',
+  errorSave: 'report.error.save',
+  errorCopy: 'report.error.copy',
+  errorDelete: 'report.error.delete',
+  errorShare: 'report.error.share',
+  errorUnshare: 'report.error.unshare',
+  errorPublish: 'report.error.publish',
+  errorUnpublish: 'report.error.unpublish',
+  errorInitialize: 'report.error.initialize',
   access_owner: 'report.access.owner',
   access_sharedEdit: 'report.access.sharedEdit',
   access_sharedView: 'report.access.sharedView',
@@ -466,7 +476,7 @@ async function runReport() {
     error.value = err?.response?.data?.detail?.message ||
       err?.response?.data?.detail ||
       err?.message ||
-      'Report execution failed.'
+      labels.value.errorExecution
   } finally {
     loading.value = false
   }
@@ -519,7 +529,7 @@ async function loadReports() {
     await selectReport(reports.value[0].report_id)
   } else {
     selectedReportId.value = ''
-    reportTitle.value = labels.value.defaultTitle || 'New Report'
+    reportTitle.value = labels.value.defaultTitle || labels.value.defaultTitle
     columns.value = defaultColumns.value.map(item => ({ ...item }))
     await loadDefaultSortPreference()
     filterConditions.value = []
@@ -553,7 +563,7 @@ async function selectReport(reportId) {
     await loadShares()
     await runReport()
   } catch (err) {
-    error.value = err?.response?.data?.detail || err?.message || 'Report could not be loaded.'
+    error.value = err?.response?.data?.detail || err?.message || labels.value.errorLoad
   } finally {
     loading.value = false
   }
@@ -598,7 +608,7 @@ async function saveReport() {
     error.value = err?.response?.data?.detail?.message ||
       err?.response?.data?.detail ||
       err?.message ||
-      'Report could not be saved.'
+      labels.value.errorSave
   } finally {
     loading.value = false
   }
@@ -609,7 +619,7 @@ async function saveAs() {
   error.value = ''
 
   try {
-    const originalTitle = reportTitle.value.trim() || labels.value.defaultTitle || 'New Report'
+    const originalTitle = reportTitle.value.trim() || labels.value.defaultTitle || labels.value.defaultTitle
     const response = await axios.post('/reports', {
       ...reportPayload(),
       report_title: originalTitle + ' Copy'
@@ -623,7 +633,7 @@ async function saveAs() {
     error.value = err?.response?.data?.detail?.message ||
       err?.response?.data?.detail ||
       err?.message ||
-      'Report copy could not be created.'
+      labels.value.errorCopy
   } finally {
     loading.value = false
   }
@@ -638,14 +648,14 @@ async function deleteReport() {
     await axios.delete('/reports/' + selectedReportId.value)
     selectedReportId.value = ''
     sharingPolicy.value = 'PRIVATE'
-    reportTitle.value = labels.value.defaultTitle || 'New Report'
+    reportTitle.value = labels.value.defaultTitle || labels.value.defaultTitle
     columns.value = defaultColumns.value.map(item => ({ ...item }))
     filterConditions.value = []
     shares.value = []
     await refreshReportList()
     await runReport()
   } catch (err) {
-    error.value = err?.response?.data?.detail || err?.message || 'Report could not be deleted.'
+    error.value = err?.response?.data?.detail || err?.message || labels.value.errorDelete
   } finally {
     loading.value = false
   }
@@ -679,7 +689,7 @@ async function shareReport() {
     await loadShares()
     await refreshReportList()
   } catch (err) {
-    error.value = err?.response?.data?.detail || err?.message || 'Report could not be shared.'
+    error.value = err?.response?.data?.detail || err?.message || labels.value.errorShare
   } finally {
     loading.value = false
   }
@@ -694,7 +704,7 @@ async function unshareReport(userId) {
     await loadShares()
     await refreshReportList()
   } catch (err) {
-    error.value = err?.response?.data?.detail || err?.message || 'Report share could not be removed.'
+    error.value = err?.response?.data?.detail || err?.message || labels.value.errorUnshare
   } finally {
     loading.value = false
   }
@@ -710,7 +720,7 @@ async function publishReport() {
     sharingPolicy.value = 'PUBLIC'
     await refreshReportList()
   } catch (err) {
-    error.value = err?.response?.data?.detail || err?.message || 'Report could not be published.'
+    error.value = err?.response?.data?.detail || err?.message || labels.value.errorPublish
   } finally {
     loading.value = false
   }
@@ -726,7 +736,7 @@ async function unpublishReport() {
     sharingPolicy.value = response.data?.sharing_policy || 'PRIVATE'
     await refreshReportList()
   } catch (err) {
-    error.value = err?.response?.data?.detail || err?.message || 'Report could not be unpublished.'
+    error.value = err?.response?.data?.detail || err?.message || labels.value.errorUnpublish
   } finally {
     loading.value = false
   }
@@ -746,7 +756,7 @@ onMounted(async () => {
     permissions.value = response.data || []
     await loadReports()
   } catch (err) {
-    error.value = err?.response?.data?.detail || err?.message || 'Report Generator could not be initialized.'
+    error.value = err?.response?.data?.detail || err?.message || labels.value.errorInitialize
   }
 })
 
