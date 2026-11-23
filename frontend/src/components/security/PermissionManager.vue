@@ -101,7 +101,7 @@ In collaboration with GPT4 Chat Assistant: Bahram
                 <div class="flex items-start justify-between gap-2">
                   <div class="min-w-0">
                     <div class="break-all text-xs font-semibold text-label">{{ grant.permission_code }}</div>
-                    <div class="mt-0.5 text-[10px] text-muted">{{ grant.permission_title }} · {{ grant.page_key || grant.scope_type }}</div>
+                    <div class="mt-0.5 text-[10px] text-muted">{{ grant.permission_title }} · {{ grant.page_key || grant.scope_key || grant.scope_type }}</div>
                   </div>
                   <span class="shrink-0 rounded-full px-2 py-0.5 text-[10px]" :class="grant.is_effective ? 'bg-emerald-100 text-emerald-700' : 'bg-hover text-muted'">
                     {{ grant.is_effective ? labels.active : labels.inactive }}
