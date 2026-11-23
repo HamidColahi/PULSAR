@@ -847,6 +847,32 @@ DO UPDATE SET
 COMMIT;
 
 -- ============================================================
+-- Subsystem security administrator definitions are developer-owned.
+-- For each subsystem, create one SECURITY.PERMISSION.GRANT catalog row:
+--
+-- INSERT INTO pulsar.t_permission
+--     (permission_code, permission_title, scope_type, scope_key,
+--      subsystem_key, permission_desc, created_by)
+-- VALUES
+--     (
+--         'SECURITY.PERMISSION.GRANT',
+--         'Manage subsystem permissions',
+--         'SUBSYSTEM',
+--         '<SUBSYSTEM_CODE>',
+--         '<SUBSYSTEM_CODE>',
+--         'Manage permission definitions assigned to this subsystem.',
+--         NULLIF(current_setting('pulsar.log_user', TRUE), '')::UUID
+--     );
+--
+-- Associate page-level permission definitions with their owning subsystem:
+--
+-- UPDATE pulsar.t_permission
+-- SET subsystem_key = '<SUBSYSTEM_CODE>'
+-- WHERE page_key IN ('<PAGE_KEY_1>', '<PAGE_KEY_2>');
+--
+-- A subsystem administrator can then grant only definitions whose
+-- subsystem_key matches the administrator's SECURITY.PERMISSION.GRANT scope.
+
 -- Initial System Security Administrator bootstrap
 --
 -- This is intentionally a separate, explicit operation. Replace
