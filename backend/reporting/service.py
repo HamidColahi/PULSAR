@@ -169,28 +169,27 @@ async def can_edit_report(
     if str(report["owner_user_id"]) == str(user_id):
         return True
 
-    if report["sharing_policy"] not in ("SHARED", "PUBLIC"):
-        share_result = None
-    else:
+    if report["sharing_policy"] in ("SHARED", "PUBLIC"):
+        share_result = await session.execute(
             text(
-            """
-            SELECT 1
-            FROM pulsar.t_report_share
-            WHERE report_id = :report_id
-              AND target_user_id = :user_id
-              AND is_active IS TRUE
-              AND permission_level = 'EDIT'
-            LIMIT 1
-            """
-        ),
-        {
-            "report_id": str(report["report_id"]),
-            "user_id": str(user_id),
-        },
-    )
+                """
+                SELECT 1
+                FROM pulsar.t_report_share
+                WHERE report_id = :report_id
+                  AND target_user_id = :user_id
+                  AND is_active IS TRUE
+                  AND permission_level = 'EDIT'
+                LIMIT 1
+                """
+            ),
+            {
+                "report_id": str(report["report_id"]),
+                "user_id": str(user_id),
+            },
+        )
 
-    if share_result is not None and share_result.scalar_one_or_none() is not None:
-        return True
+        if share_result.scalar_one_or_none() is not None:
+            return True
 
     return await has_permission(
         session,
@@ -198,7 +197,6 @@ async def can_edit_report(
         "REPORT.DESIGN.EDIT",
         report["page_key"],
     )
-
 
 async def require_report_edit_access(
     session: AsyncSession,
