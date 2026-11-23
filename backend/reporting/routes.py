@@ -655,6 +655,42 @@ async def update_report_page_configuration(
     }
 
 
+@router.get("/pages/{page_key}/configuration")
+async def read_report_page_configuration(
+    page_key: str,
+    current_user: UserProfileResponse = Depends(get_current_user),
+    session: AsyncSession = Depends(get_audited_session),
+):
+    """Return the Report Generator feature flags for a page visible to the caller."""
+    await require_page_view_access(
+        session,
+        str(current_user.id),
+        page_key,
+    )
+
+    result = await session.execute(
+        text(
+            """
+            SELECT
+                page.page_key,
+                COALESCE(config.is_enabled, FALSE) AS is_enabled,
+                COALESCE(config.allow_sharing, TRUE) AS allow_sharing,
+                COALESCE(config.allow_public, FALSE) AS allow_public
+            FROM pulsar.dynamic_page page
+            LEFT JOIN pulsar.t_report_page_config config
+                ON config.page_key = page.page_key
+            WHERE page.page_key = :page_key
+            """
+        ),
+        {"page_key": page_key},
+    )
+    config = result.mappings().first()
+    if config is None:
+        raise HTTPException(status_code=404, detail="PULSAR page was not found.")
+
+    return dict(config)
+
+
 @router.get("/pages/{page_key}")
 async def list_page_reports(
     page_key: str,
