@@ -202,18 +202,6 @@ CREATE TABLE IF NOT EXISTS pulsar.t_report_page_config
         CHECK (allow_public IS FALSE OR is_enabled IS TRUE)
 );
 
-INSERT INTO pulsar.t_report_page_config
-    (page_key, is_enabled, allow_sharing, allow_public, created_by, created_at)
-SELECT
-    dp.page_key,
-    FALSE,
-    TRUE,
-    FALSE,
-    NULLIF(current_setting('pulsar.log_user', TRUE), '')::UUID,
-    CURRENT_TIMESTAMP
-FROM pulsar.dynamic_page dp
-ON CONFLICT (page_key) DO NOTHING;
-
 -- ============================================================
 -- Report Definitions
 -- ============================================================
@@ -533,7 +521,20 @@ BEGIN
         );
     END LOOP;
 END;
-$$;
+$;
+
+-- Seed page configuration after its audit trigger is installed.
+INSERT INTO pulsar.t_report_page_config
+    (page_key, is_enabled, allow_sharing, allow_public, created_by, created_at)
+SELECT
+    dp.page_key,
+    FALSE,
+    TRUE,
+    FALSE,
+    NULLIF(current_setting('pulsar.log_user', TRUE), '')::UUID,
+    CURRENT_TIMESTAMP
+FROM pulsar.dynamic_page dp
+ON CONFLICT (page_key) DO NOTHING;
 
 -- ============================================================
 -- Permission catalog seeds
