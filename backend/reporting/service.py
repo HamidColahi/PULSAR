@@ -143,7 +143,7 @@ async def require_report_view_access(
         if config and config["allow_public"] is True:
             return
 
-    if report["sharing_policy"] != "SHARED":
+    if report["sharing_policy"] not in {"SHARED", "PUBLIC"}:
         raise HTTPException(
             status_code=403,
             detail="You do not have access to this report.",
@@ -200,7 +200,7 @@ async def can_edit_report(
     if str(report["owner_user_id"]) == str(user_id):
         return True
 
-    if report["sharing_policy"] == "SHARED":
+    if report["sharing_policy"] in {"SHARED", "PUBLIC"}:
         sharing_config = await session.execute(
             text(
                 """
