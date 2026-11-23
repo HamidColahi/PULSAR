@@ -87,7 +87,8 @@ const sortPreferenceReady = ref(false)
 const sortLabels = ref({
   none: 'No sorting',
   asc: 'Sort ascending',
-  desc: 'Sort descending'
+  desc: 'Sort descending',
+  forced: 'Forced sorting'
 })
 
 const expandedField = ref({
@@ -764,9 +765,16 @@ const sortedItems = computed(() => {
 })
 
 watch(
-  componentName,
+  () => [
+    componentName.value,
+    props.config?.field_mode,
+    props.config?.fields
+  ],
   loadSortPreference,
-  { immediate: true }
+  {
+    immediate: true,
+    deep: true
+  }
 )
 
 
