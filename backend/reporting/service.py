@@ -275,7 +275,7 @@ async def validate_report_page(
     page_key: str,
     source_component_name: str,
 ) -> dict[str, Any]:
-    """Validate Report.Gen metadata, page access, and the selected list component."""
+    """Validate page configuration, page access, and the selected list component."""
     await require_page_view_access(
         session,
         user_id,
