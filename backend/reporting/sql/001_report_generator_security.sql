@@ -507,57 +507,70 @@ ON CONFLICT DO NOTHING;
 
 -- ============================================================
 -- Function catalog registration (NewFunc)
--- ============================================================
+-- Existing registrations are immutable here. A changed implementation
+-- requires an explicit versioning operation outside this migration.
 
-INSERT INTO pulsar.t_function_definition
-(
-    function_name,
-    schema_name,
-    source_code,
-    call_template,
-    description,
-    documentation,
-    return_type,
-    state,
-    version,
-    is_active,
-    parameter_definition,
-    output_definition
-)
-SELECT
-    'fn_audit_record_change',
-    'pulsar',
-    pg_get_functiondef(
+DO $$
+DECLARE
+    v_existing_source TEXT;
+    v_installed_source TEXT;
+BEGIN
+    v_installed_source := pg_get_functiondef(
         'pulsar.fn_audit_record_change()'::REGPROCEDURE
-    ),
-    'Trigger function; invoked automatically by PULSAR audit triggers.',
-    'Capture INSERT, UPDATE, and DELETE row snapshots with authenticated user and client IP.',
-    'Generic append-only audit trigger for permission and report metadata tables. Reads transaction-local pulsar.log_user and pulsar.log_ip values.',
-    'trigger',
-    'ACTIVE',
-    1,
-    TRUE,
-    '[]'::JSONB,
-    '{"kind":"trigger","log_schema":"pulsar_log"}'::JSONB
-ON CONFLICT (function_name)
-DO UPDATE SET
-    schema_name = EXCLUDED.schema_name,
-    source_code = EXCLUDED.source_code,
-    call_template = EXCLUDED.call_template,
-    description = EXCLUDED.description,
-    documentation = EXCLUDED.documentation,
-    return_type = EXCLUDED.return_type,
-    state = EXCLUDED.state,
-    version = CASE
-        WHEN pulsar.t_function_definition.source_code
-             IS DISTINCT FROM EXCLUDED.source_code
-        THEN pulsar.t_function_definition.version + 1
-        ELSE pulsar.t_function_definition.version
-    END,
-    is_active = EXCLUDED.is_active,
-    parameter_definition = EXCLUDED.parameter_definition,
-    output_definition = EXCLUDED.output_definition,
-    updated_at = CURRENT_TIMESTAMP;
+    );
+
+    SELECT source_code
+    INTO v_existing_source
+    FROM pulsar.t_function_definition
+    WHERE function_name = 'fn_audit_record_change';
+
+    IF FOUND THEN
+        IF v_existing_source IS DISTINCT FROM v_installed_source THEN
+            RAISE EXCEPTION
+                'Function fn_audit_record_change is already registered with a different source. Explicit versioning is required.';
+        END IF;
+    ELSE
+        INSERT INTO pulsar.t_function_definition
+        (
+            function_name,
+            schema_name,
+            source_code,
+            call_template,
+            description,
+            documentation,
+            return_type,
+            state,
+            version,
+            is_active,
+            created_by,
+            created_at,
+            updated_by,
+            updated_at,
+            parameter_definition,
+            output_definition
+        )
+        VALUES
+        (
+            'fn_audit_record_change',
+            'pulsar',
+            v_installed_source,
+            'Trigger function; invoked automatically by PULSAR audit triggers.',
+            'Capture INSERT, UPDATE, and DELETE row snapshots with authenticated user and client IP.',
+            'Generic append-only audit trigger for permission and report metadata tables. Reads transaction-local pulsar.log_user and pulsar.log_ip values.',
+            'trigger',
+            'DRAFT',
+            1,
+            FALSE,
+            CURRENT_USER,
+            CURRENT_TIMESTAMP,
+            CURRENT_USER,
+            CURRENT_TIMESTAMP,
+            '[]'::JSONB,
+            '{"kind":"trigger","log_schema":"pulsar_log"}'::JSONB
+        );
+    END IF;
+END;
+$$;
 
 INSERT INTO pulsar.translation_dictionary
 (
