@@ -10,7 +10,8 @@
 # Last Modified: 2026-11-21 01:00 (Asia/Baku)
 # ===============================================
 
-from typing import List
+from typing import List, Literal
+import json
 
 from fastapi import (
     APIRouter,
@@ -21,7 +22,7 @@ from fastapi import (
 
 from pydantic import BaseModel
 
-from sqlalchemy import and_, select
+from sqlalchemy import and_, select, text
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from core.database import get_async_session
@@ -34,6 +35,7 @@ from general.config.models import (
 )
 
 from general.translation.models import TranslationDictionary
+from general.auth.dependencies import get_current_user
 
  
 router = APIRouter(
@@ -48,6 +50,7 @@ router = APIRouter(
 
 class ComponentFieldConfig(BaseModel):
     field_name: str
+    field_sort: bool = False
 
     label: str | None = None
 
@@ -282,6 +285,7 @@ async def read_component_config(
                 visible_in_grid=config.visible_in_grid,
                 visible_in_form=config.visible_in_form,
                 visible_in_search=config.visible_in_search,
+                field_sort=bool(config.field_sort),
 
                 is_readonly=config.is_readonly,
 
@@ -309,6 +313,133 @@ async def read_component_config(
         )
 
     return configs
+
+
+# ===============================================
+# User Grid Sort Preferences
+# ===============================================
+
+class GridSortTerm(BaseModel):
+    field: str
+    direction: Literal["asc", "desc"]
+
+
+class GridSortPreferenceUpdate(BaseModel):
+    component_name: str
+    field_mode: str = "list"
+    sort_spec: List[GridSortTerm]
+
+
+@router.get("/grid_sort")
+async def read_grid_sort_preference(
+    component_name: str = Query(...),
+    field_mode: str = Query("list"),
+    db: AsyncSession = Depends(get_async_session),
+    current_user = Depends(get_current_user),
+):
+    """Return the authenticated user's sort specification for one Grid."""
+    result = await db.execute(
+        text("""
+            SELECT sort_spec
+            FROM pulsar.t_user_grid_sort
+            WHERE c_user_id = :user_id
+              AND component_name = :component_name
+              AND field_mode = :field_mode
+        """),
+        {
+            "user_id": str(current_user.id),
+            "component_name": component_name,
+            "field_mode": field_mode,
+        },
+    )
+    row = result.mappings().first()
+    saved_spec = row["sort_spec"] if row else []
+
+    allowed_result = await db.execute(
+        select(ComponentsConfig.field_name).where(
+            ComponentsConfig.component_name == component_name,
+            ComponentsConfig.field_mode == field_mode,
+            ComponentsConfig.field_sort.is_(True),
+        )
+    )
+    allowed_fields = set(allowed_result.scalars().all())
+
+    return {
+        "component_name": component_name,
+        "field_mode": field_mode,
+        "sort_spec": [
+            item for item in (saved_spec or [])
+            if isinstance(item, dict)
+            and item.get("field") in allowed_fields
+            and item.get("direction") in ("asc", "desc")
+        ],
+    }
+
+
+@router.put("/grid_sort")
+async def save_grid_sort_preference(
+    payload: GridSortPreferenceUpdate,
+    db: AsyncSession = Depends(get_async_session),
+    current_user = Depends(get_current_user),
+):
+    """Persist a validated, ordered multi-column sort for the current user."""
+    allowed_result = await db.execute(
+        select(ComponentsConfig.field_name).where(
+            ComponentsConfig.component_name == payload.component_name,
+            ComponentsConfig.field_mode == payload.field_mode,
+            ComponentsConfig.field_sort.is_(True),
+        )
+    )
+    allowed_fields = set(allowed_result.scalars().all())
+
+    requested_fields = [item.field for item in payload.sort_spec]
+    if len(requested_fields) != len(set(requested_fields)):
+        raise HTTPException(
+            status_code=422,
+            detail="A sort field can appear only once.",
+        )
+
+    invalid_fields = set(requested_fields) - allowed_fields
+    if invalid_fields:
+        raise HTTPException(
+            status_code=403,
+            detail={
+                "message": "Sorting is not enabled for one or more fields.",
+                "fields": sorted(invalid_fields),
+            },
+        )
+
+    sort_spec = [
+        item.model_dump()
+        for item in payload.sort_spec
+    ]
+
+    await db.execute(
+        text("""
+            INSERT INTO pulsar.t_user_grid_sort
+                (c_user_id, component_name, field_mode, sort_spec, updated_at)
+            VALUES
+                (:user_id, :component_name, :field_mode,
+                 CAST(:sort_spec AS jsonb), CURRENT_TIMESTAMP)
+            ON CONFLICT (c_user_id, component_name, field_mode)
+            DO UPDATE SET
+                sort_spec = EXCLUDED.sort_spec,
+                updated_at = CURRENT_TIMESTAMP
+        """),
+        {
+            "user_id": str(current_user.id),
+            "component_name": payload.component_name,
+            "field_mode": payload.field_mode,
+            "sort_spec": json.dumps(sort_spec),
+        },
+    )
+    await db.commit()
+
+    return {
+        "component_name": payload.component_name,
+        "field_mode": payload.field_mode,
+        "sort_spec": sort_spec,
+    }
 
 
 # ===============================================
