@@ -476,8 +476,6 @@ async def list_report_page_configuration(
             """
             SELECT
                 page.page_key,
-                page.page_type,
-                page.page_level,
                 page."Page_desc" AS page_desc,
                 COALESCE(config.is_enabled, FALSE) AS is_enabled,
                 COALESCE(config.allow_sharing, TRUE) AS allow_sharing,
