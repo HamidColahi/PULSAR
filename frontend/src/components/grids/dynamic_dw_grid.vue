@@ -12,8 +12,7 @@ import {
   computed,
   watch,
   effectScope,
-  onBeforeUnmount,
-  onMounted
+  onBeforeUnmount
 } from 'vue'
 
 import {
@@ -830,8 +829,6 @@ watch(
 // --------------------------------------------------
 // Lifecycle
 // --------------------------------------------------
-onMounted(loadSortPreference)
-
 onBeforeUnmount(() => {
   stopDomainOptionScopes()
 })
@@ -931,7 +928,8 @@ onBeforeUnmount(() => {
                   <button
                     v-if="isSortEnabled(col.field)"
                     type="button"
-                    class="inline-flex h-5 w-5 items-center justify-center rounded text-muted transition hover:bg-hover hover:text-primary focus-visible:outline focus-visible:outline-1 focus-visible:outline-primary"
+                    :disabled="!sortPreferenceReady"
+                    class="inline-flex h-5 w-5 items-center justify-center rounded text-muted transition hover:bg-hover hover:text-primary focus-visible:outline focus-visible:outline-1 focus-visible:outline-primary disabled:cursor-wait disabled:opacity-40"
                     :class="getSortDirection(col.field) !== 'none' ? 'text-primary' : ''"
                     :aria-label="getSortLabel(col.field)"
                     :title="getSortLabel(col.field)"
