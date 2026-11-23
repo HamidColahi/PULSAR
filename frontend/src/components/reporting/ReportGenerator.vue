@@ -246,6 +246,7 @@ const shareUserQuery = ref('')
 const shareUsers = ref([])
 const sharePermission = ref('VIEW')
 const labels = ref({})
+const fieldTranslations = ref({})
 
 const tabs = [
   { id: 'columns', label: 'columns' },
@@ -347,6 +348,21 @@ async function loadLabels() {
   labels.value = result
 }
 
+async function loadFieldLabels() {
+  const fieldNames = props.config?.field_order ||
+    Object.keys(props.config?.fields || {})
+  const result = {}
+
+  for (const field of fieldNames) {
+    const translated = await translate(field, language.value)
+    if (translated && translated !== field) {
+      result[field] = translated
+    }
+  }
+
+  fieldTranslations.value = result
+}
+
 const defaultColumns = computed(() => {
   const order = props.config?.field_order || []
   const fields = props.config?.fields || {}
@@ -414,7 +430,8 @@ function errorMessage(errorObject, fallback) {
 }
 
 function fieldLabel(field) {
-  return props.config?.translations?.[field] ||
+  return fieldTranslations.value[field] ||
+    props.config?.translations?.[field] ||
     props.config?.fields?.[field]?.label ||
     field
 }
@@ -903,6 +920,7 @@ function openDesigner(tab) {
 
 onMounted(async () => {
   await loadLabels()
+  await loadFieldLabels()
 
   try {
     const response = await axios.get('/permissions/me')
@@ -913,7 +931,10 @@ onMounted(async () => {
   }
 })
 
-watch(language, loadLabels)
+watch(language, async () => {
+  await loadLabels()
+  await loadFieldLabels()
+})
 
 watch(
   () => props.items,
