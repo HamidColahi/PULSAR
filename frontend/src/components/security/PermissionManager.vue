@@ -125,6 +125,50 @@ In collaboration with GPT4 Chat Assistant: Bahram
             </div>
           </section>
         </div>
+
+        <section v-if="canManageReportConfig" class="mt-4 space-y-3 rounded-xl border border-border p-3">
+          <div>
+            <h3 class="text-xs font-semibold text-label">{{ labels.reportConfig }}</h3>
+            <p class="mt-1 text-[10px] text-muted">{{ labels.reportConfigNote }}</p>
+          </div>
+
+          <div v-if="reportPageConfigs.length" class="grid gap-2 md:grid-cols-2">
+            <article
+              v-for="config in reportPageConfigs"
+              :key="config.page_key"
+              class="space-y-2 rounded-lg border border-border p-2.5"
+            >
+              <div class="min-w-0">
+                <div class="truncate text-xs font-semibold text-label">{{ config.page_desc || config.page_key }}</div>
+                <div class="break-all text-[10px] text-muted">{{ config.page_key }}</div>
+              </div>
+              <label class="flex items-center gap-2 text-[10px] text-label">
+                <input v-model="config.is_enabled" type="checkbox" />
+                {{ labels.reportEnabled }}
+              </label>
+              <label class="flex items-center gap-2 text-[10px] text-label">
+                <input v-model="config.allow_sharing" type="checkbox" :disabled="!config.is_enabled" />
+                {{ labels.allowSharing }}
+              </label>
+              <label class="flex items-center gap-2 text-[10px] text-label">
+                <input v-model="config.allow_public" type="checkbox" :disabled="!config.is_enabled" />
+                {{ labels.allowPublic }}
+              </label>
+              <div class="flex justify-end">
+                <button
+                  class="permission-action permission-primary"
+                  :disabled="loading || (!config.is_enabled && config.allow_public)"
+                  @click="saveReportPageConfig(config)"
+                >
+                  {{ labels.saveConfig }}
+                </button>
+              </div>
+            </article>
+          </div>
+          <div v-else class="rounded-lg border border-dashed border-border px-3 py-5 text-center text-xs text-muted">
+            {{ labels.noReportPages }}
+          </div>
+        </section>
       </div>
 
       <footer class="flex items-center justify-between border-t border-border px-4 py-2.5">
@@ -167,6 +211,7 @@ const permissionId = ref('')
 const catalog = ref([])
 const adminGrants = ref([])
 const history = ref([])
+const reportPageConfigs = ref([])
 const validFrom = ref(toLocalInput(new Date()))
 const validUntil = ref('')
 const grantReason = ref('')
@@ -203,7 +248,15 @@ const translationKeys = {
   errorHistory: 'security.error.history',
   errorGrant: 'security.error.grant',
   errorRevoke: 'security.error.revoke',
-  errorAdmin: 'security.error.admin'
+  errorAdmin: 'security.error.admin',
+  reportConfig: 'security.reportConfig',
+  reportConfigNote: 'security.reportConfigNote',
+  reportEnabled: 'security.reportEnabled',
+  allowSharing: 'security.allowSharing',
+  allowPublic: 'security.allowPublic',
+  saveConfig: 'security.saveConfig',
+  noReportPages: 'security.noReportPages',
+  errorReportConfig: 'security.error.reportConfig'
 }
 
 async function loadLabels() {
@@ -263,6 +316,10 @@ const selectedPermission = computed(() =>
   ) || null
 )
 
+const canManageReportConfig = computed(() =>
+  adminGrants.value.some(item => item.scope_type === 'SYSTEM')
+)
+
 async function loadManagerData() {
   loading.value = true
   error.value = ''
@@ -295,8 +352,44 @@ async function loadManagerData() {
     if (!adminGrants.value.length) {
       throw new Error(labels.value.errorAdmin)
     }
+
+    reportPageConfigs.value = []
+    if (canManageReportConfig.value) {
+      await loadReportPageConfigs()
+    }
   } catch (err) {
     error.value = errorMessage(err, labels.value.errorData)
+  } finally {
+    loading.value = false
+  }
+}
+
+async function loadReportPageConfigs() {
+  try {
+    const response = await axios.get('/reports/config/pages')
+    reportPageConfigs.value = (response.data || []).map(item => ({ ...item }))
+  } catch (err) {
+    error.value = errorMessage(err, labels.value.errorReportConfig)
+  }
+}
+
+async function saveReportPageConfig(config) {
+  if (!config?.page_key) return
+  loading.value = true
+  error.value = ''
+
+  try {
+    const response = await axios.put(
+      '/reports/config/pages/' + encodeURIComponent(config.page_key),
+      {
+        is_enabled: config.is_enabled === true,
+        allow_sharing: config.allow_sharing === true,
+        allow_public: config.allow_public === true
+      }
+    )
+    Object.assign(config, response.data)
+  } catch (err) {
+    error.value = errorMessage(err, labels.value.errorReportConfig)
   } finally {
     loading.value = false
   }
