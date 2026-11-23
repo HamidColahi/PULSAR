@@ -982,7 +982,6 @@ async def update_report(
         report["page_key"],
         report["source_component_name"],
     )
-    await _require_report_page_option(session, report["page_key"], "allow_sharing")
     await require_report_edit_access(
         session,
         report,
