@@ -1267,6 +1267,7 @@ async def lookup_report_share_users(
         report["page_key"],
         report["source_component_name"],
     )
+    await _require_report_page_option(session, report["page_key"], "allow_sharing")
     await require_report_edit_access(
         session,
         report,
@@ -1327,6 +1328,7 @@ async def share_report(
         report["page_key"],
         report["source_component_name"],
     )
+    await _require_report_page_option(session, report["page_key"], "allow_sharing")
     await require_report_edit_access(
         session,
         report,
@@ -1427,6 +1429,7 @@ async def list_report_shares(
         report["page_key"],
         report["source_component_name"],
     )
+    await _require_report_page_option(session, report["page_key"], "allow_sharing")
     await require_report_edit_access(
         session,
         report,
@@ -1486,6 +1489,7 @@ async def unshare_report(
         report["page_key"],
         report["source_component_name"],
     )
+    await _require_report_page_option(session, report["page_key"], "allow_sharing")
     await require_report_edit_access(
         session,
         report,
@@ -1621,6 +1625,7 @@ async def unpublish_report(
         report["page_key"],
         report["source_component_name"],
     )
+    await _require_report_page_option(session, report["page_key"], "allow_public")
     await require_permission(
         session,
         str(current_user.id),
