@@ -1,7 +1,8 @@
 
 <!-- ===============================================
 File: frontend/src/components/grids/dynamic_dw_grid.vue
-Description: Metadata-driven dynamic data grid with domain options, translations, date formatting, isolated scrolling, visual level theme, and universal field expansion
+Description: Metadata-driven dynamic data grid with user-specific multi-column sorting
+Last Modified: 2026-11-23 23:35 (Asia/Baku)
 Author: MHKolahi@gmail.com
 In collaboration with GPT4 Chat Assistant: Bahram
 =============================================== -->
@@ -578,18 +579,26 @@ function cycleSort(field) {
     desc: 'none'
   }[getSortDirection(field)]
 
-  const next = sortSpec.value.filter(
-    item => item.field !== field
+  const current = sortSpec.value.find(
+    item => item.field === field
   )
 
-  if (nextDirection !== 'none') {
-    next.push({
-      field,
-      direction: nextDirection
-    })
+  if (nextDirection === 'none') {
+    sortSpec.value = sortSpec.value.filter(
+      item => item.field !== field
+    )
+  } else if (current) {
+    sortSpec.value = sortSpec.value.map(item =>
+      item.field === field
+        ? { ...item, direction: nextDirection }
+        : item
+    )
+  } else {
+    sortSpec.value = [
+      ...sortSpec.value,
+      { field, direction: nextDirection }
+    ]
   }
-
-  sortSpec.value = next
   persistSortPreference()
 }
 
