@@ -26,7 +26,6 @@ Last Modified: 2026-11-23 22:55:00 (Asia/Baku)
     :dir="isRtl ? 'rtl' : 'ltr'"
     @mouseenter="handlePanelMouseEnter"
     @mouseleave="handlePanelMouseLeave"
-    @focusin="handlePanelFocusIn"
     @focusout="handlePanelFocusOut"
   >
     <div
@@ -44,6 +43,7 @@ Last Modified: 2026-11-23 22:55:00 (Asia/Baku)
           </span>
 
           <button
+            ref="pinButton"
             type="button"
             class="inline-flex h-7 w-7 items-center justify-center rounded-md border border-border text-muted transition hover:bg-hover hover:text-primary"
             :aria-label="isPinned ? panelLabels.unpin : panelLabels.pin"
@@ -112,7 +112,7 @@ Last Modified: 2026-11-23 22:55:00 (Asia/Baku)
       v-else
       type="button"
       class="flex h-full w-full flex-col items-center justify-center gap-2 bg-panel px-1 text-muted transition hover:bg-hover hover:text-primary focus-visible:outline focus-visible:outline-2 focus-visible:outline-primary"
-       :aria-label="panelLabels.open"
+      :aria-label="panelLabels.open"
       :aria-expanded="isOpen"
       :title="panelLabels.open"
       @click="openPanelManually"
@@ -307,6 +307,8 @@ const translations = ref({})
 
 const panelWidth = ref(props.initialWidth)
 
+const pinButton = ref(null)
+
 const collapsedWidth = 32
 
 const isOpen = ref(false)
@@ -353,10 +355,6 @@ function handlePanelMouseLeave() {
   }
 }
 
-function handlePanelFocusIn() {
-  isOpen.value = true
-}
-
 function handlePanelFocusOut(event) {
   if (
     !isPinned.value &&
@@ -366,8 +364,10 @@ function handlePanelFocusOut(event) {
   }
 }
 
-function openPanelManually() {
+async function openPanelManually() {
   isOpen.value = true
+  await nextTick()
+  pinButton.value?.focus()
 }
 
 function togglePin() {
@@ -476,6 +476,8 @@ async function loadPanel() {
 
   try {
 
+    isPinned.value = false
+    isOpen.value = false
     translations.value = {}
 
 
