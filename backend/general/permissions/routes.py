@@ -243,6 +243,7 @@ async def lookup_permission_target_users(
                 c_user_full_name
             FROM pulsar.t_user
             WHERE c_user_active IS TRUE
+              AND c_user_id <> :current_user_id
               AND (
                     c_user_email ILIKE :search
                     OR c_user_full_name ILIKE :search
@@ -251,7 +252,10 @@ async def lookup_permission_target_users(
             LIMIT 20
             """
         ),
-        {"search": "%" + query.strip() + "%"},
+        {
+            "current_user_id": str(current_user.id),
+            "search": "%" + query.strip() + "%",
+        },
     )
 
     return [
