@@ -128,7 +128,20 @@ async def require_report_view_access(
         return
 
     if report["sharing_policy"] == "PUBLIC":
-        return
+        config_result = await session.execute(
+            text(
+                """
+                SELECT allow_public
+                FROM pulsar.t_report_page_config
+                WHERE page_key = :page_key
+                  AND is_enabled IS TRUE
+                """
+            ),
+            {"page_key": report["page_key"]},
+        )
+        config = config_result.mappings().first()
+        if config and config["allow_public"] is True:
+            return
 
     if report["sharing_policy"] != "SHARED":
         raise HTTPException(
@@ -254,9 +267,15 @@ async def validate_report_page(
     page_result = await session.execute(
         text(
             """
-            SELECT page_key, page_level
-            FROM pulsar.dynamic_page
-            WHERE page_key = :page_key
+            SELECT
+                page.page_key,
+                config.is_enabled,
+                config.allow_sharing,
+                config.allow_public
+            FROM pulsar.dynamic_page page
+            INNER JOIN pulsar.t_report_page_config config
+                ON config.page_key = page.page_key
+            WHERE page.page_key = :page_key
             LIMIT 1
             """
         ),
@@ -264,7 +283,7 @@ async def validate_report_page(
     )
     page = page_result.mappings().first()
 
-    if page is None or page["page_level"] != "Report.Gen":
+    if page is None or page["is_enabled"] is not True:
         raise HTTPException(
             status_code=403,
             detail="Report Generator is not enabled for this page.",
