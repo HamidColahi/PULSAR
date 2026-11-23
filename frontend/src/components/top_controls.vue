@@ -2,7 +2,7 @@
 <!-- ===============================================
 File: frontend/src/components/top_controls.vue
 Description: Fixed global PULSAR identity bar with system monitoring and metadata-driven controls
-Change Date: 2026-11-23
+Change Date: 2026-11-24
 Timezone: Asia/Baku
 Author: MHKolahi@gmail.com
 In collaboration with GPT4 Chat Assistant: Bahram
