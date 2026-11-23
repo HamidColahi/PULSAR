@@ -893,6 +893,31 @@ DO UPDATE SET
     owner_column_table = EXCLUDED.owner_column_table,
     form_name = EXCLUDED.form_name;
 
+INSERT INTO pulsar.translation_dictionary
+(
+    item_code,
+    language_code,
+    translated_text,
+    context_type,
+    owner_column_table,
+    form_name
+)
+VALUES
+('report.previous', 'en', 'Previous', 'report_generator', 't_report', 'report_generator'),
+('report.previous', 'fa', 'قبلی', 'report_generator', 't_report', 'report_generator'),
+('report.next', 'en', 'Next', 'report_generator', 't_report', 'report_generator'),
+('report.next', 'fa', 'بعدی', 'report_generator', 't_report', 'report_generator'),
+('report.rows', 'en', 'Rows', 'report_generator', 't_report', 'report_generator'),
+('report.rows', 'fa', 'ردیف', 'report_generator', 't_report', 'report_generator'),
+('report.of', 'en', 'of', 'report_generator', 't_report', 'report_generator'),
+('report.of', 'fa', 'از', 'report_generator', 't_report', 'report_generator')
+ON CONFLICT (item_code, language_code)
+DO UPDATE SET
+    translated_text = EXCLUDED.translated_text,
+    context_type = EXCLUDED.context_type,
+    owner_column_table = EXCLUDED.owner_column_table,
+    form_name = EXCLUDED.form_name;
+
 COMMIT;
 
 -- ============================================================
