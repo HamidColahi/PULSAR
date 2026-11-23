@@ -37,6 +37,12 @@ BEGIN
         RAISE EXCEPTION 'Deployment actor user does not exist or is inactive.';
     END IF;
 
+    IF NULLIF(BTRIM(v_deployment_client_ip), '') IS NULL THEN
+        RAISE EXCEPTION 'A deployment client IP address is required.';
+    END IF;
+
+    PERFORM v_deployment_client_ip::INET;
+
     SELECT permission_id
     INTO v_permission_id
     FROM pulsar.t_permission
