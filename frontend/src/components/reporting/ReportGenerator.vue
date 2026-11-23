@@ -395,7 +395,7 @@ function hasEffectivePermission(code) {
   return permissions.value.some(item =>
     item.permission_code === code &&
     item.is_effective === true &&
-    (item.page_key === props.pageKey || item.page_key === null)
+    item.page_key === props.pageKey
   )
 }
 
