@@ -766,6 +766,71 @@ DO UPDATE SET
     owner_column_table = EXCLUDED.owner_column_table,
     form_name = EXCLUDED.form_name;
 
+INSERT INTO pulsar.translation_dictionary
+(
+    item_code,
+    language_code,
+    translated_text,
+    context_type,
+    owner_column_table,
+    form_name
+)
+VALUES
+('security.permissionManager', 'en', 'Permission management', 'permission_manager', 't_permission', 'permission_manager'),
+('security.permissionManager', 'fa', 'مدیریت مجوزها', 'permission_manager', 't_permission', 'permission_manager'),
+('security.scopeNote', 'en', 'Administrators can manage only the permission scopes assigned to them.', 'permission_manager', 't_permission', 'permission_manager'),
+('security.scopeNote', 'fa', 'مدیران فقط در محدوده مجوزهای مدیریتی تخصیص‌یافته اختیار دارند.', 'permission_manager', 't_permission', 'permission_manager'),
+('security.grant', 'en', 'Grant permission', 'permission_manager', 't_permission', 'permission_manager'),
+('security.grant', 'fa', 'اعطای مجوز', 'permission_manager', 't_permission', 'permission_manager'),
+('security.findUser', 'en', 'Find user', 'permission_manager', 't_permission', 'permission_manager'),
+('security.findUser', 'fa', 'یافتن کاربر', 'permission_manager', 't_permission', 'permission_manager'),
+('security.userSearch', 'en', 'Search by name or email', 'permission_manager', 't_permission', 'permission_manager'),
+('security.userSearch', 'fa', 'جست‌وجو بر اساس نام یا ایمیل', 'permission_manager', 't_permission', 'permission_manager'),
+('security.search', 'en', 'Search', 'permission_manager', 't_permission', 'permission_manager'),
+('security.search', 'fa', 'جست‌وجو', 'permission_manager', 't_permission', 'permission_manager'),
+('security.selectedUser', 'en', 'Selected user', 'permission_manager', 't_permission', 'permission_manager'),
+('security.selectedUser', 'fa', 'کاربر انتخاب‌شده', 'permission_manager', 't_permission', 'permission_manager'),
+('security.permission', 'en', 'Permission', 'permission_manager', 't_permission', 'permission_manager'),
+('security.permission', 'fa', 'مجوز', 'permission_manager', 't_permission', 'permission_manager'),
+('security.selectPermission', 'en', 'Select permission', 'permission_manager', 't_permission', 'permission_manager'),
+('security.selectPermission', 'fa', 'انتخاب مجوز', 'permission_manager', 't_permission', 'permission_manager'),
+('security.scope', 'en', 'Scope', 'permission_manager', 't_permission', 'permission_manager'),
+('security.scope', 'fa', 'محدوده', 'permission_manager', 't_permission', 'permission_manager'),
+('security.startAt', 'en', 'Valid from', 'permission_manager', 't_permission', 'permission_manager'),
+('security.startAt', 'fa', 'شروع اعتبار', 'permission_manager', 't_permission', 'permission_manager'),
+('security.endAt', 'en', 'Valid until', 'permission_manager', 't_permission', 'permission_manager'),
+('security.endAt', 'fa', 'پایان اعتبار', 'permission_manager', 't_permission', 'permission_manager'),
+('security.reason', 'en', 'Reason', 'permission_manager', 't_permission', 'permission_manager'),
+('security.reason', 'fa', 'علت', 'permission_manager', 't_permission', 'permission_manager'),
+('security.history', 'en', 'Permission history', 'permission_manager', 't_permission', 'permission_manager'),
+('security.history', 'fa', 'تاریخچه مجوزها', 'permission_manager', 't_permission', 'permission_manager'),
+('security.selectUserFirst', 'en', 'Search for and select a user to view permission history.', 'permission_manager', 't_permission', 'permission_manager'),
+('security.selectUserFirst', 'fa', 'برای مشاهده تاریخچه، ابتدا یک کاربر را جست‌وجو و انتخاب کنید.', 'permission_manager', 't_permission', 'permission_manager'),
+('security.noGrants', 'en', 'No permission grants found in your administration scope.', 'permission_manager', 't_permission', 'permission_manager'),
+('security.noGrants', 'fa', 'در محدوده مدیریتی شما مجوزی برای این کاربر یافت نشد.', 'permission_manager', 't_permission', 'permission_manager'),
+('security.active', 'en', 'Effective', 'permission_manager', 't_permission', 'permission_manager'),
+('security.active', 'fa', 'معتبر', 'permission_manager', 't_permission', 'permission_manager'),
+('security.inactive', 'en', 'Inactive / expired', 'permission_manager', 't_permission', 'permission_manager'),
+('security.inactive', 'fa', 'غیرفعال / منقضی', 'permission_manager', 't_permission', 'permission_manager'),
+('security.grantedBy', 'en', 'Granted by', 'permission_manager', 't_permission', 'permission_manager'),
+('security.grantedBy', 'fa', 'اعطاکننده', 'permission_manager', 't_permission', 'permission_manager'),
+('security.grantedAt', 'en', 'Granted at', 'permission_manager', 't_permission', 'permission_manager'),
+('security.grantedAt', 'fa', 'زمان اعطا', 'permission_manager', 't_permission', 'permission_manager'),
+('security.revoke', 'en', 'Revoke', 'permission_manager', 't_permission', 'permission_manager'),
+('security.revoke', 'fa', 'لغو مجوز', 'permission_manager', 't_permission', 'permission_manager'),
+('security.loading', 'en', 'Processing...', 'permission_manager', 't_permission', 'permission_manager'),
+('security.loading', 'fa', 'در حال پردازش...', 'permission_manager', 't_permission', 'permission_manager'),
+('security.auditNote', 'en', 'All changes are recorded with user, IP address, and timestamp.', 'permission_manager', 't_permission', 'permission_manager'),
+('security.auditNote', 'fa', 'تمام تغییرات همراه با کاربر، نشانی IP و زمان ثبت می‌شوند.', 'permission_manager', 't_permission', 'permission_manager'),
+('security.close', 'en', 'Close', 'permission_manager', 't_permission', 'permission_manager'),
+('security.close', 'fa', 'بستن', 'permission_manager', 't_permission', 'permission_manager')
+ON CONFLICT (item_code, language_code)
+DO UPDATE SET
+    translated_text = EXCLUDED.translated_text,
+    context_type = EXCLUDED.context_type,
+    owner_column_table = EXCLUDED.owner_column_table,
+    form_name = EXCLUDED.form_name;
+
 COMMIT;
 
 -- ============================================================
