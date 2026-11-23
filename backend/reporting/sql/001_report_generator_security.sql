@@ -16,6 +16,49 @@
 
 BEGIN;
 
+DO $audit_context$
+DECLARE
+    v_actor_text TEXT;
+    v_actor UUID;
+    v_ip_text TEXT;
+BEGIN
+    v_actor_text := NULLIF(
+        current_setting('pulsar.log_user', TRUE),
+        ''
+    );
+
+    IF v_actor_text IS NULL THEN
+        RAISE EXCEPTION
+            'Set pulsar.log_user to an active PULSAR user UUID before applying this migration.';
+    END IF;
+
+    v_actor := v_actor_text::UUID;
+
+    IF NOT EXISTS (
+        SELECT 1
+        FROM pulsar.t_user
+        WHERE c_user_id = v_actor
+          AND c_user_active IS TRUE
+    ) THEN
+        RAISE EXCEPTION
+            'The migration audit actor does not exist or is inactive.';
+    END IF;
+
+    v_ip_text := COALESCE(
+        NULLIF(current_setting('pulsar.log_ip', TRUE), ''),
+        inet_client_addr()::TEXT
+    );
+
+    IF v_ip_text IS NULL THEN
+        RAISE EXCEPTION
+            'Set pulsar.log_ip or execute the migration from a database client with a known IP address.';
+    END IF;
+
+    PERFORM set_config('pulsar.log_user', v_actor::TEXT, TRUE);
+    PERFORM set_config('pulsar.log_ip', v_ip_text, TRUE);
+END;
+$audit_context$;
+
 CREATE SCHEMA IF NOT EXISTS pulsar_log;
 
 -- ============================================================
