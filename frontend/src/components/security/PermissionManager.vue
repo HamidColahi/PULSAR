@@ -143,7 +143,7 @@ In collaboration with GPT4 Chat Assistant: Bahram
                 <div class="break-all text-[10px] text-muted">{{ config.page_key }}</div>
               </div>
               <label class="flex items-center gap-2 text-[10px] text-label">
-                <input v-model="config.is_enabled" type="checkbox" />
+                <input v-model="config.is_enabled" type="checkbox" @change="normalizeReportPageConfig(config)" />
                 {{ labels.reportEnabled }}
               </label>
               <label class="flex items-center gap-2 text-[10px] text-label">
@@ -157,7 +157,7 @@ In collaboration with GPT4 Chat Assistant: Bahram
               <div class="flex justify-end">
                 <button
                   class="permission-action permission-primary"
-                  :disabled="loading || (!config.is_enabled && config.allow_public)"
+                   :disabled="loading"
                   @click="saveReportPageConfig(config)"
                 >
                   {{ labels.saveConfig }}
@@ -370,6 +370,12 @@ async function loadReportPageConfigs() {
     reportPageConfigs.value = (response.data || []).map(item => ({ ...item }))
   } catch (err) {
     error.value = errorMessage(err, labels.value.errorReportConfig)
+  }
+}
+
+function normalizeReportPageConfig(config) {
+  if (!config.is_enabled) {
+    config.allow_public = false
   }
 }
 
