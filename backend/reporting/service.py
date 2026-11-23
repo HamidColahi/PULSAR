@@ -356,10 +356,11 @@ async def load_report_definition(
         {"report_id": str(report_id)},
     )
 
+    filter_rows = filter_result.mappings().all()
     nodes: dict[str, dict[str, Any]] = {}
     roots: list[dict[str, Any]] = []
 
-    for row in filter_result.mappings().all():
+    for row in filter_rows:
         node_id = str(row["filter_id"])
         node = {
             "filter_id": node_id,
@@ -374,7 +375,7 @@ async def load_report_definition(
         }
         nodes[node_id] = node
 
-    for row in filter_result.mappings().all():
+    for row in filter_rows:
         node_id = str(row["filter_id"])
         parent_id = (
             str(row["parent_filter_id"])
@@ -464,7 +465,6 @@ async def replace_report_definition(
             )
 
         node_type = node["node_type"]
-        node_id = str(UUID(node["filter_id"])) if node.get("filter_id") else None
 
         result = await session.execute(
             text(
