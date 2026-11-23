@@ -218,8 +218,10 @@ const manageableCatalog = computed(() => {
       if (admin.scope_type === 'SYSTEM') return true
       if (
         admin.scope_type === 'SUBSYSTEM' &&
-        permission.subsystem_key &&
-        permission.subsystem_key === admin.scope_key
+        (
+          permission.subsystem_key === admin.scope_key ||
+          (permission.scope_type === 'SUBSYSTEM' && permission.scope_key === admin.scope_key)
+        )
       ) return true
       if (
         admin.scope_type === 'PAGE' &&
