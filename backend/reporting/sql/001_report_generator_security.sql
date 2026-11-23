@@ -90,8 +90,12 @@ CREATE TABLE IF NOT EXISTS pulsar.t_permission
         CHECK (
             (scope_type = 'SYSTEM' AND scope_key IS NULL AND page_key IS NULL AND subsystem_key IS NULL)
             OR
-            (scope_type = 'SUBSYSTEM' AND NULLIF(BTRIM(scope_key), '') IS NOT NULL
-                AND (subsystem_key IS NULL OR subsystem_key = scope_key))
+            (
+                scope_type = 'SUBSYSTEM'
+                AND NULLIF(BTRIM(scope_key), '') IS NOT NULL
+                AND page_key IS NULL
+                AND (subsystem_key IS NULL OR subsystem_key = scope_key)
+            )
             OR
             (
                 scope_type = 'PAGE'
@@ -280,8 +284,7 @@ CREATE TABLE IF NOT EXISTS pulsar.t_report_filter
     filter_id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
     report_id UUID NOT NULL
         REFERENCES pulsar.t_report(report_id) ON DELETE CASCADE,
-    parent_filter_id UUID NULL
-        REFERENCES pulsar.t_report_filter(filter_id) ON DELETE CASCADE,
+    parent_filter_id UUID NULL,
     node_type TEXT NOT NULL,
     logical_operator TEXT NULL,
     field_name TEXT NULL,
@@ -312,6 +315,14 @@ CREATE TABLE IF NOT EXISTS pulsar.t_report_filter
                 AND logical_operator IS NULL
             )
         ),
+
+    CONSTRAINT t_report_filter_report_filter_uq
+        UNIQUE (report_id, filter_id),
+
+    CONSTRAINT t_report_filter_parent_fk
+        FOREIGN KEY (report_id, parent_filter_id)
+        REFERENCES pulsar.t_report_filter(report_id, filter_id)
+        ON DELETE CASCADE,
 
     CONSTRAINT t_report_filter_not_self_parent_ck
         CHECK (parent_filter_id IS NULL OR parent_filter_id <> filter_id)
