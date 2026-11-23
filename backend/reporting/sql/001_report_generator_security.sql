@@ -43,7 +43,7 @@ CREATE TABLE IF NOT EXISTS pulsar.t_permission
 
     CONSTRAINT t_permission_scope_ck
         CHECK (
-            (scope_type = 'SYSTEM' AND scope_key IS NULL AND page_key IS NULL)
+            (scope_type = 'SYSTEM' AND scope_key IS NULL AND page_key IS NULL AND subsystem_key IS NULL)
             OR
             (scope_type = 'SUBSYSTEM' AND NULLIF(BTRIM(scope_key), '') IS NOT NULL
                 AND (subsystem_key IS NULL OR subsystem_key = scope_key))
