@@ -25,6 +25,7 @@ CREATE TABLE IF NOT EXISTS pulsar.t_permission
     page_key TEXT NULL,
     scope_type TEXT NOT NULL DEFAULT 'PAGE',
     scope_key TEXT NULL,
+    subsystem_key TEXT NULL,
     permission_desc TEXT NULL,
     is_active BOOLEAN NOT NULL DEFAULT TRUE,
     created_by UUID NULL REFERENCES pulsar.t_user(c_user_id) ON DELETE SET NULL,
@@ -39,7 +40,8 @@ CREATE TABLE IF NOT EXISTS pulsar.t_permission
         CHECK (
             (scope_type = 'SYSTEM' AND scope_key IS NULL AND page_key IS NULL)
             OR
-            (scope_type = 'SUBSYSTEM' AND NULLIF(BTRIM(scope_key), '') IS NOT NULL)
+            (scope_type = 'SUBSYSTEM' AND NULLIF(BTRIM(scope_key), '') IS NOT NULL
+                AND (subsystem_key IS NULL OR subsystem_key = scope_key))
             OR
             (
                 scope_type = 'PAGE'
