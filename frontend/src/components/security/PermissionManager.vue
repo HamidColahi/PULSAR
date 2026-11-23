@@ -157,7 +157,7 @@ In collaboration with GPT4 Chat Assistant: Bahram
               <div class="flex justify-end">
                 <button
                   class="permission-action permission-primary"
-                   :disabled="loading"
+                  :disabled="loading"
                   @click="saveReportPageConfig(config)"
                 >
                   {{ labels.saveConfig }}
