@@ -37,7 +37,7 @@
 
       <template v-else>
         <dw_toolbar
-          v-if="props.pageLevel !== 'Report.Gen'"
+          v-if="!reportGeneratorEnabled"
           class="mb-2.5"
           :style="themeStyle"
           :disabled="gridLoading || !!gridError"
@@ -118,7 +118,7 @@
             </div>
 
             <ReportGenerator
-              v-if="props.pageLevel === 'Report.Gen' && gridConfig"
+              v-if="reportGeneratorEnabled && gridConfig"
               :style="themeStyle"
               :page-key="props.pageTitleKey"
               :source-component-name="derivedGridName"
@@ -255,6 +255,8 @@ import {
   useRoute
 } from 'vue-router'
 
+import axios from '@/utils/axiosInstance'
+
 import {
   language,
   languageMeta
@@ -342,6 +344,7 @@ const {
 
 const pageLoading = ref(false)
 const pageError = ref(null)
+const reportGeneratorEnabled = ref(false)
 const formError = ref(null)
 
 const {
@@ -661,8 +664,15 @@ async function buildFormQueryParams() {
   return buildQueryParams(filters)
 }
 
+async function loadReportPageConfiguration() {
+  const response = await axios.get(
+    '/reports/pages/' + encodeURIComponent(props.pageTitleKey) + '/configuration'
+  )
+  reportGeneratorEnabled.value = response.data?.is_enabled === true
+}
+
 async function loadRecords(options = {}) {
-  if (props.pageLevel === 'Report.Gen') {
+  if (reportGeneratorEnabled.value) {
     return []
   }
 
@@ -1021,7 +1031,6 @@ async function initializePage() {
 
   try {
     if (!derivedGridName) throw new Error('Grid component name is not available')
-    if (props.pageLevel !== 'Report.Gen' && !derivedFormName) throw new Error('Form component name is not available')
 
     restoreSelectedRecord()
     restoreParentRecordContext()
@@ -1033,8 +1042,10 @@ async function initializePage() {
 
     await fetchGridBase()
     await fetchGridConfig()
+    await loadReportPageConfiguration()
 
-    if (props.pageLevel !== 'Report.Gen') {
+    if (!reportGeneratorEnabled.value) {
+      if (!derivedFormName) throw new Error('Form component name is not available')
       await formBaseApis.view.fetchBase()
       await formConfigApis.view.fetchConfig()
       await loadRecords()
@@ -1062,7 +1073,7 @@ watch(
     showForm.value = false
     formError.value = null
 
-    if (!pageLoading.value && props.pageLevel !== 'Report.Gen') {
+    if (!pageLoading.value && !reportGeneratorEnabled.value) {
       try {
         await loadRecords()
       } catch (err) {
@@ -1075,7 +1086,7 @@ watch(
 watch(language, async () => {
   await translateParentRecordContext()
 
-  if (!pageLoading.value && props.pageLevel !== 'Report.Gen') {
+  if (!pageLoading.value && !reportGeneratorEnabled.value) {
     try {
       await loadRecords()
     } catch (err) {
