@@ -2,7 +2,7 @@
 <!-- ===============================================
 File: frontend/src/components/top_controls.vue
 Description: Fixed global PULSAR identity bar with system monitoring and metadata-driven controls
-Change Date: 2026-11-19
+Change Date: 2026-11-24
 Timezone: Asia/Baku
 Author: MHKolahi@gmail.com
 In collaboration with GPT4 Chat Assistant: Bahram
@@ -182,6 +182,28 @@ In collaboration with GPT4 Chat Assistant: Bahram
           ></span>
         </div>
 
+        <!-- Permission Management -->
+        <button
+          v-if="canManagePermissions"
+          type="button"
+          class="pulsar-icon-button"
+          :aria-label="permissionManagerTitle"
+          :title="permissionManagerTitle"
+          :aria-expanded="permissionManagerOpen"
+          @click="permissionManagerOpen = !permissionManagerOpen"
+        >
+          <svg
+            viewBox="0 0 24 24"
+            fill="none"
+            stroke="currentColor"
+            stroke-width="1.8"
+            class="h-5 w-5"
+          >
+            <path d="M12 3 4.5 6v5.2c0 4.7 3.2 8 7.5 9.8 4.3-1.8 7.5-5.1 7.5-9.8V6L12 3Z" />
+            <path d="m8.5 12 2.2 2.2 4.8-5" />
+          </svg>
+        </button>
+
         <!-- Source Trace -->
         <button
           v-if="isAuthenticated"
@@ -315,6 +337,7 @@ In collaboration with GPT4 Chat Assistant: Bahram
   </header>
 
   <SourceTracePanel v-model="sourceTraceOpen" />
+  <PermissionManager v-model="permissionManagerOpen" />
 </template>
 
 <script setup>
@@ -332,7 +355,9 @@ import {
 import { useRoute } from 'vue-router'
 
 import SourceTracePanel from '@/components/tools/source_trace_panel.vue'
-import axiosInstance from '@/utils/axiosInstance'
+import PermissionManager from '@/components/security/PermissionManager.vue'
+import axios from '@/utils/axiosInstance'
+import { useSystemMetrics } from '@/composables/useSystemMetrics'
 
 import {
   darkMode,
@@ -381,6 +406,13 @@ const {
 
 const { translate } = useTranslation()
 
+const {
+  systemMetrics,
+  systemMetricsOnline,
+  startSystemMetrics,
+  stopSystemMetrics
+} = useSystemMetrics()
+
 
 // =================================================
 // Component Configuration
@@ -426,23 +458,14 @@ if (!aiAvatarWindow) {
 const translatedPageTitle = ref('')
 const aiAvatarTitle = ref('AI Avatar')
 const sourceTraceOpen = ref(false)
+const permissionManagerOpen = ref(false)
+const canManagePermissions = ref(false)
+const permissionManagerTitle = ref('')
 
 const colorIntensity = ref(
   Number(localStorage.getItem('colorIntensity')) || 3
 )
 
-const systemMetrics = ref({
-  cpu: 0,
-  memory: 0,
-  memoryUsed: 0,
-  memoryTotal: 0,
-  logicalCores: 0
-})
-
-const systemMetricsOnline = ref(false)
-
-let systemMetricsTimer = null
-let systemMetricsRequestPending = false
 
 
 // =================================================
@@ -481,6 +504,30 @@ const isAuthenticated = computed(() => {
     && email.trim().toLowerCase() !== 'userid'
   )
 })
+
+async function loadPermissionAdministrationAccess() {
+  if (!isAuthenticated.value) {
+    canManagePermissions.value = false
+    return
+  }
+
+  try {
+    const response = await axios.get('/permissions/me')
+    canManagePermissions.value = (response.data || []).some(grant =>
+      grant.permission_code === 'SECURITY.PERMISSION.GRANT' &&
+      grant.is_effective === true
+    )
+  } catch {
+    canManagePermissions.value = false
+  }
+}
+
+async function updatePermissionManagerTitle() {
+  permissionManagerTitle.value = await translate(
+    'security.permissionManager',
+    language.value
+  )
+}
 
 const userInitial = computed(() => {
   if (!userEmail.value) {
@@ -554,63 +601,6 @@ function getMetricClass(value) {
 
   return 'system-monitor-fill-normal'
 }
-
-async function fetchSystemMetrics() {
-  if (!isAuthenticated.value || systemMetricsRequestPending) {
-    return
-  }
-
-  systemMetricsRequestPending = true
-
-  try {
-    const response = await axiosInstance.get('/admin/system/metrics')
-
-    const data = response.data
-
-    systemMetrics.value = {
-      cpu: Math.min(100, Math.max(0, Number(data.cpu?.percent) || 0)),
-      memory: Math.min(100, Math.max(0, Number(data.memory?.percent) || 0)),
-      memoryUsed: Number(data.memory?.used_bytes) || 0,
-      memoryTotal: Number(data.memory?.total_bytes) || 0,
-      logicalCores: Number(data.cpu?.logical_cores) || 0
-    }
-
-    systemMetricsOnline.value = true
-
-  } catch (error) {
-    systemMetricsOnline.value = false
-
-    console.warn(
-      '[PULSAR SYSTEM MONITOR] Metrics unavailable.',
-      error
-    )
-
-  } finally {
-    systemMetricsRequestPending = false
-  }
-}
-
-function startSystemMetrics() {
-  stopSystemMetrics()
-
-  if (!isAuthenticated.value) {
-    return
-  }
-
-  fetchSystemMetrics()
-
-  systemMetricsTimer = setInterval(() => {
-    fetchSystemMetrics()
-  }, 3000)
-}
-
-function stopSystemMetrics() {
-  if (systemMetricsTimer !== null) {
-    clearInterval(systemMetricsTimer)
-    systemMetricsTimer = null
-  }
-}
-
 
 // =================================================
 // Theme Management
@@ -720,10 +710,11 @@ async function toggleAIAvatar() {
 // Lifecycle
 // =================================================
 
-onMounted(() => {
+onMounted(async () => {
   applyThemeLevel(colorIntensity.value)
   updateAIAvatarTitle()
-  startSystemMetrics()
+  await updatePermissionManagerTitle()
+  await loadPermissionAdministrationAccess()
 })
 
 onUnmounted(() => {
@@ -751,6 +742,16 @@ watch(
 watch(
   () => language.value,
   updateAIAvatarTitle
+)
+
+watch(
+  () => language.value,
+  updatePermissionManagerTitle
+)
+
+watch(
+  isAuthenticated,
+  loadPermissionAdministrationAccess
 )
 
 watch(

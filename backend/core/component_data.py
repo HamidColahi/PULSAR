@@ -9,7 +9,7 @@
 # Author: MHKolahi@gmail.com
 # In collaboration with GPT4 Chat Assistant: Bahram
 #
-# Modified: 2026-11-16 Asia/Baku
+# Modified: 2026-11-21 01:00 (Asia/Baku)
 # =============================================
 """
 Dynamic CRUD and binary file routes for Pulsar dynamic components.
@@ -115,6 +115,8 @@ QUERY_COMPONENT_FILE_DOWNLOAD = (
     "QUERY_COMPONENT_FILE_DOWNLOAD"
 )
 
+DEFAULT_MAX_UPLOAD_BYTES = 25 * 1024 * 1024
+
 
 # -------------------------------
 # Binary Helpers
@@ -161,12 +163,51 @@ def _binary_value_to_bytes(
 
 
 # -------------------------------
+# File Field Metadata
+# -------------------------------
+
+async def _load_file_field_configs(
+    session: AsyncSession,
+    component_name: str,
+    field_mode: str,
+) -> dict:
+    """Load file restrictions from the active component field metadata."""
+    result = await session.execute(
+        sql_text(
+            """
+            SELECT
+                field_name,
+                accepted_mime_types,
+                max_file_size_bytes
+            FROM pulsar.components_config
+            WHERE component_name = :component_name
+              AND field_mode = :field_mode
+              AND LOWER(COALESCE(control_type, '')) = 'file'
+            """
+        ),
+        {
+            "component_name": component_name,
+            "field_mode": field_mode,
+        },
+    )
+
+    return {
+        row["field_name"]: {
+            "accepted_mime_types": row["accepted_mime_types"] or [],
+            "max_file_size_bytes": row["max_file_size_bytes"],
+        }
+        for row in result.mappings().all()
+    }
+
+
+# -------------------------------
 # Request Data Parsing
 # -------------------------------
 
 async def _parse_request_data(
     request: Request,
-    columns: dict
+    columns: dict,
+    file_configs: dict | None = None,
 ) -> dict:
     """
     Parse JSON or multipart request data.
@@ -252,7 +293,58 @@ async def _parse_request_data(
                     if not value.filename:
                         continue
 
-                    file_content = await value.read()
+                    file_config = (file_configs or {}).get(key)
+                    if not file_config:
+                        raise HTTPException(
+                            status_code=422,
+                            detail=f"File upload is not enabled by metadata for '{key}'.",
+                        )
+
+                    max_file_size = int(
+                        file_config.get("max_file_size_bytes")
+                        or DEFAULT_MAX_UPLOAD_BYTES
+                    )
+                    file_content = await value.read(max_file_size + 1)
+
+                    if len(file_content) > max_file_size:
+                        raise HTTPException(
+                            status_code=413,
+                            detail=f"The uploaded file for '{key}' exceeds the configured size limit.",
+                        )
+
+                    accepted_types = [
+                        str(item).strip().lower()
+                        for item in file_config.get("accepted_mime_types", [])
+                        if str(item).strip()
+                    ]
+                    if accepted_types:
+                        filename = str(value.filename).lower()
+                        mime_type = str(value.content_type or "").lower()
+                        accepted = any(
+                            (
+                                item.startswith(".")
+                                and filename.endswith(item)
+                            )
+                            or (
+                                item.endswith("/*")
+                                and mime_type.startswith(item[:-1])
+                            )
+                            or mime_type == item
+                            for item in accepted_types
+                        )
+                        if not accepted:
+                            raise HTTPException(
+                                status_code=415,
+                                detail=f"The uploaded file type is not allowed for '{key}'.",
+                            )
+
+                    if "application/pdf" in accepted_types:
+                        pdf_header = file_content[:1024].lstrip()
+                        if not pdf_header.startswith(b"%PDF-"):
+                            raise HTTPException(
+                                status_code=415,
+                                detail=f"The uploaded file for '{key}' is not a valid PDF document.",
+                            )
 
                     data[key] = file_content
 
@@ -1257,13 +1349,47 @@ def create_component_data_router(
             field_name
         ) or "download"
 
+        file_configs = await _load_file_field_configs(
+            session,
+            component_name,
+            "view",
+        )
+        file_config = file_configs.get(field_name, {})
+        accepted_types = [
+            str(item).strip().lower()
+            for item in file_config.get("accepted_mime_types", [])
+            if str(item).strip()
+        ]
+
+        extension = next(
+            (
+                item for item in accepted_types
+                if item.startswith(".")
+                and re.fullmatch(r"\.[a-z0-9]{1,10}", item)
+            ),
+            None,
+        )
+        if extension is None and "application/pdf" in accepted_types:
+            extension = ".pdf"
+
+        if extension and not safe_filename.lower().endswith(extension):
+            safe_filename = f"{safe_filename}{extension}"
+
+        media_type = next(
+            (
+                item for item in accepted_types
+                if "/" in item and not item.endswith("/*")
+            ),
+            "application/octet-stream",
+        )
+
         encoded_filename = quote(
             safe_filename
         )
 
         return Response(
             content=bytes(content),
-            media_type="application/octet-stream",
+            media_type=media_type,
             headers={
                 "Content-Disposition": (
                     f"attachment; filename=\"{safe_filename}\"; "
@@ -1307,9 +1433,16 @@ def create_component_data_router(
             for column in Model.__table__.columns
         }
 
+        file_configs = await _load_file_field_configs(
+            session,
+            component_name,
+            "insert",
+        )
+
         data = await _parse_request_data(
             request,
-            columns
+            columns,
+            file_configs,
         )
 
         clean_data = {}
@@ -1462,9 +1595,16 @@ def create_component_data_router(
             for column in Model.__table__.columns
         }
 
+        file_configs = await _load_file_field_configs(
+            session,
+            component_name,
+            "update",
+        )
+
         data = await _parse_request_data(
             request,
-            columns
+            columns,
+            file_configs,
         )
 
         clean_data = {}

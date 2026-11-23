@@ -3,12 +3,12 @@
 #
 # Description:
 # Generic formatter for PostgreSQL function results.
-# Normalizes values for metadata-selected JSON, table,
-# chart, text, value, and tree presentation.
+# Normalizes values for metadata-selected JSON, structured report,
+# table, chart, text, value, and tree presentation.
 #
 # Author: MHKolahi@gmail.com
 # In collaboration with GPT4 Chat Assistant: Bahram
-# Modified: 2026-10-09 01:00 (Asia/Baku)
+# Modified: 2026-11-22 23:26 (Asia/Baku)
 # =================================================
 
 import json
@@ -24,6 +24,7 @@ SUPPORTED_DISPLAY_TYPES = frozenset({
     "text",
     "value",
     "tree",
+    "structured_report",
 })
 
 
@@ -74,6 +75,9 @@ def _detect_display_type(
 
     if normalized_kind in {"rows", "collection", "table"}:
         return "table"
+
+    if normalized_kind == "structured_report":
+        return "structured_report"
 
     if normalized_kind in {"json", "document", "record"}:
         return "json"
@@ -352,7 +356,34 @@ def format_function_result(
             "result_kind": result_kind,
             "allowed_display_types": sorted(allowed_types),
         },
+        "presentation_definition": options.get("presentation_definition"),
     }
+
+    if display_type == "structured_report":
+        presentation_definition = options.get("presentation_definition")
+
+        if not isinstance(presentation_definition, dict):
+            raise ValueError(
+                "Structured report rendering requires a presentation_definition object."
+            )
+
+        sections = presentation_definition.get("sections")
+
+        if not isinstance(sections, list) or not sections:
+            raise ValueError(
+                "The structured report presentation_definition requires a non-empty sections array."
+            )
+
+        if len(sections) > 100:
+            raise ValueError(
+                "The structured report presentation_definition exceeds the section limit."
+            )
+
+        for section in sections:
+            if not isinstance(section, dict) or not isinstance(section.get("type"), str):
+                raise ValueError(
+                    "Each structured report section requires an object and a display type."
+                )
 
     if display_type == "table":
         if isinstance(normalized_result, list):

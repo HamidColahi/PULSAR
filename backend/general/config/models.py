@@ -8,16 +8,19 @@
 #
 # Author: MHKolahi@gmail.com
 # In collaboration with GPT4 Chat Assistant: Bahram
-# Last Modified: 2026-11-16 (Asia/Baku)
+# Last Modified: 2026-11-23 23:55 (Asia/Baku)
 # ===============================================
 
 from sqlalchemy import (
+    ARRAY,
+    BigInteger,
     Boolean,
     CheckConstraint,
     Column,
     ForeignKeyConstraint,
     Integer,
     String,
+    SmallInteger,
     Text,
     text,
 )
@@ -42,6 +45,8 @@ class ComponentsConfig(Base):
     visible_in_grid = Column(Boolean, nullable=True)
     visible_in_form = Column(Boolean, nullable=True)
     visible_in_search = Column(Boolean, nullable=True)
+    field_sort = Column(SmallInteger, nullable=False, default=0, server_default=text("0"))
+    field_sort_order = Column(Integer, nullable=True)
 
     is_readonly = Column(Boolean, nullable=True)
 
@@ -51,6 +56,8 @@ class ComponentsConfig(Base):
     # UI control type, such as text, numeric, or date.
     # This is not the DDLB/DDDW domain control type.
     control_type = Column(Text, nullable=True)
+    accepted_mime_types = Column(ARRAY(Text), nullable=True)
+    max_file_size_bytes = Column(BigInteger, nullable=True)
 
     ordering_index = Column(Integer, nullable=True)
 

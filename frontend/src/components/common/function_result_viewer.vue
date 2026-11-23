@@ -3,7 +3,7 @@ File: Pulsar/frontend/src/components/common/function_result_viewer.vue
 Description: Generic metadata-driven renderer for PostgreSQL Panel Function results.
 Author: MHKolahi@gmail.com
 In collaboration with GPT4 Chat Assistant: Bahram
-Last Modified: 2026-11-21 04:00 (Asia/Baku)
+Last Modified: 2026-11-22 23:26 (Asia/Baku)
 -->
 
 <template>
@@ -19,7 +19,47 @@ Last Modified: 2026-11-21 04:00 (Asia/Baku)
       </div>
 
       <div class="direction-controls">
-        
+        <button
+          v-if="displayType === 'structured_report'"
+          type="button"
+          class="direction-button report-action-button"
+          :title="translated('pulsar.function_result.copy_report')"
+          :aria-label="translated('pulsar.function_result.copy_report')"
+          @click="copyStructuredReport"
+        >
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+            <rect x="8" y="8" width="12" height="13" rx="2" />
+            <path d="M16 8V5a2 2 0 0 0-2-2H5a2 2 0 0 0-2 2v9a2 2 0 0 0 2 2h3" />
+          </svg>
+        </button>
+
+        <button
+          v-if="displayType === 'structured_report'"
+          type="button"
+          class="direction-button report-action-button"
+          :title="translated('pulsar.function_result.raw_json')"
+          :aria-pressed="showStructuredRaw"
+          @click="showStructuredRaw = !showStructuredRaw"
+        >
+          JSON
+        </button>
+
+        <button
+          v-if="displayType === 'structured_report'"
+          type="button"
+          class="direction-button report-action-button"
+          :title="translated('pulsar.function_result.print_report')"
+          :aria-label="translated('pulsar.function_result.print_report')"
+          @click="printStructuredReport"
+        >
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+            <path d="M6 9V3h12v6" />
+            <path d="M6 18H4a2 2 0 0 1-2-2v-5a2 2 0 0 1 2-2h16a2 2 0 0 1 2 2v5a2 2 0 0 1-2 2h-2" />
+            <path d="M6 14h12v7H6z" />
+            <path d="M18 12h.01" />
+          </svg>
+        </button>
+
         <button
           type="button"
           class="direction-button"
@@ -48,7 +88,8 @@ Last Modified: 2026-11-21 04:00 (Asia/Baku)
           class="direction-button pali-analyst-toggle"
           :class="{ 'direction-active': paliAnalystEnabled }"
           :aria-pressed="paliAnalystEnabled"
-          :title="avatarManagerDescription"
+          :title="avatarManagerDescription || translated('pulsar.pali_analyst.button')"
+          :aria-label="translated('pulsar.pali_analyst.button')"
           @click="paliAnalystEnabled = !paliAnalystEnabled"
         >
           <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" aria-hidden="true">
@@ -56,7 +97,7 @@ Last Modified: 2026-11-21 04:00 (Asia/Baku)
             <circle cx="12" cy="12" r="6" />
             <circle cx="12" cy="12" r="2" />
           </svg>
-          <span>{{ avatarManagerDescription || 'AI Analyst' }}</span>
+          <span>{{ translated('pulsar.pali_analyst.button') }}</span>
         </button>
       </div>
 
@@ -276,6 +317,15 @@ Last Modified: 2026-11-21 04:00 (Asia/Baku)
           </div>
         </div>
 
+        <template v-else-if="displayType === 'structured_report'">
+          <StructuredReportRenderer
+            :data="data"
+            :definition="structuredReportDefinition"
+            :direction="resultDirection"
+          />
+          <pre v-if="showStructuredRaw" class="result-json structured-raw-json">{{ prettyJson(data) }}</pre>
+        </template>
+
         <div
           v-else-if="displayType === 'json'"
           class="report-section"
@@ -329,6 +379,7 @@ import {
 import { useTranslation } from '@/composables/useTranslation'
 import { languageMeta } from '@/stores/uiStore'
 import PaliAnalystPanel from '@/components/tools/pali_analyst_panel.vue'
+import StructuredReportRenderer from '@/components/common/structured_report_renderer.vue'
 
 const { translate, currentLanguage } = useTranslation()
 
@@ -356,6 +407,7 @@ const props = defineProps({
 })
 
 const paliAnalystEnabled = ref(false)
+const showStructuredRaw = ref(false)
 
 const hasPaliAnalyst = computed(() => {
   const managerId = Number(props.display?.metadata?.avatar_manager_id)
@@ -381,7 +433,8 @@ const SUPPORTED_DISPLAY_TYPES = new Set([
   'chart',
   'text',
   'value',
-  'tree'
+  'tree',
+  'structured_report'
 ])
 
 const chartWidth = 720
@@ -487,6 +540,13 @@ function objectEntries(value) {
 
 const reportEntries = computed(() => objectEntries(data.value))
 
+const structuredReportDefinition = computed(() => (
+  props.display?.presentation_definition ||
+  props.display?.metadata?.presentation_definition ||
+  props.display?.display_options?.presentation_definition ||
+  {}
+))
+
 const tableRows = computed(() => {
   if (Array.isArray(data.value)) {
     return data.value.filter(
@@ -539,6 +599,10 @@ const translationKeys = computed(() => [
   'pulsar.function_result.direction_auto',
   'pulsar.function_result.direction_ltr',
   'pulsar.function_result.direction_rtl',
+  'pulsar.function_result.copy_report',
+  'pulsar.function_result.print_report',
+  'pulsar.function_result.raw_json',
+  'pulsar.pali_analyst.button',
   'pulsar.common.yes',
   'pulsar.common.no',
   ...tableColumns.value.map(
@@ -820,6 +884,127 @@ function formatCell(value) {
   return String(value)
 }
 
+function resolveReportPath(source, path) {
+  if (!path) return source
+  return String(path).split('.').reduce((value, key) => (
+    value === null || value === undefined ? undefined : value[key]
+  ), source)
+}
+
+function reportValue(value) {
+  if (value === null || value === undefined || value === '') return '—'
+  if (typeof value === 'object') return prettyJson(value)
+  return String(value)
+}
+
+function buildStructuredReportText() {
+  const definition = structuredReportDefinition.value || {}
+  const sections = Array.isArray(definition.sections) ? definition.sections : []
+  const lines = [`# ${definition.header?.title || definition.title || resolvedTitle.value || 'Function Report'}`, '']
+
+  for (const badge of definition.header?.badges || []) {
+    lines.push(`- ${badge.label || badge.path}: ${reportValue(resolveReportPath(data.value, badge.path))}`)
+  }
+  if (definition.header?.badges?.length) lines.push('')
+
+  for (const section of sections) {
+    lines.push(`## ${section.title || section.key || 'Section'}`, '')
+    const value = resolveReportPath(data.value, section.path)
+
+    if (section.type === 'fields' || section.type === 'record') {
+      const record = value ?? data.value
+      for (const field of section.fields || []) {
+        lines.push(`**${field.label || field.path}:** ${reportValue(resolveReportPath(record, field.path))}`)
+      }
+    } else if (section.type === 'list' || section.type === 'alerts' || section.type === 'actions') {
+      for (const [index, item] of (Array.isArray(value) ? value : []).entries()) {
+        if (typeof item === 'string') {
+          lines.push(`- ${item}`)
+        } else {
+          const label = item.label || item.title || item.action_code || item.message || item.description || reportValue(item)
+          const details = [item.work_product, item.rule_row_no ? `Table 1, Row ${item.rule_row_no}` : null].filter(Boolean).join(' — ')
+          lines.push(`- ${label}${details ? ` — ${details}` : ''}`)
+        }
+      }
+    } else if (section.type === 'table') {
+      const columns = section.columns || []
+      lines.push(columns.map(column => column.label || column.path).join(' | '))
+      lines.push(columns.map(() => '---').join(' | '))
+      for (const row of Array.isArray(value) ? value : []) {
+        lines.push(columns.map(column => reportValue(resolveReportPath(row, column.path))).join(' | '))
+      }
+    } else {
+      lines.push(reportValue(value))
+    }
+    lines.push('')
+  }
+
+  return lines.join('\n').trim()
+}
+
+async function copyStructuredReport() {
+  const report = buildStructuredReportText()
+  try {
+    if (navigator.clipboard?.writeText) {
+      await navigator.clipboard.writeText(report)
+    } else {
+      const textArea = document.createElement('textarea')
+      textArea.value = report
+      textArea.setAttribute('readonly', '')
+      textArea.style.position = 'fixed'
+      textArea.style.opacity = '0'
+      document.body.appendChild(textArea)
+      textArea.select()
+      const copied = document.execCommand('copy')
+      textArea.remove()
+      if (!copied) throw new Error('Clipboard copy command was rejected.')
+    }
+  } catch (exception) {
+    console.error('Structured report could not be copied.', exception)
+  }
+}
+
+function escapeHtml(value) {
+  return String(value).replace(/[&<>"']/g, character => ({
+    '&': '&amp;',
+    '<': '&lt;',
+    '>': '&gt;',
+    '"': '&quot;',
+    "'": '&#39;'
+  })[character])
+}
+
+function printStructuredReport() {
+  const report = buildStructuredReportText()
+    .replace(/^#{1,6}\s+/gm, '')
+    .replace(/\*\*(.*?)\*\*/g, '$1')
+  const printWindow = window.open('', '_blank')
+
+  if (!printWindow) {
+    window.print()
+    return
+  }
+
+  printWindow.document.open()
+  printWindow.document.write(`<!doctype html>
+<html>
+<head>
+<meta charset="utf-8">
+<title>${escapeHtml(resolvedTitle.value || 'Function Report')}</title>
+<style>
+body{font:14px/1.65 -apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif;color:#111827;margin:28px}
+pre{white-space:pre-wrap;overflow-wrap:anywhere;font:inherit}
+h1{font-size:22px;margin:0 0 18px}
+@page{margin:18mm}
+</style>
+</head>
+<body><pre>${escapeHtml(report)}</pre></body>
+</html>`)
+  printWindow.document.close()
+  printWindow.focus()
+  printWindow.print()
+}
+
 const TreeNode = defineComponent({
   name: 'FunctionResultTreeNode',
   props: {
@@ -1063,6 +1248,20 @@ const TreeNode = defineComponent({
   border-color: var(--chart-color, #2563eb);
   background: var(--chart-color, #2563eb);
   color: #ffffff;
+}
+
+.structured-raw-json {
+  margin-top: 1rem;
+  border: 1px solid var(--border-color, #dbe1ea);
+  border-radius: 0.75rem;
+  padding: 1rem;
+  background: var(--surface-secondary, #f9fafb);
+}
+
+.report-action-button svg {
+  width: 1rem;
+  height: 1rem;
+  flex: 0 0 auto;
 }
 
 .direction-button:focus-visible {

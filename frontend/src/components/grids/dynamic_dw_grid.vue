@@ -1,7 +1,8 @@
 
 <!-- ===============================================
 File: frontend/src/components/grids/dynamic_dw_grid.vue
-Description: Metadata-driven dynamic data grid with domain options, translations, date formatting, isolated scrolling, visual level theme, and universal field expansion
+Description: Metadata-driven dynamic data grid with user-specific multi-column sorting
+Last Modified: 2026-11-24 (Asia/Baku)
 Author: MHKolahi@gmail.com
 In collaboration with GPT4 Chat Assistant: Bahram
 =============================================== -->
@@ -18,6 +19,8 @@ import {
 import {
   useTranslation
 } from '@/composables/useTranslation'
+
+import axios from '@/utils/axiosInstance'
 
 import {
   useDomainOptions
@@ -59,6 +62,16 @@ const props = defineProps({
   mode: {
     type: String,
     default: 'view'
+  },
+
+  reportMode: {
+    type: Boolean,
+    default: false
+  },
+
+  reportColumns: {
+    type: Array,
+    default: () => []
   }
 })
 
@@ -67,7 +80,8 @@ const props = defineProps({
 // Emits
 // --------------------------------------------------
 const emit = defineEmits([
-  'row-selected'
+  'row-selected',
+  'report-columns-change'
 ])
 
 
@@ -79,6 +93,14 @@ const translations = ref({})
 const domainOptionsMap = ref({})
 const domainOptionRefs = ref({})
 const selectedRowLocal = ref(null)
+const sortSpec = ref([])
+const sortPreferenceReady = ref(false)
+const sortLabels = ref({
+  none: 'No sorting',
+  asc: 'Sort ascending',
+  desc: 'Sort descending',
+  forced: 'Forced sorting'
+})
 
 const expandedField = ref({
   open: false,
@@ -319,6 +341,10 @@ function getLabel(field, value) {
 // --------------------------------------------------
 const filteredItems = computed(() => {
 
+  if (props.reportMode) {
+    return props.items
+  }
+
   if (
     !filters.value ||
     Object.keys(
@@ -463,6 +489,322 @@ const filteredItems = computed(() => {
 
 
 // --------------------------------------------------
+// Supervisor and User Multi-Column Sorting
+// --------------------------------------------------
+const componentName = computed(() => {
+  return props.config?.component_name ||
+    props.baseConfig?.component_name ||
+    ''
+})
+
+const forcedSortSpec = ref([])
+
+function getSortMode(field) {
+  return Number(props.config?.fields?.[field]?.field_sort ?? 0)
+}
+
+function isSortEnabled(field) {
+  return [1, 2, 3].includes(getSortMode(field))
+}
+
+function isForcedSort(field) {
+  return [2, 3].includes(getSortMode(field))
+}
+
+function getSortDirection(field) {
+  const forced = forcedSortSpec.value.find(
+    item => item.field === field
+  )
+
+  if (forced) {
+    return forced.direction
+  }
+
+  return sortSpec.value.find(
+    item => item.field === field
+  )?.direction || 'none'
+}
+
+function getSortPriority(field) {
+  const forcedIndex = forcedSortSpec.value.findIndex(
+    item => item.field === field
+  )
+
+  if (forcedIndex >= 0) {
+    return forcedIndex + 1
+  }
+
+  const userTerm = sortSpec.value.find(
+    item => item.field === field
+  )
+
+  return userTerm
+    ? forcedSortSpec.value.length + userTerm.field_sort_order
+    : 0
+}
+
+function getSortLabel(field) {
+  const direction = getSortDirection(field)
+  const label = sortLabels.value[direction] || sortLabels.value.none
+  const priority = getSortPriority(field)
+
+  if (isForcedSort(field)) {
+    return `${label}, ${sortLabels.value.forced}, priority ${priority}`
+  }
+
+  return priority > 0
+    ? `${label}, priority ${priority}`
+    : label
+}
+
+async function loadSortPreference() {
+  const name = componentName.value
+
+  sortPreferenceReady.value = false
+
+  if (props.reportMode) {
+    forcedSortSpec.value = []
+    sortSpec.value = []
+    sortPreferenceReady.value = true
+    return
+  }
+
+  if (!name) {
+    forcedSortSpec.value = []
+    sortSpec.value = []
+    sortPreferenceReady.value = true
+    return
+  }
+
+  try {
+    const response = await axios.get('/config/grid_sort', {
+      params: {
+        component_name: name,
+        field_mode: props.config?.field_mode || 'list'
+      }
+    })
+
+    const fieldMetadata = props.config?.fields || {}
+    const allowedUserFields = new Set(
+      Object.entries(fieldMetadata)
+        .filter(([, meta]) => Number(meta?.field_sort ?? 0) === 1)
+        .map(([field]) => field)
+    )
+
+    const allowedForcedFields = new Set(
+      Object.entries(fieldMetadata)
+        .filter(([, meta]) => [2, 3].includes(Number(meta?.field_sort ?? 0)))
+        .map(([field]) => field)
+    )
+
+    forcedSortSpec.value = (
+      Array.isArray(response.data?.forced_sort_spec)
+        ? response.data.forced_sort_spec
+        : []
+    )
+      .filter(item =>
+        allowedForcedFields.has(item?.field) &&
+        ['asc', 'desc'].includes(item?.direction)
+      )
+      .sort((a, b) =>
+        Number(a.field_sort_order) - Number(b.field_sort_order)
+      )
+
+    sortSpec.value = (
+      Array.isArray(response.data?.user_sort_spec)
+        ? response.data.user_sort_spec
+        : []
+    )
+      .filter(item =>
+        allowedUserFields.has(item?.field) &&
+        ['asc', 'desc'].includes(item?.direction) &&
+        Number.isInteger(Number(item?.field_sort_order)) &&
+        Number(item.field_sort_order) > 0
+      )
+      .map(item => ({
+        field: item.field,
+        direction: item.direction,
+        field_sort_order: Number(item.field_sort_order)
+      }))
+      .sort((a, b) =>
+        a.field_sort_order - b.field_sort_order
+      )
+  } catch (err) {
+    forcedSortSpec.value = []
+    sortSpec.value = []
+    console.error('dynamic_dw_grid: failed to load sort preference', err)
+  } finally {
+    sortPreferenceReady.value = true
+  }
+}
+
+let sortSaveQueue = Promise.resolve()
+
+async function persistSortPreference() {
+  if (!sortPreferenceReady.value || !componentName.value) {
+    return
+  }
+
+  const payload = {
+    component_name: componentName.value,
+    field_mode: props.config?.field_mode || 'list',
+    sort_spec: sortSpec.value.map(item => ({ ...item }))
+  }
+
+  sortSaveQueue = sortSaveQueue
+    .catch(() => undefined)
+    .then(() => axios.put('/config/grid_sort', payload))
+
+  try {
+    await sortSaveQueue
+  } catch (err) {
+    console.error('dynamic_dw_grid: failed to save sort preference', err)
+  }
+}
+
+function normalizeUserSortOrder(items) {
+  return items.map((item, index) => ({
+    ...item,
+    field_sort_order: index + 1
+  }))
+}
+
+function cycleSort(field) {
+  if (getSortMode(field) !== 1) {
+    return
+  }
+
+  const nextDirection = {
+    none: 'asc',
+    asc: 'desc',
+    desc: 'none'
+  }[getSortDirection(field)]
+
+  const current = sortSpec.value.find(
+    item => item.field === field
+  )
+
+  if (nextDirection === 'none') {
+    sortSpec.value = normalizeUserSortOrder(
+      sortSpec.value.filter(item => item.field !== field)
+    )
+  } else if (current) {
+    sortSpec.value = sortSpec.value.map(item =>
+      item.field === field
+        ? { ...item, direction: nextDirection }
+        : item
+    )
+  } else {
+    sortSpec.value = [
+      ...sortSpec.value,
+      {
+        field,
+        direction: nextDirection,
+        field_sort_order: sortSpec.value.length + 1
+      }
+    ]
+  }
+
+  persistSortPreference()
+}
+
+function compareSortValues(left, right, field, direction) {
+  const meta = props.config?.fields?.[field] || {}
+  const type = String(meta.control_type || meta.type || '').toLowerCase()
+
+  let a = left?.[field]
+  let b = right?.[field]
+
+  if (a === null || a === undefined || a === '') {
+    return b === null || b === undefined || b === '' ? 0 : 1
+  }
+
+  if (b === null || b === undefined || b === '') {
+    return -1
+  }
+
+  let result = 0
+
+  if (['number', 'numeric', 'integer', 'decimal', 'float'].includes(type)) {
+    const numberA = Number(a)
+    const numberB = Number(b)
+    result = Number.isNaN(numberA) || Number.isNaN(numberB)
+      ? String(a).localeCompare(String(b), lang.value, { numeric: true })
+      : numberA - numberB
+  } else if (type === 'date' || type === 'datetime' || type === 'timestamp') {
+    const dateA = new Date(a).getTime()
+    const dateB = new Date(b).getTime()
+    result = Number.isNaN(dateA) || Number.isNaN(dateB)
+      ? String(a).localeCompare(String(b), lang.value, { numeric: true })
+      : dateA - dateB
+  } else if (typeof a === 'boolean' && typeof b === 'boolean') {
+    result = Number(a) - Number(b)
+  } else {
+    const valueA = isDDLB(meta) ? getLabel(field, a) : a
+    const valueB = isDDLB(meta) ? getLabel(field, b) : b
+    result = String(valueA).localeCompare(
+      String(valueB),
+      lang.value,
+      { numeric: true, sensitivity: 'base' }
+    )
+  }
+
+  return direction === 'desc' ? -result : result
+}
+
+const effectiveSortSpec = computed(() => [
+  ...forcedSortSpec.value,
+  ...sortSpec.value
+])
+
+const sortedItems = computed(() => {
+  if (props.reportMode) {
+    return props.items
+  }
+
+  const source = [...filteredItems.value]
+  const effectiveSpec = effectiveSortSpec.value
+
+  if (!effectiveSpec.length) {
+    return source
+  }
+
+  return source
+    .map((item, index) => ({ item, index }))
+    .sort((left, right) => {
+      for (const term of effectiveSpec) {
+        const result = compareSortValues(
+          left.item,
+          right.item,
+          term.field,
+          term.direction
+        )
+
+        if (result !== 0) {
+          return result
+        }
+      }
+
+      return left.index - right.index
+    })
+    .map(entry => entry.item)
+})
+
+watch(
+  () => [
+    componentName.value,
+    props.config?.field_mode,
+    props.config?.fields
+  ],
+  loadSortPreference,
+  {
+    immediate: true,
+    deep: true
+  }
+)
+
+
+// --------------------------------------------------
 // Translations
 // --------------------------------------------------
 async function loadTranslations() {
@@ -491,6 +833,20 @@ async function loadTranslations() {
   }
 
   translations.value = result
+
+  const [none, asc, desc, forced] = await Promise.all([
+    translate('pulsar.grid.sortNone', lang.value, 'Default'),
+    translate('pulsar.grid.sortAscending', lang.value, 'Default'),
+    translate('pulsar.grid.sortDescending', lang.value, 'Default'),
+    translate('pulsar.grid.sortForced', lang.value, 'Default')
+  ])
+
+  sortLabels.value = {
+    none: none && none !== 'pulsar.grid.sortNone' ? none : 'No sorting',
+    asc: asc && asc !== 'pulsar.grid.sortAscending' ? asc : 'Sort ascending',
+    desc: desc && desc !== 'pulsar.grid.sortDescending' ? desc : 'Sort descending',
+    forced: forced && forced !== 'pulsar.grid.sortForced' ? forced : 'Forced sorting'
+  }
 }
 
 watch(
@@ -506,26 +862,33 @@ watch(
 // Fields
 // --------------------------------------------------
 const fields = computed(() => {
+  if (props.reportMode) {
+    return [...props.reportColumns]
+      .filter(column => column.is_visible !== false)
+      .sort((a, b) => Number(a.display_order || 0) - Number(b.display_order || 0))
+      .map(column => {
+        const field = column.field_name
+        const meta = props.config?.fields?.[field] || {}
+
+        return {
+          field,
+          width_px: column.width_px || null,
+          type: meta.control_type || meta.type || 'text',
+          control_type: meta.control_type || meta.type || 'text'
+        }
+      })
+  }
 
   return (
     props.config?.field_order || []
   ).map(field => {
-
-    const meta =
-      props.config?.fields?.[field] || {}
+    const meta = props.config?.fields?.[field] || {}
 
     return {
       field,
-
-      type:
-        meta.control_type ||
-        meta.type ||
-        'text',
-
-      control_type:
-        meta.control_type ||
-        meta.type ||
-        'text'
+      width_px: null,
+      type: meta.control_type || meta.type || 'text',
+      control_type: meta.control_type || meta.type || 'text'
     }
   })
 })
@@ -602,8 +965,99 @@ watch(
 // --------------------------------------------------
 // Lifecycle
 // --------------------------------------------------
+const draggedReportField = ref(null)
+const activeReportResize = ref(null)
+
+function startReportColumnDrag(event, column) {
+  if (!props.reportMode) return
+  draggedReportField.value = column.field
+  if (event.dataTransfer) {
+    event.dataTransfer.effectAllowed = 'move'
+    event.dataTransfer.setData('text/plain', column.field)
+  }
+}
+
+function dropReportColumn(event, targetColumn) {
+  if (!props.reportMode) return
+  const sourceField = draggedReportField.value ||
+    event.dataTransfer?.getData('text/plain')
+  const targetField = targetColumn.field
+  draggedReportField.value = null
+
+  if (!sourceField || sourceField === targetField) return
+
+  const next = [...props.reportColumns]
+    .sort((a, b) => Number(a.display_order || 0) - Number(b.display_order || 0))
+  const sourceIndex = next.findIndex(item => item.field_name === sourceField)
+  const targetIndex = next.findIndex(item => item.field_name === targetField)
+
+  if (sourceIndex < 0 || targetIndex < 0) return
+
+  const [moved] = next.splice(sourceIndex, 1)
+  next.splice(targetIndex, 0, moved)
+
+  emit(
+    'report-columns-change',
+    next.map((item, index) => ({
+      ...item,
+      display_order: index + 1
+    }))
+  )
+}
+
+function startReportColumnResize(event, column) {
+  if (!props.reportMode) return
+  event.preventDefault()
+
+  const currentWidth = column.width_px ||
+    event.currentTarget.parentElement.getBoundingClientRect().width
+
+  activeReportResize.value = {
+    field: column.field,
+    startX: event.clientX,
+    startWidth: currentWidth
+  }
+
+  window.addEventListener('mousemove', moveReportColumnResize)
+  window.addEventListener('mouseup', stopReportColumnResize)
+}
+
+function moveReportColumnResize(event) {
+  if (!activeReportResize.value) return
+
+  const width = Math.max(
+    48,
+    Math.min(
+      2000,
+      Math.round(
+        activeReportResize.value.startWidth +
+        event.clientX -
+        activeReportResize.value.startX
+      )
+    )
+  )
+
+  emit(
+    'report-columns-change',
+    props.reportColumns.map((item, index) => ({
+      ...item,
+      display_order: item.display_order || index + 1,
+      width_px: item.field_name === activeReportResize.value.field
+        ? width
+        : item.width_px
+    }))
+  )
+}
+
+function stopReportColumnResize() {
+  activeReportResize.value = null
+  window.removeEventListener('mousemove', moveReportColumnResize)
+  window.removeEventListener('mouseup', stopReportColumnResize)
+}
+
 onBeforeUnmount(() => {
   stopDomainOptionScopes()
+  stopReportColumnResize()
 })
 
 </script>
@@ -618,6 +1072,7 @@ onBeforeUnmount(() => {
 
     <div class="shrink-0">
       <dynamic_dw_search
+        v-if="!props.reportMode"
         :config="props.config"
         :base-config="props.baseConfig"
         v-model:filters="filters"
@@ -690,13 +1145,61 @@ onBeforeUnmount(() => {
               <th
                 v-for="col in fields"
                 :key="col.field"
-                class="whitespace-nowrap border-b border-l px-3 py-2.5 text-left font-semibold"
-                style="border-color:var(--pulsar-level-border)"
+                :draggable="props.reportMode"
+                @dragstart="startReportColumnDrag($event, col)"
+                @dragover.prevent="props.reportMode"
+                @drop="dropReportColumn($event, col)"
+                class="relative whitespace-nowrap border-b border-l px-3 py-2.5 text-left font-semibold"
+                :style="{
+                  borderColor: 'var(--pulsar-level-border)',
+                  width: col.width_px ? col.width_px + 'px' : undefined,
+                  minWidth: col.width_px ? col.width_px + 'px' : undefined
+                }"
               >
-                {{
-                  translations[col.field] ||
-                  col.field
-                }}
+                <span class="inline-flex items-center gap-1.5">
+                  <span v-if="props.reportMode" class="cursor-grab text-muted" aria-hidden="true">⠿</span>
+                  <span>{{
+                    translations[col.field] ||
+                    col.field
+                  }}</span>
+                  <button
+                    v-if="!props.reportMode && isSortEnabled(col.field)"
+                    type="button"
+                    :disabled="!sortPreferenceReady || isForcedSort(col.field)"
+                    class="inline-flex h-5 w-5 items-center justify-center rounded transition focus-visible:outline focus-visible:outline-1 disabled:cursor-not-allowed disabled:opacity-100"
+                    :class="isForcedSort(col.field)
+                      ? 'text-amber-500 cursor-not-allowed'
+                      : getSortDirection(col.field) !== 'none'
+                        ? 'text-primary hover:bg-hover'
+                        : 'text-muted hover:bg-hover hover:text-primary'"
+                    :aria-label="getSortLabel(col.field)"
+                    :title="getSortLabel(col.field)"
+                    @click.stop="cycleSort(col.field)"
+                  >
+                    <span
+                      v-if="getSortDirection(col.field) === 'asc'"
+                      class="text-sm font-bold leading-none"
+                    >↑</span>
+                    <span
+                      v-else-if="getSortDirection(col.field) === 'desc'"
+                      class="text-sm font-bold leading-none"
+                    >↓</span>
+                    <span
+                      v-else
+                      class="text-sm leading-none"
+                    >↕</span>
+                    <span
+                      v-if="getSortPriority(col.field) > 0"
+                      class="ml-0.5 text-[8px] leading-none"
+                    >{{ getSortPriority(col.field) }}</span>
+                  </button>
+                </span>
+                <span
+                  v-if="props.reportMode"
+                  class="absolute right-0 top-0 h-full w-1.5 cursor-col-resize hover:bg-primary/30"
+                  @mousedown.stop="startReportColumnResize($event, col)"
+                  aria-hidden="true"
+                ></span>
               </th>
 
             </tr>
@@ -709,7 +1212,7 @@ onBeforeUnmount(() => {
             <tr
               v-for="(
                 item, index
-              ) in filteredItems"
+              ) in sortedItems"
               :key="index"
               @click="selectRow(item)"
               :class="
@@ -737,7 +1240,11 @@ onBeforeUnmount(() => {
                   )
                 "
                 class="whitespace-nowrap border-l px-3 py-2.5"
-                style="border-color:var(--pulsar-level-border)"
+                :style="{
+                  borderColor: 'var(--pulsar-level-border)',
+                  width: col.width_px ? col.width_px + 'px' : undefined,
+                  minWidth: col.width_px ? col.width_px + 'px' : undefined
+                }"
               >
                 {{
                   formatValue(

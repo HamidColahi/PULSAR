@@ -4,7 +4,7 @@
  Description: Dynamic page runtime resolver with metadata-driven Panel Function and file handling
  Author: MHKolahi@gmail.com
  In collaboration with GPT4 Chat Assistant: Bahram
- Last Modified: 2026-11-16 (Asia/Baku)
+ Last Modified: 2026-11-24 (Asia/Baku)
 -->
 <template>
   <div
@@ -37,6 +37,7 @@
 
       <template v-else>
         <dw_toolbar
+          v-if="!reportGeneratorEnabled"
           class="mb-2.5"
           :style="themeStyle"
           :disabled="gridLoading || !!gridError"
@@ -116,8 +117,23 @@
               </template>
             </div>
 
+            <ReportGenerator
+              v-if="reportGeneratorEnabled && gridConfig"
+              :style="themeStyle"
+              :page-key="props.pageTitleKey"
+              :source-component-name="derivedGridName"
+              :grid-component="gridComponent"
+              :config="gridRuntimeConfig"
+              :page-config="reportPageConfig"
+              :base-config="gridBase"
+              :items="records"
+              :runtime-context="props.runtimeContext"
+              :selected-record="navigationRecord"
+              @row-selected="handleRowSelected"
+            />
+
             <component
-              v-if="gridConfig"
+              v-else-if="gridConfig"
               :is="gridComponent"
               :style="themeStyle"
               :config="gridRuntimeConfig"
@@ -240,6 +256,8 @@ import {
   useRoute
 } from 'vue-router'
 
+import axios from '@/utils/axiosInstance'
+
 import {
   language,
   languageMeta
@@ -249,6 +267,7 @@ import TopControls from '@/components/top_controls.vue'
 import dw_toolbar from '@/components/dw_toolbar.vue'
 import ContextPanel from '@/components/panels/context_panel.vue'
 import FunctionResultViewer from '@/components/common/function_result_viewer.vue'
+import ReportGenerator from '@/components/reporting/ReportGenerator.vue'
 
 import {
   useTranslation
@@ -297,6 +316,7 @@ const props = defineProps({
   gridComponent: { type: Object, required: true },
   formComponent: { type: Object, required: true },
   pageTitleKey: { type: String, default: null },
+  pageLevel: { type: String, default: null },
   gridName: { type: String, default: null },
   gridFieldMode: { type: String, default: 'list' },
   formName: { type: String, default: null },
@@ -325,6 +345,8 @@ const {
 
 const pageLoading = ref(false)
 const pageError = ref(null)
+const reportGeneratorEnabled = ref(false)
+const reportPageConfig = ref({ is_enabled: false, allow_sharing: true, allow_public: false })
 const formError = ref(null)
 
 const {
@@ -644,7 +666,19 @@ async function buildFormQueryParams() {
   return buildQueryParams(filters)
 }
 
+async function loadReportPageConfiguration() {
+  const response = await axios.get(
+    '/reports/pages/' + encodeURIComponent(props.pageTitleKey) + '/configuration'
+  )
+  reportPageConfig.value = response.data || { is_enabled: false, allow_sharing: true, allow_public: false }
+  reportGeneratorEnabled.value = reportPageConfig.value.is_enabled === true
+}
+
 async function loadRecords(options = {}) {
+  if (reportGeneratorEnabled.value) {
+    return []
+  }
+
   const filters = options.filters || {}
 
   const resolvedFilters = await resolveWhereFilters(
@@ -1000,7 +1034,6 @@ async function initializePage() {
 
   try {
     if (!derivedGridName) throw new Error('Grid component name is not available')
-    if (!derivedFormName) throw new Error('Form component name is not available')
 
     restoreSelectedRecord()
     restoreParentRecordContext()
@@ -1012,9 +1045,14 @@ async function initializePage() {
 
     await fetchGridBase()
     await fetchGridConfig()
-    await formBaseApis.view.fetchBase()
-    await formConfigApis.view.fetchConfig()
-    await loadRecords()
+    await loadReportPageConfiguration()
+
+    if (!reportGeneratorEnabled.value) {
+      if (!derivedFormName) throw new Error('Form component name is not available')
+      await formBaseApis.view.fetchBase()
+      await formConfigApis.view.fetchConfig()
+      await loadRecords()
+    }
   } catch (err) {
     console.error('generic_page: initialization failed', err)
     pageError.value = err?.message || 'Failed to initialize page'
@@ -1038,7 +1076,7 @@ watch(
     showForm.value = false
     formError.value = null
 
-    if (!pageLoading.value) {
+    if (!pageLoading.value && !reportGeneratorEnabled.value) {
       try {
         await loadRecords()
       } catch (err) {
@@ -1051,7 +1089,7 @@ watch(
 watch(language, async () => {
   await translateParentRecordContext()
 
-  if (!pageLoading.value) {
+  if (!pageLoading.value && !reportGeneratorEnabled.value) {
     try {
       await loadRecords()
     } catch (err) {

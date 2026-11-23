@@ -8,7 +8,7 @@
 #
 # Author: MHKolahi@gmail.com
 # In collaboration with GPT4 Chat Assistant: Bahram
-# Modified: 2026-11-21 04:00 (Asia/Baku)
+# Modified: 2026-11-22 23:26 (Asia/Baku)
 # =================================================
 
 import logging
@@ -225,6 +225,13 @@ async def _load_output_configuration(
             continue
 
         allowed_types.add(output_type)
+
+        configured_display_type = str(
+            options.get("display_type", "")
+        ).strip().lower()
+
+        if configured_display_type in SUPPORTED_DISPLAY_TYPES:
+            allowed_types.add(configured_display_type)
 
         normalized_configs.append({
             "output_config_id": config["output_config_id"],
@@ -513,6 +520,16 @@ async def execute_panel_function(
         effective_options["avatar_manager_desc"] = configured_options.get(
             "avatar_manager_desc"
         )
+        for metadata_key in (
+            "display_type",
+            "presentation_definition",
+            "renderer_key",
+            "presentation_code",
+            "config_code",
+        ):
+            effective_options[metadata_key] = configured_options.get(
+                metadata_key
+            )
 
         formatted_result = format_function_result(
             result=output,

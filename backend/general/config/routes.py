@@ -7,9 +7,11 @@
 #
 # Author: MHKolahi@gmail.com
 # In collaboration with GPT4 Chat Assistant: Bahram
+# Last Modified: 2026-11-23 23:55 (Asia/Baku)
 # ===============================================
 
-from typing import List
+from typing import List, Literal
+import json
 
 from fastapi import (
     APIRouter,
@@ -20,7 +22,7 @@ from fastapi import (
 
 from pydantic import BaseModel
 
-from sqlalchemy import and_, select
+from sqlalchemy import and_, select, text
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from core.database import get_async_session
@@ -33,6 +35,7 @@ from general.config.models import (
 )
 
 from general.translation.models import TranslationDictionary
+from general.auth.dependencies import get_current_user
 
  
 router = APIRouter(
@@ -47,6 +50,8 @@ router = APIRouter(
 
 class ComponentFieldConfig(BaseModel):
     field_name: str
+    field_sort: int = 0
+    field_sort_order: int | None = None
 
     label: str | None = None
 
@@ -56,6 +61,8 @@ class ComponentFieldConfig(BaseModel):
 
     # UI control metadata.
     control_type: str | None = None
+    accepted_mime_types: List[str] | None = None
+    max_file_size_bytes: int | None = None
     search_mode: str | None = None
 
     visible_in_grid: bool | None = None
@@ -272,11 +279,15 @@ async def read_component_config(
 
                 # UI control metadata.
                 control_type=config.control_type,
+                accepted_mime_types=config.accepted_mime_types,
+                max_file_size_bytes=config.max_file_size_bytes,
                 search_mode=config.search_mode,
 
                 visible_in_grid=config.visible_in_grid,
                 visible_in_form=config.visible_in_form,
                 visible_in_search=config.visible_in_search,
+                field_sort=int(config.field_sort or 0),
+                field_sort_order=config.field_sort_order,
 
                 is_readonly=config.is_readonly,
 
@@ -304,6 +315,194 @@ async def read_component_config(
         )
 
     return configs
+
+
+# ===============================================
+# User Grid Sort Preferences
+# ===============================================
+
+class GridSortTerm(BaseModel):
+    field: str
+    direction: Literal["asc", "desc"]
+    field_sort_order: int
+
+
+class GridSortPreferenceUpdate(BaseModel):
+    component_name: str
+    field_mode: str = "list"
+    sort_spec: List[GridSortTerm]
+
+
+@router.get("/grid_sort")
+async def read_grid_sort_preference(
+    component_name: str = Query(...),
+    field_mode: str = Query("list"),
+    db: AsyncSession = Depends(get_async_session),
+    current_user = Depends(get_current_user),
+):
+    """Return forced sorting metadata and the authenticated user's ordered preferences."""
+    config_result = await db.execute(
+        select(
+            ComponentsConfig.field_name,
+            ComponentsConfig.field_sort,
+            ComponentsConfig.field_sort_order,
+        ).where(
+            ComponentsConfig.component_name == component_name,
+            ComponentsConfig.field_mode == field_mode,
+        )
+    )
+    field_configs = config_result.all()
+
+    forced_sort_spec = []
+    user_sortable_fields = set()
+
+    for field_name, sort_mode, sort_order in field_configs:
+        mode = int(sort_mode or 0)
+        if mode == 1:
+            user_sortable_fields.add(field_name)
+        elif mode in (2, 3):
+            if sort_order is None or int(sort_order) < 1:
+                raise HTTPException(
+                    status_code=500,
+                    detail=f"Invalid forced sort order for field '{field_name}'.",
+                )
+            forced_sort_spec.append({
+                "field": field_name,
+                "direction": "desc" if mode == 2 else "asc",
+                "field_sort_order": int(sort_order),
+            })
+
+    forced_sort_spec.sort(key=lambda item: item["field_sort_order"])
+
+    user_result = await db.execute(
+        text("""
+            SELECT field_name, direction, field_sort_order
+            FROM pulsar.t_user_grid_sort
+            WHERE c_user_id = :user_id
+              AND component_name = :component_name
+              AND field_mode = :field_mode
+            ORDER BY field_sort_order, field_name
+        """),
+        {
+            "user_id": str(current_user.id),
+            "component_name": component_name,
+            "field_mode": field_mode,
+        },
+    )
+
+    user_sort_spec = [
+        {
+            "field": row["field_name"],
+            "direction": row["direction"],
+            "field_sort_order": int(row["field_sort_order"]),
+        }
+        for row in user_result.mappings().all()
+        if row["field_name"] in user_sortable_fields
+        and row["direction"] in ("asc", "desc")
+    ]
+
+    return {
+        "component_name": component_name,
+        "field_mode": field_mode,
+        "forced_sort_spec": forced_sort_spec,
+        "user_sort_spec": user_sort_spec,
+        "sort_spec": forced_sort_spec + user_sort_spec,
+    }
+
+
+@router.put("/grid_sort")
+async def save_grid_sort_preference(
+    payload: GridSortPreferenceUpdate,
+    db: AsyncSession = Depends(get_async_session),
+    current_user = Depends(get_current_user),
+):
+    """Persist ordered user-controlled sorting without changing forced metadata."""
+    config_result = await db.execute(
+        select(
+            ComponentsConfig.field_name,
+            ComponentsConfig.field_sort,
+        ).where(
+            ComponentsConfig.component_name == payload.component_name,
+            ComponentsConfig.field_mode == payload.field_mode,
+        )
+    )
+    modes = {
+        field_name: int(sort_mode or 0)
+        for field_name, sort_mode in config_result.all()
+    }
+    allowed_fields = {
+        field_name for field_name, mode in modes.items()
+        if mode == 1
+    }
+
+    requested_fields = [item.field for item in payload.sort_spec]
+    if len(requested_fields) != len(set(requested_fields)):
+        raise HTTPException(
+            status_code=422,
+            detail="A sort field can appear only once.",
+        )
+
+    invalid_fields = set(requested_fields) - allowed_fields
+    if invalid_fields:
+        raise HTTPException(
+            status_code=403,
+            detail={
+                "message": "Sorting is not enabled for one or more fields.",
+                "fields": sorted(invalid_fields),
+            },
+        )
+
+    orders = [item.field_sort_order for item in payload.sort_spec]
+    if any(order < 1 for order in orders) or len(orders) != len(set(orders)):
+        raise HTTPException(
+            status_code=422,
+            detail="User sort orders must be unique positive integers.",
+        )
+
+    await db.execute(
+        text("""
+            DELETE FROM pulsar.t_user_grid_sort
+            WHERE c_user_id = :user_id
+              AND component_name = :component_name
+              AND field_mode = :field_mode
+        """),
+        {
+            "user_id": str(current_user.id),
+            "component_name": payload.component_name,
+            "field_mode": payload.field_mode,
+        },
+    )
+
+    for item in payload.sort_spec:
+        await db.execute(
+            text("""
+                INSERT INTO pulsar.t_user_grid_sort
+                    (c_user_id, component_name, field_mode,
+                     field_name, direction, field_sort_order, updated_at)
+                VALUES
+                    (:user_id, :component_name, :field_mode,
+                     :field_name, :direction, :field_sort_order, CURRENT_TIMESTAMP)
+            """),
+            {
+                "user_id": str(current_user.id),
+                "component_name": payload.component_name,
+                "field_mode": payload.field_mode,
+                "field_name": item.field,
+                "direction": item.direction,
+                "field_sort_order": item.field_sort_order,
+            },
+        )
+
+    await db.commit()
+
+    return {
+        "component_name": payload.component_name,
+        "field_mode": payload.field_mode,
+        "sort_spec": [
+            item.model_dump()
+            for item in payload.sort_spec
+        ],
+    }
 
 
 # ===============================================

@@ -3,6 +3,7 @@
  Description: Dynamic page runtime resolver
  Author: MHKolahi@gmail.com
  In collaboration with GPT4 Chat Assistant: Bahram
+ Last Modified: 2026-11-24 (Asia/Baku)
 -->
 <template>
   <div v-if="loading" class="p-4">
@@ -24,6 +25,7 @@
     :gridName="gridName"
     :formName="formName"
     :pageTitleKey="pageKey"
+    :pageLevel="runtime?.page_level"
     :runtimeContext="runtimeContext"
     :c_page_view="pageAccess.c_page_view"
     :c_page_insert="pageAccess.c_page_insert"

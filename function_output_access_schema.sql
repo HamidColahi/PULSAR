@@ -1,7 +1,7 @@
 -- ===============================================
 -- File: Pulsar/function_output_access_schema.sql
 -- Description: Metadata-driven resource permissions for Function output Avatars
--- Change Date: 2026-11-21 04:00 (Asia/Baku)
+-- Change Date: 2026-11-21 20:00 (Asia/Baku)
 -- In collaboration with GPT4 Chat Assistant: Bahram
 -- ===============================================
 
@@ -172,6 +172,13 @@ CROSS JOIN (
         '{"search_fields": ["inquiry", "reaction", "event", "action", "rp", "pbi_sbi"], "max_results": 20, "cross_backlog": true}'::jsonb,
         true,
         40
+    ),
+    (
+        'COLONY_CONCEPT_SEARCH',
+        'SEARCH',
+        '{"max_results": 20}'::jsonb,
+        true,
+        50
     )
 ) AS resource (
     resource_code,
