@@ -57,6 +57,9 @@ from ai_avatar.routes import (
 from source_trace.routes import (
     router as source_trace_router
 )
+from general.permissions.routes import (
+    router as permission_router
+)
 
 
 # -----------------------------------------------
@@ -254,6 +257,10 @@ app.include_router(
 # ===============================================
 app.include_router(
     source_trace_router
+)
+
+app.include_router(
+    permission_router
 )
 
 
