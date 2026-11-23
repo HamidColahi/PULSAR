@@ -203,6 +203,13 @@ async function loadLabels() {
   labels.value = result
 }
 
+function errorMessage(errorObject, fallback) {
+  const detail = errorObject?.response?.data?.detail
+  if (typeof detail === 'string') return detail
+  if (detail && typeof detail.message === 'string') return detail.message
+  return errorObject?.message || fallback
+}
+
 function toLocalInput(value) {
   const date = new Date(value.getTime() - value.getTimezoneOffset() * 60000)
   return date.toISOString().slice(0, 16)
@@ -265,7 +272,7 @@ async function loadManagerData() {
       throw new Error(labels.value.errorAdmin)
     }
   } catch (err) {
-    error.value = err?.response?.data?.detail || err?.message || labels.value.errorData
+    error.value = errorMessage(err, labels.value.errorData)
   } finally {
     loading.value = false
   }
@@ -282,7 +289,7 @@ async function searchUsers() {
     })
     users.value = response.data || []
   } catch (err) {
-    error.value = err?.response?.data?.detail || err?.message || labels.value.errorSearch
+    error.value = errorMessage(err, labels.value.errorSearch)
   } finally {
     loading.value = false
   }
@@ -307,7 +314,7 @@ async function loadHistory() {
     const response = await axios.get('/permissions/users/' + selectedUserId.value + '/grants')
     history.value = response.data || []
   } catch (err) {
-    error.value = err?.response?.data?.detail || err?.message || labels.value.errorHistory
+    error.value = errorMessage(err, labels.value.errorHistory)
   } finally {
     loading.value = false
   }
@@ -331,7 +338,7 @@ async function grantPermission() {
     validUntil.value = ''
     await loadHistory()
   } catch (err) {
-    error.value = err?.response?.data?.detail || err?.message || labels.value.errorGrant
+    error.value = errorMessage(err, labels.value.errorGrant)
   } finally {
     loading.value = false
   }
@@ -345,7 +352,7 @@ async function revokeGrant(permitId) {
     await axios.delete('/permissions/grants/' + permitId)
     await loadHistory()
   } catch (err) {
-    error.value = err?.response?.data?.detail || err?.message || labels.value.errorRevoke
+    error.value = errorMessage(err, labels.value.errorRevoke)
   } finally {
     loading.value = false
   }
