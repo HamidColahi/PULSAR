@@ -66,15 +66,18 @@ async def get_page_runtime(
     access_sql = text(
         """
         SELECT
-            page_key,
-            c_page_view,
-            c_page_insert,
-            c_page_update,
-            c_page_delete
-        FROM pulsar.t_page_usracc
-        WHERE c_user_id = :user_id
-          AND page_key = :page_key
-          AND c_page_state = 'active'
+            access_row.page_key,
+            access_row.c_page_view,
+            access_row.c_page_insert,
+            access_row.c_page_update,
+            access_row.c_page_delete,
+            page_row.page_level
+        FROM pulsar.t_page_usracc AS access_row
+        INNER JOIN pulsar.dynamic_page AS page_row
+            ON page_row.page_key = access_row.page_key
+        WHERE access_row.c_user_id = :user_id
+          AND access_row.page_key = :page_key
+          AND access_row.c_page_state = 'active'
         LIMIT 1
         """
     )
@@ -185,6 +188,8 @@ async def get_page_runtime(
     return {
         "page_key":
             page_key,
+        "page_level":
+            access["page_level"],
         "context_id":
             str(user_id),
         "permissions": {
