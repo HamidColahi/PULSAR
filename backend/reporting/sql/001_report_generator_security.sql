@@ -844,6 +844,55 @@ DO UPDATE SET
     owner_column_table = EXCLUDED.owner_column_table,
     form_name = EXCLUDED.form_name;
 
+INSERT INTO pulsar.translation_dictionary
+(
+    item_code,
+    language_code,
+    translated_text,
+    context_type,
+    owner_column_table,
+    form_name
+)
+VALUES
+('report.error.execution', 'en', 'Report execution failed.', 'report_security', 't_permission', 'report_security'),
+('report.error.execution', 'fa', 'اجرای گزارش ناموفق بود.', 'report_security', 't_permission', 'report_security'),
+('report.error.load', 'en', 'Report could not be loaded.', 'report_security', 't_permission', 'report_security'),
+('report.error.load', 'fa', 'بارگذاری گزارش ناموفق بود.', 'report_security', 't_permission', 'report_security'),
+('report.error.save', 'en', 'Report could not be saved.', 'report_security', 't_permission', 'report_security'),
+('report.error.save', 'fa', 'ذخیره گزارش ناموفق بود.', 'report_security', 't_permission', 'report_security'),
+('report.error.copy', 'en', 'Report copy could not be created.', 'report_security', 't_permission', 'report_security'),
+('report.error.copy', 'fa', 'ایجاد نسخه مستقل از گزارش ناموفق بود.', 'report_security', 't_permission', 'report_security'),
+('report.error.delete', 'en', 'Report could not be deleted.', 'report_security', 't_permission', 'report_security'),
+('report.error.delete', 'fa', 'حذف گزارش ناموفق بود.', 'report_security', 't_permission', 'report_security'),
+('report.error.share', 'en', 'Report could not be shared.', 'report_security', 't_permission', 'report_security'),
+('report.error.share', 'fa', 'اشتراک‌گذاری گزارش ناموفق بود.', 'report_security', 't_permission', 'report_security'),
+('report.error.unshare', 'en', 'Report share could not be removed.', 'report_security', 't_permission', 'report_security'),
+('report.error.unshare', 'fa', 'لغو اشتراک‌گذاری گزارش ناموفق بود.', 'report_security', 't_permission', 'report_security'),
+('report.error.publish', 'en', 'Report could not be published.', 'report_security', 't_permission', 'report_security'),
+('report.error.publish', 'fa', 'انتشار عمومی گزارش ناموفق بود.', 'report_security', 't_permission', 'report_security'),
+('report.error.unpublish', 'en', 'Report could not be unpublished.', 'report_security', 't_permission', 'report_security'),
+('report.error.unpublish', 'fa', 'لغو انتشار عمومی گزارش ناموفق بود.', 'report_security', 't_permission', 'report_security'),
+('report.error.initialize', 'en', 'Report Generator could not be initialized.', 'report_security', 't_permission', 'report_security'),
+('report.error.initialize', 'fa', 'راه‌اندازی گزارش‌ساز ناموفق بود.', 'report_security', 't_permission', 'report_security'),
+('security.error.data', 'en', 'Permission data could not be loaded.', 'report_security', 't_permission', 'report_security'),
+('security.error.data', 'fa', 'بارگذاری اطلاعات مجوزها ناموفق بود.', 'report_security', 't_permission', 'report_security'),
+('security.error.search', 'en', 'User search failed.', 'report_security', 't_permission', 'report_security'),
+('security.error.search', 'fa', 'جست‌وجوی کاربر ناموفق بود.', 'report_security', 't_permission', 'report_security'),
+('security.error.history', 'en', 'Permission history could not be loaded.', 'report_security', 't_permission', 'report_security'),
+('security.error.history', 'fa', 'بارگذاری تاریخچه مجوزها ناموفق بود.', 'report_security', 't_permission', 'report_security'),
+('security.error.grant', 'en', 'Permission could not be granted.', 'report_security', 't_permission', 'report_security'),
+('security.error.grant', 'fa', 'اعطای مجوز ناموفق بود.', 'report_security', 't_permission', 'report_security'),
+('security.error.revoke', 'en', 'Permission could not be revoked.', 'report_security', 't_permission', 'report_security'),
+('security.error.revoke', 'fa', 'لغو مجوز ناموفق بود.', 'report_security', 't_permission', 'report_security'),
+('security.error.admin', 'en', 'Permission administration is not available to this user.', 'report_security', 't_permission', 'report_security'),
+('security.error.admin', 'fa', 'مدیریت مجوزها برای این کاربر فعال نیست.', 'report_security', 't_permission', 'report_security')
+ON CONFLICT (item_code, language_code)
+DO UPDATE SET
+    translated_text = EXCLUDED.translated_text,
+    context_type = EXCLUDED.context_type,
+    owner_column_table = EXCLUDED.owner_column_table,
+    form_name = EXCLUDED.form_name;
+
 COMMIT;
 
 -- ============================================================
