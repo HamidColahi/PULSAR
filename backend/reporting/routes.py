@@ -107,6 +107,19 @@ class ReportCreate(BaseModel):
     filters: list[ReportFilterNode] = Field(default_factory=list)
 
 
+class ReportPreviewInput(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+
+    page_key: str = Field(min_length=1, max_length=255)
+    source_component_name: str = Field(min_length=1, max_length=255)
+    columns: list[ReportColumnInput] = Field(default_factory=list)
+    filters: list[ReportFilterNode] = Field(default_factory=list)
+    selected_record: dict[str, Any] = Field(default_factory=dict)
+    runtime_context: dict[str, Any] = Field(default_factory=dict)
+    limit: int = Field(default=100, ge=1, le=5000)
+    offset: int = Field(default=0, ge=0)
+
+
 class ReportUpdate(BaseModel):
     model_config = ConfigDict(extra="forbid")
 
@@ -482,6 +495,51 @@ async def list_page_reports(
         }
         for row in result.mappings().all()
     ]
+
+
+@router.post("/preview")
+async def preview_report(
+    payload: ReportPreviewInput,
+    request: Request,
+    current_user: UserProfileResponse = Depends(get_current_user),
+    session: AsyncSession = Depends(get_audited_session),
+):
+    """Preview an unsaved report definition using the current user's data scope."""
+    await validate_report_page(
+        session,
+        str(current_user.id),
+        payload.page_key,
+        payload.source_component_name,
+    )
+
+    field_metadata = await _load_field_metadata(
+        session,
+        payload.source_component_name,
+    )
+    columns = _validate_columns(payload.columns, field_metadata)
+    filters = _validate_filters(payload.filters, field_metadata)
+
+    preview_report_definition = {
+        "report_id": UUID(int=0),
+        "page_key": payload.page_key,
+        "source_component_name": payload.source_component_name,
+    }
+
+    return await execute_report(
+        session,
+        request,
+        preview_report_definition,
+        {
+            "columns": columns,
+            "filters": filters,
+        },
+        user_id=str(current_user.id),
+        profile_id=str(current_user.profile_id),
+        selected_record=payload.selected_record,
+        runtime_context=payload.runtime_context,
+        limit=payload.limit,
+        offset=payload.offset,
+    )
 
 
 @router.post("", status_code=201)
