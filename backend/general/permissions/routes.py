@@ -352,7 +352,13 @@ async def read_user_permission_history(
                             admin_permission.scope_type = 'SYSTEM'
                             OR (
                                 admin_permission.scope_type = 'SUBSYSTEM'
-                                AND permission_row.subsystem_key = admin_permission.scope_key
+                                AND (
+                                    permission_row.subsystem_key = admin_permission.scope_key
+                                    OR (
+                                        permission_row.scope_type = 'SUBSYSTEM'
+                                        AND permission_row.scope_key = admin_permission.scope_key
+                                    )
+                                )
                             )
                             OR (
                                 admin_permission.scope_type = 'PAGE'
