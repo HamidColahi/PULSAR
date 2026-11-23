@@ -435,6 +435,25 @@ async def list_page_reports(
     page_result = await session.execute(
         text(
             """
+            SELECT page_level
+            FROM pulsar.dynamic_page
+            WHERE page_key = :page_key
+            LIMIT 1
+            """
+        ),
+        {"page_key": page_key},
+    )
+    page_row = page_result.mappings().first()
+
+    if not page_row or page_row["page_level"] != "Report.Gen":
+        raise HTTPException(
+            status_code=404,
+            detail="Report Generator is not enabled for this page.",
+        )
+
+    page_result = await session.execute(
+        text(
+            """
             SELECT page_key
             FROM pulsar.dynamic_page
             WHERE page_key = :page_key
