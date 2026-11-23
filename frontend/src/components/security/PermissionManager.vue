@@ -46,7 +46,7 @@
               <select v-model="permissionId" class="w-full rounded-lg border border-border bg-panel px-2.5 py-2 text-xs">
                 <option value="">{{ labels.selectPermission }}</option>
                 <option v-for="permission in manageableCatalog" :key="permission.permission_id" :value="String(permission.permission_id)">
-                  {{ permission.permission_code }} · {{ permission.permission_title }}{{ permission.page_key ? ' · ' + permission.page_key : '' }}
+                  {{ permission.permission_code }} · {{ permission.localized_title || permission.permission_title }}{{ permission.page_key ? ' · ' + permission.page_key : '' }}
                 </option>
               </select>
               <p v-if="selectedPermission" class="text-[10px] text-muted">
@@ -270,7 +270,20 @@ async function loadManagerData() {
       item.permission_code === 'SECURITY.PERMISSION.GRANT' &&
       item.is_effective === true
     )
-    catalog.value = catalogResponse.data || []
+    catalog.value = await Promise.all(
+      (catalogResponse.data || []).map(async permission => {
+        const translated = await translate(
+          permission.permission_code,
+          language.value
+        )
+        return {
+          ...permission,
+          localized_title: translated === permission.permission_code
+            ? permission.permission_title
+            : translated
+        }
+      })
+    )
 
     if (!adminGrants.value.length) {
       throw new Error(labels.value.errorAdmin)
