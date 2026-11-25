@@ -381,6 +381,35 @@ def _validate_filters(
             "children": [],
         }
 
+    submitted_signatures: set[str] = set()
+
+    def collect_submitted_signatures(node: ReportFilterNode) -> None:
+        submitted_signatures.add(_filter_node_signature(node))
+        for child in node.children:
+            collect_submitted_signatures(child)
+
+    for node in filters:
+        collect_submitted_signatures(node)
+
+    for signature, existing_node in (existing_nodes_by_signature or {}).items():
+        node_type = existing_node.get("node_type")
+        requires_advanced = node_type == "GROUP" and (
+            existing_node.get("logical_operator") != "AND"
+            or any(
+                child.get("node_type") == "GROUP"
+                for child in existing_node.get("children", [])
+            )
+        )
+        requires_sql = node_type == "SQL"
+        if (
+            (requires_advanced and not allow_advanced)
+            or (requires_sql and not allow_sql)
+        ) and signature not in submitted_signatures:
+            raise HTTPException(
+                status_code=403,
+                detail="Existing privileged filters cannot be removed without the corresponding permission.",
+            )
+
     return [
         validate_node(node)
         for node in filters
