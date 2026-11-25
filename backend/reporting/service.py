@@ -793,6 +793,7 @@ def _build_filter_expression(
         safe_expression = validate_sql_filter(
             node.get("sql_expression", ""),
             sql_field_configs,
+            qualify_functions=True,
         )
         if node.get("is_negated") is True:
             return text(f"(NOT ({safe_expression}))")
