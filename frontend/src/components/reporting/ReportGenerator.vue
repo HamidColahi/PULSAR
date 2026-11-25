@@ -23,12 +23,7 @@ In collaboration with GPT4 Chat Assistant: Bahram
         <input v-model="reportTitle" :disabled="Boolean(selectedReportId) && !canEdit" class="w-full rounded-lg border border-border bg-panel px-2.5 py-2 text-xs disabled:opacity-60" :placeholder="labels.title" />
       </div>
 
-      <div class="flex flex-wrap items-center gap-1.5">
-        <label class="flex items-center gap-1.5 px-1 text-[10px] text-muted">
-          <input v-model="includeFiltersOnSave" type="checkbox" />
-          {{ labels.includeFilters }}
-        </label>
-        <button class="report-action report-primary inline-flex items-center gap-1" :disabled="loading || !canSave" @click="saveReport"><span aria-hidden="true">💾</span>{{ labels.save }}</button>
+      <div class="flex flex-wrap gap-1.5">
         <button class="report-action" :disabled="loading" @click="saveAs">{{ labels.saveAs }}</button>
         <button class="report-action" :disabled="loading" @click="resetDesign">{{ labels.reset }}</button>
         <button class="report-action" :disabled="loading" @click="runReport">{{ labels.run }}</button>
@@ -186,6 +181,15 @@ In collaboration with GPT4 Chat Assistant: Bahram
               <p v-if="shares.length === 0" class="text-[10px] text-muted">{{ labels.noShares }}</p>
             </div>
           </section>
+        </div>
+        <div class="shrink-0 space-y-2 border-t border-border p-3">
+          <label class="flex items-center gap-2 text-[10px] text-muted">
+            <input v-model="includeFiltersOnSave" type="checkbox" />
+            {{ labels.includeFilters }}
+          </label>
+          <button class="report-action report-primary inline-flex w-full items-center justify-center gap-2" :disabled="loading || !canSave" @click="saveReport">
+            <span aria-hidden="true">💾</span>{{ labels.save }}
+          </button>
         </div>
       </aside>
 
