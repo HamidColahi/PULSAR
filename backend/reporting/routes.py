@@ -76,17 +76,17 @@ class ReportFilterNode(BaseModel):
                 raise ValueError("A filter group requires AND or OR.")
             if not self.children:
                 raise ValueError("A filter group requires at least one child.")
-            if self.field_name or self.operator_code or self.parameter_code or self.sql_expression:
+            if self.field_name or self.operator_code or self.parameter_code or self.sql_expression or self.value is not None:
                 raise ValueError("A filter group cannot contain condition fields.")
         elif self.node_type == "SQL":
             if not self.sql_expression or not self.sql_expression.strip():
                 raise ValueError("A SQL filter requires a WHERE predicate expression.")
-            if self.logical_operator is not None or self.children or self.field_name or self.operator_code or self.parameter_code:
+            if self.logical_operator is not None or self.children or self.field_name or self.operator_code or self.parameter_code or self.value is not None:
                 raise ValueError("A SQL filter cannot contain structured condition fields.")
         else:
             if not self.field_name or not self.operator_code:
                 raise ValueError("A filter condition requires a field and operator.")
-            if self.logical_operator is not None or self.children:
+            if self.logical_operator is not None or self.children or self.sql_expression is not None:
                 raise ValueError("A filter condition cannot contain group properties.")
             self.operator_code = self.operator_code.upper()
             if self.operator_code not in FILTER_OPERATORS:
