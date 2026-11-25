@@ -89,4 +89,40 @@ ALTER TABLE pulsar.t_report_filter
             )
         );
 
+
+INSERT INTO pulsar.translation_dictionary
+(
+    item_code,
+    language_code,
+    translated_text,
+    context_type,
+    owner_column_table,
+    form_name
+)
+VALUES
+('report.addNestedGroup', 'en', 'Add nested group', 'report_generator', 't_report', 'report_generator'),
+('report.addNestedGroup', 'fa', 'افزودن گروه تو‌در‌تو', 'report_generator', 't_report', 'report_generator'),
+('report.addSqlFilter', 'en', 'Add SQL Filter', 'report_generator', 't_report', 'report_generator'),
+('report.addSqlFilter', 'fa', 'افزودن فیلتر SQL', 'report_generator', 't_report', 'report_generator'),
+('report.sqlFilter', 'en', 'SQL Filter', 'report_generator', 't_report', 'report_generator'),
+('report.sqlFilter', 'fa', 'فیلتر SQL', 'report_generator', 't_report', 'report_generator'),
+('report.sqlFilterHelp', 'en', 'Write a WHERE predicate using searchable fields of this Grid. SELECT, joins, comments, multiple statements, and unapproved functions are not allowed.', 'report_generator', 't_report', 'report_generator'),
+('report.sqlFilterHelp', 'fa', 'عبارت شرطی WHERE را با فیلدهای قابل جست‌وجوی همین گرید بنویسید. SELECT، اتصال جدول‌ها، توضیحات، چند دستور و توابع تأییدنشده مجاز نیستند.', 'report_generator', 't_report', 'report_generator'),
+('report.filter.standard', 'en', 'Standard', 'report_generator', 't_report', 'report_generator'),
+('report.filter.standard', 'fa', 'ساده', 'report_generator', 't_report', 'report_generator'),
+('report.filter.advanced', 'en', 'Advanced', 'report_generator', 't_report', 'report_generator'),
+('report.filter.advanced', 'fa', 'پیشرفته', 'report_generator', 't_report', 'report_generator'),
+('report.filter.developer', 'en', 'Developer', 'report_generator', 't_report', 'report_generator'),
+('report.filter.developer', 'fa', 'توسعه‌دهنده', 'report_generator', 't_report', 'report_generator'),
+('report.filter.standardHelp', 'en', 'Combine conditions with AND and optionally negate individual conditions.', 'report_generator', 't_report', 'report_generator'),
+('report.filter.standardHelp', 'fa', 'شرط‌ها را با AND ترکیب کنید و در صورت نیاز هر شرط را به‌صورت مستقل معکوس کنید.', 'report_generator', 't_report', 'report_generator'),
+('report.filter.advancedHelp', 'en', 'Build nested groups with AND, OR, and NOT.', 'report_generator', 't_report', 'report_generator'),
+('report.filter.advancedHelp', 'fa', 'گروه‌های تو‌در‌تو با عملگرهای AND، OR و NOT بسازید.', 'report_generator', 't_report', 'report_generator')
+ON CONFLICT (item_code, language_code)
+DO UPDATE SET
+    translated_text = EXCLUDED.translated_text,
+    context_type = EXCLUDED.context_type,
+    owner_column_table = EXCLUDED.owner_column_table,
+    form_name = EXCLUDED.form_name;
+
 COMMIT;
