@@ -23,7 +23,11 @@ In collaboration with GPT4 Chat Assistant: Bahram
         <input v-model="reportTitle" :disabled="Boolean(selectedReportId) && !canEdit" class="w-full rounded-lg border border-border bg-panel px-2.5 py-2 text-xs disabled:opacity-60" :placeholder="labels.title" />
       </div>
 
-      <div class="flex flex-wrap gap-1.5">
+      <div class="flex flex-wrap items-center gap-1.5">
+        <label class="flex items-center gap-1.5 px-1 text-[10px] text-muted">
+          <input v-model="includeFiltersOnSave" type="checkbox" />
+          {{ labels.includeFilters }}
+        </label>
         <button class="report-action report-primary" :disabled="loading || !canSave" @click="saveReport">{{ labels.save }}</button>
         <button class="report-action" :disabled="loading" @click="saveAs">{{ labels.saveAs }}</button>
         <button class="report-action" :disabled="loading" @click="resetDesign">{{ labels.reset }}</button>
@@ -47,14 +51,28 @@ In collaboration with GPT4 Chat Assistant: Bahram
         <div class="min-h-0 flex-1 overflow-y-auto p-3">
           <section v-if="activeTab === 'columns'" class="space-y-2">
             <div class="text-xs font-semibold">{{ labels.columns }}</div>
-            <div v-for="column in columns" :key="column.field_name" class="rounded-lg border border-border p-2">
-              <label class="flex items-center gap-2 text-xs">
-                <input v-model="column.is_visible" type="checkbox" @change="runReport" />
-                <span class="min-w-0 flex-1 truncate">{{ fieldLabel(column.field_name) }}</span>
-              </label>
+            <div
+              v-for="(column, index) in columns"
+              :key="column.field_name"
+              class="rounded-lg border border-border p-2"
+              draggable="true"
+              @dragstart="startColumnDrag(index, $event)"
+              @dragover.prevent
+              @drop="dropColumn(index)"
+            >
+              <div class="flex items-center gap-2">
+                <icon name="grip-vertical" class="shrink-0 text-muted" />
+                <label class="flex min-w-0 flex-1 items-center gap-2 text-xs">
+                  <input v-model="column.is_visible" type="checkbox" @change="runReport" />
+                  <span class="min-w-0 flex-1 truncate">{{ fieldLabel(column.field_name) }}</span>
+                </label>
+                <button class="text-xs text-muted disabled:opacity-30" :disabled="index === 0" :aria-label="labels.moveUp" @click="moveColumn(index, -1)">↑</button>
+                <button class="text-xs text-muted disabled:opacity-30" :disabled="index === columns.length - 1" :aria-label="labels.moveDown" @click="moveColumn(index, 1)">↓</button>
+              </div>
               <div class="mt-2 flex items-center gap-2">
                 <label class="text-[10px] text-muted">{{ labels.width }}</label>
                 <input v-model.number="column.width_px" type="number" min="48" max="2000" class="w-20 rounded border border-border bg-panel px-1.5 py-1 text-xs" @change="runReport" />
+                <span class="text-[10px] text-muted">px</span>
               </div>
             </div>
           </section>
@@ -227,6 +245,8 @@ const columns = ref([])
 const filters = ref([])
 const filterBaseline = ref('[]')
 const filterMode = ref('standard')
+const includeFiltersOnSave = ref(true)
+const draggedColumnIndex = ref(null)
 const shares = ref([])
 const permissions = ref([])
 const gridItems = ref([...props.items])
@@ -276,6 +296,9 @@ const labelDictionary = {
   delete: 'report.delete',
   columns: 'report.columns',
   width: 'report.width',
+  includeFilters: 'report.includeFilters',
+  moveUp: 'report.moveUp',
+  moveDown: 'report.moveDown',
   filters: 'report.filters',
   filterDesigner: 'report.filterDesigner',
   match: 'report.match',
@@ -606,6 +629,42 @@ function updateColumns(nextColumns) {
   }))
 }
 
+function normalizeColumnOrder() {
+  columns.value = columns.value.map((column, index) => ({
+    ...column,
+    display_order: index + 1
+  }))
+}
+
+function moveColumn(index, offset) {
+  const target = index + offset
+  if (target < 0 || target >= columns.value.length) return
+  const next = [...columns.value]
+  const [moved] = next.splice(index, 1)
+  next.splice(target, 0, moved)
+  columns.value = next
+  normalizeColumnOrder()
+  runReport()
+}
+
+function startColumnDrag(index, event) {
+  draggedColumnIndex.value = index
+  event.dataTransfer.effectAllowed = 'move'
+  event.dataTransfer.setData('text/plain', String(index))
+}
+
+function dropColumn(targetIndex) {
+  const sourceIndex = draggedColumnIndex.value
+  draggedColumnIndex.value = null
+  if (sourceIndex === null || sourceIndex === targetIndex) return
+  const next = [...columns.value]
+  const [moved] = next.splice(sourceIndex, 1)
+  next.splice(targetIndex, 0, moved)
+  columns.value = next
+  normalizeColumnOrder()
+  runReport()
+}
+
 async function resetDesign() {
   columns.value = defaultColumns.value.map(item => ({ ...item }))
   await loadDefaultSortPreference()
@@ -715,6 +774,7 @@ async function loadReports() {
     columns.value = defaultColumns.value.map(item => ({ ...item }))
     await loadDefaultSortPreference()
     filters.value = []
+    includeFiltersOnSave.value = true
     syncFilterBaseline()
     sharingPolicy.value = 'PRIVATE'
     await runReport()
@@ -748,6 +808,7 @@ async function selectReport(reportId) {
     sharingPolicy.value = report.sharing_policy
     columns.value = (report.columns || []).map(item => ({ ...item }))
     loadFilterTree(report.filters || [])
+    includeFiltersOnSave.value = (report.filters || []).length > 0
     syncFilterBaseline()
     await loadShares()
     await runReport()
@@ -816,7 +877,7 @@ async function saveAs() {
       ? await axios.post('/reports/' + selectedReportId.value + '/clone', {
           report_title: copyTitle,
           columns: columns.value,
-          filters: buildFilterTree()
+          filters: includeFiltersOnSave.value ? buildFilterTree() : []
         })
       : await axios.post('/reports', {
           ...reportPayload(),
