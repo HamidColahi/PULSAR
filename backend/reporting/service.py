@@ -785,9 +785,14 @@ def _build_filter_expression(
         )
 
     if node["node_type"] == "SQL":
+        sql_field_configs = {
+            field_name: metadata
+            for field_name, metadata in field_configs.items()
+            if field_name in Model.__table__.columns
+        }
         safe_expression = validate_sql_filter(
             node.get("sql_expression", ""),
-            field_configs,
+            sql_field_configs,
         )
         if node.get("is_negated") is True:
             return text(f"(NOT ({safe_expression}))")
