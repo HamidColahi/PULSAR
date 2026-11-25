@@ -52,6 +52,12 @@ def validate_sql_filter(
             detail="SQL Filter must contain between 1 and 4000 characters.",
         )
 
+    if any(marker in source for marker in (";", "--", "/*", "*/", ":", "#")):
+        raise HTTPException(
+            status_code=422,
+            detail="SQL Filter cannot contain comments, bind markers, or statement separators.",
+        )
+
     searchable_fields = {
         name
         for name, metadata in field_metadata.items()
