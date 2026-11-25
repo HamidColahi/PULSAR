@@ -225,6 +225,7 @@ const reportDescription = ref('')
 const sharingPolicy = ref('PRIVATE')
 const columns = ref([])
 const filters = ref([])
+const filterBaseline = ref('[]')
 const filterMode = ref('standard')
 const shares = ref([])
 const permissions = ref([])
@@ -558,6 +559,14 @@ function buildFilterTree() {
     .filter(Boolean)
 }
 
+function syncFilterBaseline() {
+  filterBaseline.value = JSON.stringify(buildFilterTree())
+}
+
+function hasFilterChanges() {
+  return JSON.stringify(buildFilterTree()) !== filterBaseline.value
+}
+
 function loadFilterTree(tree) {
   function hydrate(node, index, parentId = 'root') {
     const hydrated = {
@@ -705,6 +714,7 @@ async function loadReports() {
     columns.value = defaultColumns.value.map(item => ({ ...item }))
     await loadDefaultSortPreference()
     filters.value = []
+    syncFilterBaseline()
     sharingPolicy.value = 'PRIVATE'
     await runReport()
   }
@@ -719,6 +729,7 @@ async function selectReport(reportId) {
     columns.value = defaultColumns.value.map(item => ({ ...item }))
     await loadDefaultSortPreference()
     filters.value = []
+    syncFilterBaseline()
     await runReport()
     return
   }
@@ -736,6 +747,7 @@ async function selectReport(reportId) {
     sharingPolicy.value = report.sharing_policy
     columns.value = (report.columns || []).map(item => ({ ...item }))
     loadFilterTree(report.filters || [])
+    syncFilterBaseline()
     await loadShares()
     await runReport()
   } catch (err) {
@@ -765,18 +777,23 @@ async function saveReport() {
 
   try {
     if (selectedReportId.value) {
-      const response = await axios.put('/reports/' + selectedReportId.value, {
+      const updatePayload = {
         report_title: reportTitle.value.trim(),
         report_desc: reportDescription.value,
-        columns: columns.value,
-        filters: buildFilterTree()
-      })
+        columns: columns.value
+      }
+      if (hasFilterChanges()) {
+        updatePayload.filters = buildFilterTree()
+      }
+      const response = await axios.put('/reports/' + selectedReportId.value, updatePayload)
+      syncFilterBaseline()
       await refreshReportList()
       if (response.data?.sharing_policy) sharingPolicy.value = response.data.sharing_policy
     } else {
       const response = await axios.post('/reports', reportPayload())
       selectedReportId.value = response.data.report_id
       sharingPolicy.value = 'PRIVATE'
+      syncFilterBaseline()
       await refreshReportList()
     }
     await loadShares()
@@ -800,6 +817,7 @@ async function saveAs() {
     selectedReportId.value = response.data.report_id
     reportTitle.value = originalTitle + ' Copy'
     sharingPolicy.value = 'PRIVATE'
+    syncFilterBaseline()
     await refreshReportList()
     await loadShares()
   } catch (err) {
@@ -821,6 +839,7 @@ async function deleteReport() {
     reportTitle.value = labels.value.defaultTitle
     columns.value = defaultColumns.value.map(item => ({ ...item }))
     filters.value = []
+    syncFilterBaseline()
     shares.value = []
     await refreshReportList()
     await runReport()
