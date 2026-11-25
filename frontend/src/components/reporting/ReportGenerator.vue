@@ -297,6 +297,7 @@ const labelDictionary = {
   columns: 'report.columns',
   width: 'report.width',
   includeFilters: 'report.includeFilters',
+  copyTitle: 'report.copyTitle',
   moveUp: 'report.moveUp',
   moveDown: 'report.moveDown',
   filters: 'report.filters',
@@ -873,10 +874,12 @@ async function saveAs() {
 
   try {
     const originalTitle = reportTitle.value.trim() || labels.value.defaultTitle
-    const copyTitle = originalTitle + ' Copy'
+    const defaultCopyTitle = originalTitle + ' Copy'
+    const copyTitle = window.prompt(labels.value.copyTitle, defaultCopyTitle)
+    if (!copyTitle || !copyTitle.trim()) return
     const response = selectedReportId.value
       ? await axios.post('/reports/' + selectedReportId.value + '/clone', {
-          report_title: copyTitle,
+          report_title: copyTitle.trim().trim(),
           columns: columns.value,
           filters: includeFiltersOnSave.value ? buildFilterTree() : []
         })
