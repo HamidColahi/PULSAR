@@ -140,39 +140,72 @@ WHERE page_config.is_enabled IS TRUE
 ON CONFLICT DO NOTHING;
 
 
+UPDATE pulsar.translation_dictionary AS target
+SET translated_text = source.translated_text
+FROM
+(
+    VALUES
+    ('report.addNestedGroup', 'en', 'Add nested group'),
+('report.addNestedGroup', 'fa', 'افزودن گروه تو‌در‌تو'),
+('report.addSqlFilter', 'en', 'Add SQL Filter'),
+('report.addSqlFilter', 'fa', 'افزودن فیلتر SQL'),
+('report.sqlFilter', 'en', 'SQL Filter'),
+('report.sqlFilter', 'fa', 'فیلتر SQL'),
+('report.sqlFilterHelp', 'en', 'Enter only the WHERE predicate expression, without the WHERE keyword, using searchable fields of this Grid. SELECT, joins, comments, multiple statements, and unapproved functions are not allowed.'),
+('report.sqlFilterHelp', 'fa', 'فقط عبارت شرطی WHERE را بدون کلمه WHERE و با استفاده از فیلدهای قابل جست‌وجوی همین گرید وارد کنید. SELECT، اتصال جدول‌ها، توضیحات، چند دستور و توابع تأییدنشده مجاز نیستند.'),
+('report.filter.standard', 'en', 'Standard'),
+('report.filter.standard', 'fa', 'ساده'),
+('report.filter.advanced', 'en', 'Advanced'),
+('report.filter.advanced', 'fa', 'پیشرفته'),
+('report.filter.developer', 'en', 'Developer'),
+('report.filter.developer', 'fa', 'توسعه‌دهنده'),
+('report.filter.standardHelp', 'en', 'Combine conditions with AND and optionally negate individual conditions.'),
+('report.filter.standardHelp', 'fa', 'شرط‌ها را با AND ترکیب کنید و در صورت نیاز هر شرط را به‌صورت مستقل معکوس کنید.'),
+('report.filter.advancedHelp', 'en', 'Build nested groups with AND, OR, and NOT.'),
+('report.filter.advancedHelp', 'fa', 'گروه‌های تو‌در‌تو با عملگرهای AND، OR و NOT بسازید.')
+) AS source(item_code, language_code, translated_text)
+WHERE target.item_code = source.item_code
+  AND target.language_code = source.language_code;
+
 INSERT INTO pulsar.translation_dictionary
 (
     item_code,
     language_code,
-    translated_text,
-    context_type,
-    owner_column_table,
-    form_name
+    translated_text
 )
-VALUES
-('report.addNestedGroup', 'en', 'Add nested group', 'report_generator', 't_report', 'report_generator'),
-('report.addNestedGroup', 'fa', 'افزودن گروه تو‌در‌تو', 'report_generator', 't_report', 'report_generator'),
-('report.addSqlFilter', 'en', 'Add SQL Filter', 'report_generator', 't_report', 'report_generator'),
-('report.addSqlFilter', 'fa', 'افزودن فیلتر SQL', 'report_generator', 't_report', 'report_generator'),
-('report.sqlFilter', 'en', 'SQL Filter', 'report_generator', 't_report', 'report_generator'),
-('report.sqlFilter', 'fa', 'فیلتر SQL', 'report_generator', 't_report', 'report_generator'),
-('report.sqlFilterHelp', 'en', 'Enter only the WHERE predicate expression, without the WHERE keyword, using searchable fields of this Grid. SELECT, joins, comments, multiple statements, and unapproved functions are not allowed.', 'report_generator', 't_report', 'report_generator'),
-('report.sqlFilterHelp', 'fa', 'فقط عبارت شرطی WHERE را بدون کلمه WHERE و با استفاده از فیلدهای قابل جست‌وجوی همین گرید وارد کنید. SELECT، اتصال جدول‌ها، توضیحات، چند دستور و توابع تأییدنشده مجاز نیستند.', 'report_generator', 't_report', 'report_generator'),
-('report.filter.standard', 'en', 'Standard', 'report_generator', 't_report', 'report_generator'),
-('report.filter.standard', 'fa', 'ساده', 'report_generator', 't_report', 'report_generator'),
-('report.filter.advanced', 'en', 'Advanced', 'report_generator', 't_report', 'report_generator'),
-('report.filter.advanced', 'fa', 'پیشرفته', 'report_generator', 't_report', 'report_generator'),
-('report.filter.developer', 'en', 'Developer', 'report_generator', 't_report', 'report_generator'),
-('report.filter.developer', 'fa', 'توسعه‌دهنده', 'report_generator', 't_report', 'report_generator'),
-('report.filter.standardHelp', 'en', 'Combine conditions with AND and optionally negate individual conditions.', 'report_generator', 't_report', 'report_generator'),
-('report.filter.standardHelp', 'fa', 'شرط‌ها را با AND ترکیب کنید و در صورت نیاز هر شرط را به‌صورت مستقل معکوس کنید.', 'report_generator', 't_report', 'report_generator'),
-('report.filter.advancedHelp', 'en', 'Build nested groups with AND, OR, and NOT.', 'report_generator', 't_report', 'report_generator'),
-('report.filter.advancedHelp', 'fa', 'گروه‌های تو‌در‌تو با عملگرهای AND، OR و NOT بسازید.', 'report_generator', 't_report', 'report_generator')
-ON CONFLICT (item_code, language_code)
-DO UPDATE SET
-    translated_text = EXCLUDED.translated_text,
-    context_type = EXCLUDED.context_type,
-    owner_column_table = EXCLUDED.owner_column_table,
-    form_name = EXCLUDED.form_name;
+SELECT
+    source.item_code,
+    source.language_code,
+    source.translated_text
+FROM
+(
+    VALUES
+    ('report.addNestedGroup', 'en', 'Add nested group'),
+('report.addNestedGroup', 'fa', 'افزودن گروه تو‌در‌تو'),
+('report.addSqlFilter', 'en', 'Add SQL Filter'),
+('report.addSqlFilter', 'fa', 'افزودن فیلتر SQL'),
+('report.sqlFilter', 'en', 'SQL Filter'),
+('report.sqlFilter', 'fa', 'فیلتر SQL'),
+('report.sqlFilterHelp', 'en', 'Enter only the WHERE predicate expression, without the WHERE keyword, using searchable fields of this Grid. SELECT, joins, comments, multiple statements, and unapproved functions are not allowed.'),
+('report.sqlFilterHelp', 'fa', 'فقط عبارت شرطی WHERE را بدون کلمه WHERE و با استفاده از فیلدهای قابل جست‌وجوی همین گرید وارد کنید. SELECT، اتصال جدول‌ها، توضیحات، چند دستور و توابع تأییدنشده مجاز نیستند.'),
+('report.filter.standard', 'en', 'Standard'),
+('report.filter.standard', 'fa', 'ساده'),
+('report.filter.advanced', 'en', 'Advanced'),
+('report.filter.advanced', 'fa', 'پیشرفته'),
+('report.filter.developer', 'en', 'Developer'),
+('report.filter.developer', 'fa', 'توسعه‌دهنده'),
+('report.filter.standardHelp', 'en', 'Combine conditions with AND and optionally negate individual conditions.'),
+('report.filter.standardHelp', 'fa', 'شرط‌ها را با AND ترکیب کنید و در صورت نیاز هر شرط را به‌صورت مستقل معکوس کنید.'),
+('report.filter.advancedHelp', 'en', 'Build nested groups with AND, OR, and NOT.'),
+('report.filter.advancedHelp', 'fa', 'گروه‌های تو‌در‌تو با عملگرهای AND، OR و NOT بسازید.')
+) AS source(item_code, language_code, translated_text)
+WHERE NOT EXISTS
+(
+    SELECT 1
+    FROM pulsar.translation_dictionary AS target
+    WHERE target.item_code = source.item_code
+      AND target.language_code = source.language_code
+);
+
 
 COMMIT;
