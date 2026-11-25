@@ -66,6 +66,8 @@ ALTER TABLE pulsar.t_report_filter
                 AND logical_operator IN ('AND', 'OR')
                 AND field_name IS NULL
                 AND operator_code IS NULL
+                AND parameter_code IS NULL
+                AND value_json IS NULL
                 AND sql_expression IS NULL
             )
             OR
@@ -83,6 +85,7 @@ ALTER TABLE pulsar.t_report_filter
                 AND field_name IS NULL
                 AND operator_code IS NULL
                 AND parameter_code IS NULL
+                AND value_json IS NULL
                 AND sql_expression IS NOT NULL
                 AND NULLIF(BTRIM(sql_expression), '') IS NOT NULL
                 AND LENGTH(sql_expression) <= 4000
