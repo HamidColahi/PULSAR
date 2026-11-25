@@ -163,7 +163,15 @@ FROM
 ('report.filter.standardHelp', 'en', 'Combine conditions with AND and optionally negate individual conditions.'),
 ('report.filter.standardHelp', 'fa', 'شرط‌ها را با AND ترکیب کنید و در صورت نیاز هر شرط را به‌صورت مستقل معکوس کنید.'),
 ('report.filter.advancedHelp', 'en', 'Build nested groups with AND, OR, and NOT.'),
-('report.filter.advancedHelp', 'fa', 'گروه‌های تو‌در‌تو با عملگرهای AND، OR و NOT بسازید.')
+('report.filter.advancedHelp', 'fa', 'گروه‌های تو‌در‌تو با عملگرهای AND، OR و NOT بسازید.'),
+    ('report.includeFilters', 'en', 'Save with filters'),
+    ('report.includeFilters', 'fa', 'ذخیره همراه با فیلترها'),
+    ('report.moveUp', 'en', 'Move up'),
+    ('report.moveUp', 'fa', 'انتقال به بالا'),
+    ('report.moveDown', 'en', 'Move down'),
+    ('report.moveDown', 'fa', 'انتقال به پایین'),
+    ('report.copyTitle', 'en', 'Enter a title for the duplicate'),
+    ('report.copyTitle', 'fa', 'عنوان نسخه کپی را وارد کنید.')
 ) AS source(item_code, language_code, translated_text)
 WHERE target.item_code = source.item_code
   AND target.language_code = source.language_code;
@@ -198,7 +206,15 @@ FROM
 ('report.filter.standardHelp', 'en', 'Combine conditions with AND and optionally negate individual conditions.'),
 ('report.filter.standardHelp', 'fa', 'شرط‌ها را با AND ترکیب کنید و در صورت نیاز هر شرط را به‌صورت مستقل معکوس کنید.'),
 ('report.filter.advancedHelp', 'en', 'Build nested groups with AND, OR, and NOT.'),
-('report.filter.advancedHelp', 'fa', 'گروه‌های تو‌در‌تو با عملگرهای AND، OR و NOT بسازید.')
+('report.filter.advancedHelp', 'fa', 'گروه‌های تو‌در‌تو با عملگرهای AND، OR و NOT بسازید.'),
+    ('report.includeFilters', 'en', 'Save with filters'),
+    ('report.includeFilters', 'fa', 'ذخیره همراه با فیلترها'),
+    ('report.moveUp', 'en', 'Move up'),
+    ('report.moveUp', 'fa', 'انتقال به بالا'),
+    ('report.moveDown', 'en', 'Move down'),
+    ('report.moveDown', 'fa', 'انتقال به پایین'),
+    ('report.copyTitle', 'en', 'Enter a title for the duplicate'),
+    ('report.copyTitle', 'fa', 'عنوان نسخه کپی را وارد کنید.')
 ) AS source(item_code, language_code, translated_text)
 WHERE NOT EXISTS
 (
