@@ -30,6 +30,7 @@ from general.permissions.service import (
     has_permission,
     require_page_view_access,
 )
+from reporting.filter_sql import validate_sql_filter
 
 
 FILTER_OPERATORS = {
@@ -400,7 +401,9 @@ async def load_report_definition(
                 operator_code,
                 value_json,
                 parameter_code,
-                display_order
+                display_order,
+                is_negated,
+                sql_expression
             FROM pulsar.t_report_filter
             WHERE report_id = :report_id
             ORDER BY display_order, filter_id
@@ -424,6 +427,8 @@ async def load_report_definition(
             "value": row["value_json"],
             "parameter_code": row["parameter_code"],
             "display_order": row["display_order"],
+            "is_negated": row["is_negated"],
+            "sql_expression": row["sql_expression"],
             "children": [],
         }
         nodes[node_id] = node
@@ -532,7 +537,9 @@ async def replace_report_definition(
                     operator_code,
                     value_json,
                     parameter_code,
-                    display_order
+                    display_order,
+                    is_negated,
+                    sql_expression
                 )
                 VALUES
                 (
@@ -544,7 +551,9 @@ async def replace_report_definition(
                     :operator_code,
                     CAST(:value_json AS JSONB),
                     :parameter_code,
-                    :display_order
+                    :display_order,
+                    :is_negated,
+                    :sql_expression
                 )
                 RETURNING filter_id
                 """
@@ -563,6 +572,8 @@ async def replace_report_definition(
                 ),
                 "parameter_code": node.get("parameter_code"),
                 "display_order": node.get("display_order", order_index),
+                "is_negated": node.get("is_negated", False),
+                "sql_expression": node.get("sql_expression"),
             },
         )
 
@@ -614,7 +625,7 @@ def _resolve_dynamic_parameter(
     )
 
 
-def _build_filter_expression(
+def _build_filter_expression_base(
     node: dict[str, Any],
     Model,
     field_configs: dict[str, dict[str, Any]],
@@ -756,6 +767,40 @@ def _build_filter_expression(
     }
 
     return expressions[operator_code]()
+
+
+def _build_filter_expression(
+    node: dict[str, Any],
+    Model,
+    field_configs: dict[str, dict[str, Any]],
+    user_id: str,
+    profile_id: str,
+    depth: int = 1,
+):
+    """Build one validated filter node and apply its optional NOT operator."""
+    if depth > 12:
+        raise HTTPException(
+            status_code=422,
+            detail="Report filter nesting exceeds the supported depth.",
+        )
+
+    if node["node_type"] == "SQL":
+        safe_expression = validate_sql_filter(
+            node.get("sql_expression", ""),
+            field_configs,
+        )
+        expression = text(f"({safe_expression})")
+    else:
+        expression = _build_filter_expression_base(
+            node,
+            Model,
+            field_configs,
+            user_id,
+            profile_id,
+            depth,
+        )
+
+    return ~expression if node.get("is_negated") is True else expression
 
 
 async def execute_report(
