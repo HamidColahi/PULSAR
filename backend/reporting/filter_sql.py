@@ -151,6 +151,11 @@ def validate_sql_filter(
         if kind == "punct":
             if value == "(":
                 depth += 1
+                if depth > 32:
+                    raise HTTPException(
+                        status_code=422,
+                        detail="SQL Filter nesting exceeds the supported depth.",
+                    )
             elif value == ")":
                 depth -= 1
                 if depth < 0:
