@@ -101,6 +101,11 @@ def validate_sql_filter(
         upper = value.upper()
 
         if kind == "string" or kind == "number":
+            if kind == "string" and "\\\\" in value:
+                raise HTTPException(
+                    status_code=422,
+                    detail="Backslash escapes are not supported in SQL Filter string literals.",
+                )
             normalized.append(value)
             continue
 
@@ -126,7 +131,10 @@ def validate_sql_filter(
                         status_code=403,
                         detail=f"SQL Filter function '{value}' is not allowed.",
                     )
-                normalized.append(upper)
+                if upper in {"COALESCE", "NULLIF"}:
+                    normalized.append(upper)
+                else:
+                    normalized.append("pg_catalog." + upper)
                 continue
 
             if value not in searchable_fields:
