@@ -61,7 +61,7 @@ In collaboration with GPT4 Chat Assistant: Bahram
               @drop="dropColumn(index)"
             >
               <div class="flex items-center gap-2">
-                <icon name="grip-vertical" class="shrink-0 text-muted" />
+                <span class="shrink-0 select-none text-muted">⋮⋮</span>
                 <label class="flex min-w-0 flex-1 items-center gap-2 text-xs">
                   <input v-model="column.is_visible" type="checkbox" @change="runReport" />
                   <span class="min-w-0 flex-1 truncate">{{ fieldLabel(column.field_name) }}</span>
@@ -844,15 +844,16 @@ async function saveReport() {
         report_desc: reportDescription.value,
         columns: columns.value
       }
-      if (hasFilterChanges()) {
-        updatePayload.filters = buildFilterTree()
-      }
+      updatePayload.filters = includeFiltersOnSave.value ? buildFilterTree() : []
       const response = await axios.put('/reports/' + selectedReportId.value, updatePayload)
       syncFilterBaseline()
       await refreshReportList()
       if (response.data?.sharing_policy) sharingPolicy.value = response.data.sharing_policy
     } else {
-      const response = await axios.post('/reports', reportPayload())
+      const response = await axios.post('/reports', {
+        ...reportPayload(),
+        filters: includeFiltersOnSave.value ? buildFilterTree() : []
+      })
       selectedReportId.value = response.data.report_id
       sharingPolicy.value = 'PRIVATE'
       syncFilterBaseline()
@@ -881,6 +882,7 @@ async function saveAs() {
         })
       : await axios.post('/reports', {
           ...reportPayload(),
+          filters: includeFiltersOnSave.value ? buildFilterTree() : [],
           report_title: copyTitle
         })
     selectedReportId.value = response.data.report_id
