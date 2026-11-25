@@ -392,15 +392,8 @@ def _validate_filters(
         collect_submitted_signatures(node)
 
     for signature, existing_node in (existing_nodes_by_signature or {}).items():
-        node_type = existing_node.get("node_type")
-        requires_advanced = node_type == "GROUP" and (
-            existing_node.get("logical_operator") != "AND"
-            or any(
-                child.get("node_type") == "GROUP"
-                for child in existing_node.get("children", [])
-            )
-        )
-        requires_sql = node_type == "SQL"
+        requires_advanced = existing_node.get("_requires_advanced") is True
+        requires_sql = existing_node.get("_requires_sql") is True
         if (
             (requires_advanced and not allow_advanced)
             or (requires_sql and not allow_sql)
@@ -457,7 +450,11 @@ def _collect_existing_filter_nodes(
             )
         )
         if node.get("node_type") == "SQL" or requires_advanced:
-            existing[_filter_node_signature(node)] = node
+            existing[_filter_node_signature(node)] = {
+                **node,
+                "_requires_advanced": requires_advanced,
+                "_requires_sql": node.get("node_type") == "SQL",
+            }
 
         for child in children:
             visit(child, depth + 1)
