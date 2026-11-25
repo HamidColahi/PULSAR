@@ -670,6 +670,8 @@ async function resetDesign() {
   columns.value = defaultColumns.value.map(item => ({ ...item }))
   await loadDefaultSortPreference()
   filters.value = []
+  includeFiltersOnSave.value = true
+  syncFilterBaseline()
   await runReport()
 }
 
@@ -791,6 +793,7 @@ async function selectReport(reportId) {
     columns.value = defaultColumns.value.map(item => ({ ...item }))
     await loadDefaultSortPreference()
     filters.value = []
+    includeFiltersOnSave.value = true
     syncFilterBaseline()
     await runReport()
     return
@@ -879,17 +882,17 @@ async function saveAs() {
     if (!copyTitle || !copyTitle.trim()) return
     const response = selectedReportId.value
       ? await axios.post('/reports/' + selectedReportId.value + '/clone', {
-          report_title: copyTitle.trim().trim(),
+          report_title: copyTitle.trim(),
           columns: columns.value,
           filters: includeFiltersOnSave.value ? buildFilterTree() : []
         })
       : await axios.post('/reports', {
           ...reportPayload(),
           filters: includeFiltersOnSave.value ? buildFilterTree() : [],
-          report_title: copyTitle
+          report_title: copyTitle.trim()
         })
     selectedReportId.value = response.data.report_id
-    reportTitle.value = copyTitle
+    reportTitle.value = copyTitle.trim()
     sharingPolicy.value = 'PRIVATE'
     syncFilterBaseline()
     await refreshReportList()
