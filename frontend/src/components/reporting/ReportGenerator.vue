@@ -1,7 +1,7 @@
 <!-- ===============================================
 File: frontend/src/components/reporting/ReportGenerator.vue
 Description: Metadata-driven Report Generator designer and manager
-Modified: 2026-11-24 (Asia/Baku)
+Modified: 2026-11-26 (Asia/Baku)
 In collaboration with GPT4 Chat Assistant: Bahram
 =============================================== -->
 
