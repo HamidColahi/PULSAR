@@ -241,3 +241,23 @@ function addSqlFilter() {
   })
 }
 </script>
+
+<style scoped>
+.report-action {
+  border: 1px solid var(--pulsar-level-border);
+  border-radius: 0.55rem;
+  padding: 0.48rem 0.7rem;
+  color: var(--pulsar-level-text);
+  font-size: 0.68rem;
+  font-weight: 600;
+  background: var(--pulsar-level-surface);
+  transition: background 120ms ease, border-color 120ms ease;
+}
+.report-action:hover {
+  background: var(--pulsar-level-hover);
+}
+.report-action:disabled {
+  cursor: not-allowed;
+  opacity: 0.45;
+}
+</style>
