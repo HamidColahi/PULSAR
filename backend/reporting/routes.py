@@ -138,7 +138,11 @@ class ReportUpdate(BaseModel):
 
 
 class ReportClone(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+
     report_title: str | None = Field(default=None, min_length=1, max_length=255)
+    columns: list[ReportColumnInput] | None = None
+    filters: list[ReportFilterNode] | None = None
 
 
 class ReportShareInput(BaseModel):
@@ -1334,6 +1338,38 @@ async def clone_report(
         report_id,
     )
 
+    if payload.columns is not None or payload.filters is not None:
+        field_metadata = await _load_field_metadata(
+            session,
+            source["source_component_name"],
+        )
+        columns = (
+            _validate_columns(payload.columns, field_metadata)
+            if payload.columns is not None
+            else source_definition["columns"]
+        )
+        if payload.filters is not None:
+            allow_advanced, allow_sql = await _filter_permissions(
+                session,
+                str(current_user.id),
+                source["page_key"],
+            )
+            existing_nodes_by_signature = _collect_existing_filter_nodes(
+                source_definition["filters"]
+            )
+            filters = _validate_filters(
+                payload.filters,
+                field_metadata,
+                allow_advanced=allow_advanced,
+                allow_sql=allow_sql,
+                existing_nodes_by_signature=existing_nodes_by_signature,
+            )
+        else:
+            filters = source_definition["filters"]
+    else:
+        columns = source_definition["columns"]
+        filters = source_definition["filters"]
+
     title = (
         payload.report_title.strip()
         if payload.report_title
@@ -1391,8 +1427,8 @@ async def clone_report(
     await replace_report_definition(
         session,
         new_report_id,
-        source_definition["columns"],
-        source_definition["filters"],
+        columns,
+        filters,
         user_id=str(current_user.id),
     )
 
