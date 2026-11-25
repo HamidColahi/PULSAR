@@ -296,6 +296,7 @@ def _validate_filters(
     *,
     allow_advanced: bool,
     allow_sql: bool,
+    existing_sql_signatures: set[tuple[str, bool]] | None = None,
 ) -> list[dict[str, Any]]:
     def validate_node(node: ReportFilterNode, depth: int = 1) -> dict[str, Any]:
         if depth > 12:
@@ -326,10 +327,11 @@ def _validate_filters(
             }
 
         if node.node_type == "SQL":
-            if not allow_sql:
+            signature = (node.sql_expression.strip(), node.is_negated)
+            if not allow_sql and signature not in (existing_sql_signatures or set()):
                 raise HTTPException(
                     status_code=403,
-                    detail="SQL Filter requires REPORT.FILTER.SQL permission.",
+                    detail="SQL Filter changes require REPORT.FILTER.SQL permission.",
                 )
             return {
                 "node_type": "SQL",
@@ -1085,11 +1087,24 @@ async def update_report(
             allow_advanced, allow_sql = await _filter_permissions(
                 session, str(current_user.id), report["page_key"]
             )
+            existing_sql_signatures = set()
+
+            def collect_sql_signatures(nodes):
+                for existing_node in nodes:
+                    if existing_node["node_type"] == "SQL":
+                        existing_sql_signatures.add((
+                            str(existing_node.get("sql_expression") or "").strip(),
+                            existing_node.get("is_negated") is True,
+                        ))
+                    collect_sql_signatures(existing_node.get("children", []))
+
+            collect_sql_signatures(current_definition["filters"])
             filters = _validate_filters(
                 changes["filters"],
                 field_metadata,
                 allow_advanced=allow_advanced,
                 allow_sql=allow_sql,
+                existing_sql_signatures=existing_sql_signatures,
             )
         else:
             filters = current_definition["filters"]
