@@ -146,7 +146,7 @@ In collaboration with GPT4 Chat Assistant: Bahram
 </template>
 
 <script setup>
-import { computed } from 'vue'
+import { computed, watch } from 'vue'
 
 defineOptions({ name: 'ReportFilterNode' })
 
@@ -164,6 +164,20 @@ const props = defineProps({
 })
 
 defineEmits(['remove'])
+
+watch(
+  () => props.node.operator_code,
+  operator => {
+    const listOperators = ['IN', 'NOT_IN', 'BETWEEN', 'NOT_BETWEEN']
+    if (listOperators.includes(operator) && !Array.isArray(props.node.value)) {
+      props.node.value = props.node.value == null || props.node.value === ''
+        ? []
+        : String(props.node.value).split(',').map(item => item.trim()).filter(Boolean)
+    } else if (!listOperators.includes(operator) && Array.isArray(props.node.value)) {
+      props.node.value = props.node.value.join(', ')
+    }
+  }
+)
 
 const conditionValue = computed({
   get() {
