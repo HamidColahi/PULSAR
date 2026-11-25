@@ -811,12 +811,19 @@ async function saveAs() {
 
   try {
     const originalTitle = reportTitle.value.trim() || labels.value.defaultTitle
-    const response = await axios.post('/reports', {
-      ...reportPayload(),
-      report_title: originalTitle + ' Copy'
-    })
+    const copyTitle = originalTitle + ' Copy'
+    const response = selectedReportId.value
+      ? await axios.post('/reports/' + selectedReportId.value + '/clone', {
+          report_title: copyTitle,
+          columns: columns.value,
+          filters: buildFilterTree()
+        })
+      : await axios.post('/reports', {
+          ...reportPayload(),
+          report_title: copyTitle
+        })
     selectedReportId.value = response.data.report_id
-    reportTitle.value = originalTitle + ' Copy'
+    reportTitle.value = copyTitle
     sharingPolicy.value = 'PRIVATE'
     syncFilterBaseline()
     await refreshReportList()
