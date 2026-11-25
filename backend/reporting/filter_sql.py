@@ -101,7 +101,7 @@ def validate_sql_filter(
         upper = value.upper()
 
         if kind == "string" or kind == "number":
-            if kind == "string" and "\\\\" in value:
+            if kind == "string" and "\\" in value:
                 raise HTTPException(
                     status_code=422,
                     detail="Backslash escapes are not supported in SQL Filter string literals.",
