@@ -18,9 +18,11 @@ from core.audit_context import get_audited_session
 from general.auth.dependencies import get_current_user
 from general.user.schemas.user import UserProfileResponse
 from general.permissions.service import (
+    has_permission,
     require_page_view_access,
     require_permission,
 )
+from reporting.filter_sql import validate_sql_filter
 from reporting.service import (
     DYNAMIC_PARAMETERS,
     FILTER_OPERATORS,
@@ -56,7 +58,9 @@ class ReportColumnInput(BaseModel):
 class ReportFilterNode(BaseModel):
     model_config = ConfigDict(extra="forbid")
 
-    node_type: Literal["GROUP", "CONDITION"]
+    node_type: Literal["GROUP", "CONDITION", "SQL"]
+    is_negated: bool = False
+    sql_expression: str | None = Field(default=None, max_length=4000)
     logical_operator: Literal["AND", "OR"] | None = None
     field_name: str | None = Field(default=None, max_length=255)
     operator_code: str | None = Field(default=None, max_length=40)
@@ -72,8 +76,13 @@ class ReportFilterNode(BaseModel):
                 raise ValueError("A filter group requires AND or OR.")
             if not self.children:
                 raise ValueError("A filter group requires at least one child.")
-            if self.field_name or self.operator_code or self.parameter_code:
+            if self.field_name or self.operator_code or self.parameter_code or self.sql_expression:
                 raise ValueError("A filter group cannot contain condition fields.")
+        elif self.node_type == "SQL":
+            if not self.sql_expression or not self.sql_expression.strip():
+                raise ValueError("A SQL filter requires a WHERE predicate expression.")
+            if self.logical_operator is not None or self.children or self.field_name or self.operator_code or self.parameter_code:
+                raise ValueError("A SQL filter cannot contain structured condition fields.")
         else:
             if not self.field_name or not self.operator_code:
                 raise ValueError("A filter condition requires a field and operator.")
@@ -284,6 +293,9 @@ def _validate_columns(
 def _validate_filters(
     filters: list[ReportFilterNode],
     field_metadata: dict[str, dict[str, Any]],
+    *,
+    allow_advanced: bool,
+    allow_sql: bool,
 ) -> list[dict[str, Any]]:
     def validate_node(node: ReportFilterNode, depth: int = 1) -> dict[str, Any]:
         if depth > 12:
@@ -293,14 +305,38 @@ def _validate_filters(
             )
 
         if node.node_type == "GROUP":
+            if not allow_advanced and (
+                depth > 1
+                or node.logical_operator != "AND"
+                or any(child.node_type == "GROUP" for child in node.children)
+            ):
+                raise HTTPException(
+                    status_code=403,
+                    detail="Advanced filter groups require REPORT.FILTER.ADVANCED permission.",
+                )
             return {
                 "node_type": "GROUP",
                 "logical_operator": node.logical_operator,
+                "is_negated": node.is_negated,
                 "display_order": node.display_order,
                 "children": [
                     validate_node(child, depth + 1)
                     for child in node.children
                 ],
+            }
+
+        if node.node_type == "SQL":
+            if not allow_sql:
+                raise HTTPException(
+                    status_code=403,
+                    detail="SQL Filter requires REPORT.FILTER.SQL permission.",
+                )
+            return {
+                "node_type": "SQL",
+                "sql_expression": validate_sql_filter(node.sql_expression, field_metadata),
+                "is_negated": node.is_negated,
+                "display_order": node.display_order,
+                "children": [],
             }
 
         metadata = field_metadata.get(node.field_name)
@@ -319,6 +355,7 @@ def _validate_filters(
 
         return {
             "node_type": "CONDITION",
+            "is_negated": node.is_negated,
             "field_name": node.field_name,
             "operator_code": node.operator_code,
             "value": node.value,
@@ -331,6 +368,20 @@ def _validate_filters(
         validate_node(node)
         for node in filters
     ]
+
+
+async def _filter_permissions(
+    session: AsyncSession,
+    user_id: str,
+    page_key: str,
+) -> tuple[bool, bool]:
+    allow_sql = await has_permission(
+        session, user_id, "REPORT.FILTER.SQL", page_key
+    )
+    allow_advanced = allow_sql or await has_permission(
+        session, user_id, "REPORT.FILTER.ADVANCED", page_key
+    )
+    return allow_advanced, allow_sql
 
 
 async def _create_report_version(
@@ -569,6 +620,8 @@ async def update_report_page_configuration(
     if payload.is_enabled:
         permission_definitions = [
             ("REPORT.DESIGN.DELETE", "Delete users reports", "Delete reports created by other users for this page."),
+            ("REPORT.FILTER.ADVANCED", "Use advanced report filters", "Use nested AND/OR groups and advanced filter logic."),
+            ("REPORT.FILTER.SQL", "Use SQL report filters", "Write restricted WHERE predicates using searchable fields of the current Grid."),
         ]
         permission_definitions.append(
             ("REPORT.PUBLIC.PUBLISH", "Publish public reports", "Publish reports as public for this Report Generator page.")
@@ -625,7 +678,9 @@ async def update_report_page_configuration(
             WHERE page_key = :page_key
               AND permission_code IN (
                     'REPORT.PUBLIC.PUBLISH',
-                    'REPORT.DESIGN.DELETE'
+                    'REPORT.DESIGN.DELETE',
+                    'REPORT.FILTER.ADVANCED',
+                    'REPORT.FILTER.SQL'
               )
             """
         ),
@@ -795,7 +850,15 @@ async def preview_report(
         payload.source_component_name,
     )
     columns = _validate_columns(payload.columns, field_metadata)
-    filters = _validate_filters(payload.filters, field_metadata)
+    allow_advanced, allow_sql = await _filter_permissions(
+        session, str(current_user.id), payload.page_key
+    )
+    filters = _validate_filters(
+        payload.filters,
+        field_metadata,
+        allow_advanced=allow_advanced,
+        allow_sql=allow_sql,
+    )
 
     preview_report_definition = {
         "report_id": UUID(int=0),
@@ -839,7 +902,15 @@ async def create_report(
         payload.source_component_name,
     )
     columns = _validate_columns(payload.columns, field_metadata)
-    filters = _validate_filters(payload.filters, field_metadata)
+    allow_advanced, allow_sql = await _filter_permissions(
+        session, str(current_user.id), payload.page_key
+    )
+    filters = _validate_filters(
+        payload.filters,
+        field_metadata,
+        allow_advanced=allow_advanced,
+        allow_sql=allow_sql,
+    )
 
     result = await session.execute(
         text(
@@ -1010,11 +1081,18 @@ async def update_report(
             if "columns" in changes
             else current_definition["columns"]
         )
-        filters = (
-            _validate_filters(changes["filters"], field_metadata)
-            if "filters" in changes
-            else current_definition["filters"]
-        )
+        if "filters" in changes:
+            allow_advanced, allow_sql = await _filter_permissions(
+                session, str(current_user.id), report["page_key"]
+            )
+            filters = _validate_filters(
+                changes["filters"],
+                field_metadata,
+                allow_advanced=allow_advanced,
+                allow_sql=allow_sql,
+            )
+        else:
+            filters = current_definition["filters"]
 
         await replace_report_definition(
             session,
