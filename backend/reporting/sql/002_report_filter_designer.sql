@@ -93,6 +93,53 @@ ALTER TABLE pulsar.t_report_filter
         );
 
 
+
+INSERT INTO pulsar.t_permission
+(
+    permission_code,
+    permission_title,
+    page_key,
+    scope_type,
+    scope_key,
+    permission_desc,
+    is_active,
+    created_by,
+    created_at
+)
+SELECT
+    permission_definition.permission_code,
+    permission_definition.permission_title,
+    page_config.page_key,
+    'PAGE',
+    page_config.page_key,
+    permission_definition.permission_desc,
+    TRUE,
+    NULLIF(current_setting('pulsar.log_user', TRUE), '')::UUID,
+    CURRENT_TIMESTAMP
+FROM pulsar.t_report_page_config page_config
+CROSS JOIN
+(
+    VALUES
+    (
+        'REPORT.FILTER.ADVANCED',
+        'Use advanced report filters',
+        'Use nested AND/OR groups and advanced filter logic.'
+    ),
+    (
+        'REPORT.FILTER.SQL',
+        'Use SQL report filters',
+        'Write restricted WHERE predicates using searchable fields of the current Grid.'
+    )
+) AS permission_definition
+(
+    permission_code,
+    permission_title,
+    permission_desc
+)
+WHERE page_config.is_enabled IS TRUE
+ON CONFLICT DO NOTHING;
+
+
 INSERT INTO pulsar.translation_dictionary
 (
     item_code,
