@@ -789,17 +789,18 @@ def _build_filter_expression(
             node.get("sql_expression", ""),
             field_configs,
         )
-        expression = text(f"({safe_expression})")
-    else:
-        expression = _build_filter_expression_base(
-            node,
-            Model,
-            field_configs,
-            user_id,
-            profile_id,
-            depth,
-        )
+        if node.get("is_negated") is True:
+            return text(f"(NOT ({safe_expression}))")
+        return text(f"({safe_expression})")
 
+    expression = _build_filter_expression_base(
+        node,
+        Model,
+        field_configs,
+        user_id,
+        profile_id,
+        depth,
+    )
     return ~expression if node.get("is_negated") is True else expression
 
 
