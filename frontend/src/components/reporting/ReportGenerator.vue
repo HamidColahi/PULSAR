@@ -28,7 +28,7 @@ In collaboration with GPT4 Chat Assistant: Bahram
           <input v-model="includeFiltersOnSave" type="checkbox" />
           {{ labels.includeFilters }}
         </label>
-        <button class="report-action report-primary" :disabled="loading || !canSave" @click="saveReport">{{ labels.save }}</button>
+        <button class="report-action report-primary inline-flex items-center gap-1" :disabled="loading || !canSave" @click="saveReport"><span aria-hidden="true">💾</span>{{ labels.save }}</button>
         <button class="report-action" :disabled="loading" @click="saveAs">{{ labels.saveAs }}</button>
         <button class="report-action" :disabled="loading" @click="resetDesign">{{ labels.reset }}</button>
         <button class="report-action" :disabled="loading" @click="runReport">{{ labels.run }}</button>
@@ -71,7 +71,16 @@ In collaboration with GPT4 Chat Assistant: Bahram
               </div>
               <div class="mt-2 flex items-center gap-2">
                 <label class="text-[10px] text-muted">{{ labels.width }}</label>
-                <input v-model.number="column.width_px" type="number" min="48" max="2000" class="w-20 rounded border border-border bg-panel px-1.5 py-1 text-xs" @change="runReport" />
+                <input
+                  :value="column.width_px || 180"
+                  type="range"
+                  min="48"
+                  max="1200"
+                  class="min-w-0 flex-1"
+                  :aria-label="labels.width + ' ' + fieldLabel(column.field_name)"
+                  @change="resizeColumn(column, $event)"
+                />
+                <input v-model.number="column.width_px" type="number" min="48" max="1200" class="w-16 rounded border border-border bg-panel px-1.5 py-1 text-xs" @change="runReport" />
                 <span class="text-[10px] text-muted">px</span>
               </div>
             </div>
@@ -635,6 +644,14 @@ function normalizeColumnOrder() {
     ...column,
     display_order: index + 1
   }))
+}
+
+function resizeColumn(column, event) {
+  const width = Number(event.target.value)
+  if (Number.isFinite(width)) {
+    column.width_px = Math.min(1200, Math.max(48, width))
+    runReport()
+  }
 }
 
 function moveColumn(index, offset) {
