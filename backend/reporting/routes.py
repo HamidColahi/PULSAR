@@ -117,6 +117,7 @@ class ReportCreate(BaseModel):
 class ReportPreviewInput(BaseModel):
     model_config = ConfigDict(extra="forbid")
 
+    report_id: UUID | None = None
     page_key: str = Field(min_length=1, max_length=255)
     source_component_name: str = Field(min_length=1, max_length=255)
     columns: list[ReportColumnInput] = Field(default_factory=list)
@@ -296,7 +297,7 @@ def _validate_filters(
     *,
     allow_advanced: bool,
     allow_sql: bool,
-    existing_sql_signatures: set[tuple[str, bool]] | None = None,
+    existing_nodes_by_signature: dict[str, dict[str, Any]] | None = None,
 ) -> list[dict[str, Any]]:
     def validate_node(node: ReportFilterNode, depth: int = 1) -> dict[str, Any]:
         if depth > 12:
@@ -306,15 +307,21 @@ def _validate_filters(
             )
 
         if node.node_type == "GROUP":
-            if not allow_advanced and (
+            requires_advanced = (
                 depth > 1
                 or node.logical_operator != "AND"
                 or any(child.node_type == "GROUP" for child in node.children)
-            ):
-                raise HTTPException(
-                    status_code=403,
-                    detail="Advanced filter groups require REPORT.FILTER.ADVANCED permission.",
+            )
+            if not allow_advanced and requires_advanced:
+                existing_node = (existing_nodes_by_signature or {}).get(
+                    _filter_node_signature(node)
                 )
+                if existing_node is None:
+                    raise HTTPException(
+                        status_code=403,
+                        detail="Advanced filter changes require REPORT.FILTER.ADVANCED permission.",
+                    )
+                return {**existing_node, "display_order": node.display_order}
             return {
                 "node_type": "GROUP",
                 "logical_operator": node.logical_operator,
@@ -327,12 +334,16 @@ def _validate_filters(
             }
 
         if node.node_type == "SQL":
-            signature = (node.sql_expression.strip(), node.is_negated)
-            if not allow_sql and signature not in (existing_sql_signatures or set()):
-                raise HTTPException(
-                    status_code=403,
-                    detail="SQL Filter changes require REPORT.FILTER.SQL permission.",
+            if not allow_sql:
+                existing_node = (existing_nodes_by_signature or {}).get(
+                    _filter_node_signature(node)
                 )
+                if existing_node is None:
+                    raise HTTPException(
+                        status_code=403,
+                        detail="SQL Filter changes require REPORT.FILTER.SQL permission.",
+                    )
+                return {**existing_node, "display_order": node.display_order}
             return {
                 "node_type": "SQL",
                 "sql_expression": validate_sql_filter(node.sql_expression, field_metadata),
@@ -370,6 +381,58 @@ def _validate_filters(
         validate_node(node)
         for node in filters
     ]
+
+
+def _filter_node_signature(node: ReportFilterNode | dict[str, Any]) -> str:
+    """Create a stable signature that excludes database identity fields."""
+    def read_value(key: str, default=None):
+        if isinstance(node, ReportFilterNode):
+            return getattr(node, key, default)
+        return node.get(key, default)
+
+    payload = {
+        "node_type": read_value("node_type"),
+        "logical_operator": read_value("logical_operator"),
+        "is_negated": read_value("is_negated", False) is True,
+        "field_name": read_value("field_name"),
+        "operator_code": read_value("operator_code"),
+        "value": read_value("value"),
+        "parameter_code": read_value("parameter_code"),
+        "sql_expression": read_value("sql_expression"),
+        "children": [
+            json.loads(_filter_node_signature(child))
+            for child in (read_value("children", []) or [])
+        ],
+    }
+    return json.dumps(payload, sort_keys=True, ensure_ascii=False, default=str)
+
+
+def _collect_existing_filter_nodes(
+    nodes: list[dict[str, Any]],
+) -> dict[str, dict[str, Any]]:
+    """Index existing privileged nodes so non-privileged editors can preserve them."""
+    existing: dict[str, dict[str, Any]] = {}
+
+    def visit(node: dict[str, Any], depth: int = 1) -> None:
+        children = node.get("children", [])
+        requires_advanced = (
+            node.get("node_type") == "GROUP"
+            and (
+                depth > 1
+                or node.get("logical_operator") != "AND"
+                or any(child.get("node_type") == "GROUP" for child in children)
+            )
+        )
+        if node.get("node_type") == "SQL" or requires_advanced:
+            existing[_filter_node_signature(node)] = node
+
+        for child in children:
+            visit(child, depth + 1)
+
+    for node in nodes:
+        visit(node)
+
+    return existing
 
 
 async def _filter_permissions(
@@ -839,13 +902,48 @@ async def preview_report(
     current_user: UserProfileResponse = Depends(get_current_user),
     session: AsyncSession = Depends(get_audited_session),
 ):
-    """Preview an unsaved report definition using the current user's data scope."""
-    await validate_report_page(
-        session,
-        str(current_user.id),
-        payload.page_key,
-        payload.source_component_name,
-    )
+    """Preview a report definition while preserving authorized saved filter nodes."""
+    user_id = str(current_user.id)
+    existing_nodes_by_signature = {}
+    preview_report_definition = {
+        "report_id": UUID(int=0),
+        "page_key": payload.page_key,
+        "source_component_name": payload.source_component_name,
+    }
+
+    if payload.report_id is not None:
+        saved_report = await load_report(session, payload.report_id)
+        if (
+            saved_report["page_key"] != payload.page_key
+            or saved_report["source_component_name"] != payload.source_component_name
+        ):
+            raise HTTPException(
+                status_code=422,
+                detail="Preview source does not match the saved report definition.",
+            )
+        await require_page_view_access(session, user_id, saved_report["page_key"])
+        await require_report_view_access(session, saved_report, user_id)
+        await validate_report_page(
+            session,
+            user_id,
+            saved_report["page_key"],
+            saved_report["source_component_name"],
+        )
+        current_definition = await load_report_definition(
+            session,
+            payload.report_id,
+        )
+        existing_nodes_by_signature = _collect_existing_filter_nodes(
+            current_definition["filters"]
+        )
+        preview_report_definition = saved_report
+    else:
+        await validate_report_page(
+            session,
+            user_id,
+            payload.page_key,
+            payload.source_component_name,
+        )
 
     field_metadata = await _load_field_metadata(
         session,
@@ -853,20 +951,15 @@ async def preview_report(
     )
     columns = _validate_columns(payload.columns, field_metadata)
     allow_advanced, allow_sql = await _filter_permissions(
-        session, str(current_user.id), payload.page_key
+        session, user_id, payload.page_key
     )
     filters = _validate_filters(
         payload.filters,
         field_metadata,
         allow_advanced=allow_advanced,
         allow_sql=allow_sql,
+        existing_nodes_by_signature=existing_nodes_by_signature,
     )
-
-    preview_report_definition = {
-        "report_id": UUID(int=0),
-        "page_key": payload.page_key,
-        "source_component_name": payload.source_component_name,
-    }
 
     return await execute_report(
         session,
@@ -876,7 +969,7 @@ async def preview_report(
             "columns": columns,
             "filters": filters,
         },
-        user_id=str(current_user.id),
+        user_id=user_id,
         profile_id=str(current_user.profile_id),
         selected_record=payload.selected_record,
         runtime_context=payload.runtime_context,
@@ -1087,24 +1180,15 @@ async def update_report(
             allow_advanced, allow_sql = await _filter_permissions(
                 session, str(current_user.id), report["page_key"]
             )
-            existing_sql_signatures = set()
-
-            def collect_sql_signatures(nodes):
-                for existing_node in nodes:
-                    if existing_node["node_type"] == "SQL":
-                        existing_sql_signatures.add((
-                            str(existing_node.get("sql_expression") or "").strip(),
-                            existing_node.get("is_negated") is True,
-                        ))
-                    collect_sql_signatures(existing_node.get("children", []))
-
-            collect_sql_signatures(current_definition["filters"])
+            existing_nodes_by_signature = _collect_existing_filter_nodes(
+                current_definition["filters"]
+            )
             filters = _validate_filters(
                 changes["filters"],
                 field_metadata,
                 allow_advanced=allow_advanced,
                 allow_sql=allow_sql,
-                existing_sql_signatures=existing_sql_signatures,
+                existing_nodes_by_signature=existing_nodes_by_signature,
             )
         else:
             filters = current_definition["filters"]
