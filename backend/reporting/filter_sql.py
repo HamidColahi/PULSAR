@@ -33,8 +33,8 @@ _KEYWORDS = {
 }
 
 _SAFE_FUNCTIONS = {
-    "ABS", "CEIL", "CEILING", "FLOOR", "ROUND",
-    "LOWER", "UPPER", "TRIM", "BTRIM", "LTRIM", "RTRIM",
+    "ABS", "CEIL", "FLOOR", "ROUND",
+    "LOWER", "UPPER", "BTRIM", "LTRIM", "RTRIM",
     "LENGTH", "CHAR_LENGTH", "COALESCE", "NULLIF",
 }
 
