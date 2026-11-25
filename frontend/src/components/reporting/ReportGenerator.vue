@@ -632,6 +632,7 @@ async function runReport(resetPage = true) {
   try {
     const payload = reportPayload()
     const response = await axios.post('/reports/preview', {
+      report_id: selectedReportId.value || null,
       page_key: payload.page_key,
       source_component_name: payload.source_component_name,
       columns: payload.columns,
