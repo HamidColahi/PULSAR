@@ -42,6 +42,8 @@ _SAFE_FUNCTIONS = {
 def validate_sql_filter(
     expression: str,
     field_metadata: dict[str, dict[str, Any]],
+    *,
+    qualify_functions: bool = False,
 ) -> str:
     """Validate a predicate-only SQL expression against searchable Grid fields."""
     source = (expression or "").strip()
@@ -131,7 +133,7 @@ def validate_sql_filter(
                         status_code=403,
                         detail=f"SQL Filter function '{value}' is not allowed.",
                     )
-                if upper in {"COALESCE", "NULLIF"}:
+                if upper in {"COALESCE", "NULLIF"} or not qualify_functions:
                     normalized.append(upper)
                 else:
                     normalized.append("pg_catalog." + upper)
