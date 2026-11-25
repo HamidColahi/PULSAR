@@ -63,6 +63,7 @@ ALTER TABLE pulsar.t_report_filter
         CHECK (
             (
                 node_type = 'GROUP'
+                AND logical_operator IS NOT NULL
                 AND logical_operator IN ('AND', 'OR')
                 AND field_name IS NULL
                 AND operator_code IS NULL
