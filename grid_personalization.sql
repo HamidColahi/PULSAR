@@ -1,7 +1,7 @@
 -- ===============================================
 -- File: grid_personalization.sql
 -- Description: Per-user Grid layout and runtime preferences
--- Modified: 2026-11-26 13:35 (Asia/Baku)
+-- Modified: 2026-11-26 13:56 (Asia/Baku)
 -- In collaboration with GPT4 Chat Assistant: Bahram
 --
 -- Apply after the PULSAR permission catalog is installed.
@@ -135,7 +135,13 @@ VALUES
     ('pulsar.grid.layoutReset', 'en', 'Grid layout restored to defaults.'),
     ('pulsar.grid.layoutReset', 'fa', 'چیدمان گرید به حالت پیش‌فرض بازگشت.'),
     ('pulsar.grid.saveUnavailable', 'en', 'You do not have permission to save personal Grid layouts.'),
-    ('pulsar.grid.saveUnavailable', 'fa', 'مجوز ذخیره چیدمان شخصی گرید را ندارید.')
+    ('pulsar.grid.saveUnavailable', 'fa', 'مجوز ذخیره چیدمان شخصی گرید را ندارید.'),
+    ('pulsar.grid.moveEarlier', 'en', 'Move column earlier'),
+    ('pulsar.grid.moveEarlier', 'fa', 'انتقال ستون به قبل'),
+    ('pulsar.grid.moveLater', 'en', 'Move column later'),
+    ('pulsar.grid.moveLater', 'fa', 'انتقال ستون به بعد'),
+    ('pulsar.grid.columnWidth', 'en', 'Column width'),
+    ('pulsar.grid.columnWidth', 'fa', 'عرض ستون')
 ON CONFLICT (item_code, language_code)
 DO UPDATE SET translated_text = EXCLUDED.translated_text;
 
