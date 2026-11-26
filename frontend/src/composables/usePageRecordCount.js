@@ -54,7 +54,7 @@ export async function fetchPageRecordCount(
   const response = await axios.get(
     `/dw/${encodeURIComponent(grid.component_name)}/count/data`,
     {
-      params: buildWhereParams(scope?.filters || {})
+      params: {\n        page_key: pageKey,\n        ...buildWhereParams(scope?.filters || {})\n      }
     }
   )
 
