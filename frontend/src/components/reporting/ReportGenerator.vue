@@ -242,6 +242,9 @@ In collaboration with GPT4 Chat Assistant: Bahram
           :report-mode="true"
           :report-columns="columns"
           :report-aggregates="reportAggregates"
+          :selected-row-identities="selectedReportIdentities"
+          :external-selected-rows="selectedReportRows"
+          @selection-change="handleReportSelectionChange"
           @report-columns-change="updateColumns"
           @row-selected="$emit('row-selected', $event)"
         />
@@ -303,6 +306,8 @@ const shares = ref([])
 const permissions = ref([])
 const gridItems = ref([...props.items])
 const reportAggregates = ref({})
+const selectedReportRows = ref([])
+const selectedReportIdentities = ref([])
 const totalRows = ref(0)
 const pageSize = 100
 const offset = ref(0)
@@ -764,8 +769,35 @@ function reportPayload() {
   }
 }
 
+function handleReportSelectionChange(pageSelectedRows) {
+  const pageIdentities = new Set(
+    gridItems.value.map(item => String(item?._pulsar_identity || '')).filter(Boolean)
+  )
+  const selectedByIdentity = new Map(
+    selectedReportRows.value.map(item => [String(item._pulsar_identity), item])
+  )
+
+  for (const identity of pageIdentities) {
+    selectedByIdentity.delete(identity)
+  }
+
+  for (const item of pageSelectedRows) {
+    const identity = item?._pulsar_identity
+    if (identity != null) {
+      selectedByIdentity.set(String(identity), item)
+    }
+  }
+
+  selectedReportRows.value = [...selectedByIdentity.values()]
+  selectedReportIdentities.value = [...selectedByIdentity.keys()]
+}
+
 async function runReport(resetPage = true) {
-  if (resetPage) offset.value = 0
+  if (resetPage) {
+    offset.value = 0
+    selectedReportRows.value = []
+    selectedReportIdentities.value = []
+  }
   loading.value = true
   error.value = ''
 
