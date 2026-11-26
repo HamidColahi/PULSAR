@@ -7,7 +7,7 @@
 #
 # Author: MHKolahi@gmail.com
 # In collaboration with GPT4 Chat Assistant: Bahram
-# Last Modified: 2026-11-26 13:30 (Asia/Baku)
+# Last Modified: 2026-11-26 13:55 (Asia/Baku)
 # ===============================================
 
 from typing import Any, List, Literal
@@ -549,7 +549,7 @@ async def _grid_field_metadata(
     return {
         row.field_name: {
             "visible_in_grid": row.visible_in_grid is not False,
-            "visible_in_search": row.visible_in_search is True,
+            "visible_in_search": row.visible_in_search is not False,
         }
         for row in result.all()
     }
@@ -664,15 +664,26 @@ async def read_grid_preferences(
         GRID_LAYOUT_PERMISSION,
     )
 
-    layout = _validate_grid_layout(
-        dict(row["layout"] or {}) if row else {},
-        metadata,
-    ) if row and row["layout"] else {}
+    layout = {}
+    filters = {}
 
-    filters = _validate_grid_search_filters(
-        dict(row["search_filters"] or {}) if row else {},
-        metadata,
-    ) if row and row["search_filters"] else {}
+    if row and row["layout"]:
+        try:
+            layout = _validate_grid_layout(
+                dict(row["layout"]),
+                metadata,
+            )
+        except HTTPException:
+            layout = {}
+
+    if row and row["search_filters"]:
+        try:
+            filters = _validate_grid_search_filters(
+                dict(row["search_filters"]),
+                metadata,
+            )
+        except HTTPException:
+            filters = {}
 
     return {
         "component_name": component_name,
