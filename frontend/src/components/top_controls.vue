@@ -2,7 +2,7 @@
 <!-- ===============================================
 File: frontend/src/components/top_controls.vue
 Description: Fixed global PULSAR identity bar with system monitoring and metadata-driven controls
-Change Date: 2026-11-24
+Change Date: 2026-11-27 02:29
 Timezone: Asia/Baku
 Author: MHKolahi@gmail.com
 In collaboration with GPT4 Chat Assistant: Bahram
@@ -206,7 +206,7 @@ In collaboration with GPT4 Chat Assistant: Bahram
 
         <!-- Source Trace -->
         <button
-          v-if="isAuthenticated"
+          v-if="canViewSourceTrace"
           type="button"
           class="pulsar-icon-button source-trace-trigger"
           :class="{ 'source-trace-trigger-active': sourceTraceOpen }"
@@ -460,6 +460,7 @@ const aiAvatarTitle = ref('AI Avatar')
 const sourceTraceOpen = ref(false)
 const permissionManagerOpen = ref(false)
 const canManagePermissions = ref(false)
+const canViewSourceTrace = ref(false)
 const permissionManagerTitle = ref('')
 
 const colorIntensity = ref(
@@ -505,20 +506,30 @@ const isAuthenticated = computed(() => {
   )
 })
 
-async function loadPermissionAdministrationAccess() {
+async function loadUserPermissions() {
   if (!isAuthenticated.value) {
     canManagePermissions.value = false
+    canViewSourceTrace.value = false
     return
   }
 
   try {
     const response = await axios.get('/permissions/me')
-    canManagePermissions.value = (response.data || []).some(grant =>
-      grant.permission_code === 'SECURITY.PERMISSION.GRANT' &&
-      grant.is_effective === true
+    const effectivePermissions = new Set(
+      (response.data || [])
+        .filter(grant => grant.is_effective === true)
+        .map(grant => grant.permission_code)
+    )
+
+    canManagePermissions.value = effectivePermissions.has(
+      'SECURITY.PERMISSION.GRANT'
+    )
+    canViewSourceTrace.value = effectivePermissions.has(
+      'SOURCE_TRACE.VIEW'
     )
   } catch {
     canManagePermissions.value = false
+    canViewSourceTrace.value = false
   }
 }
 
@@ -714,7 +725,7 @@ onMounted(async () => {
   applyThemeLevel(colorIntensity.value)
   updateAIAvatarTitle()
   await updatePermissionManagerTitle()
-  await loadPermissionAdministrationAccess()
+  await loadUserPermissions()
 })
 
 onUnmounted(() => {
@@ -751,7 +762,7 @@ watch(
 
 watch(
   isAuthenticated,
-  loadPermissionAdministrationAccess
+  loadUserPermissions
 )
 
 watch(
