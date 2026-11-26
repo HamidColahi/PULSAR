@@ -867,7 +867,13 @@ async function selectReport(reportId) {
     reportTitle.value = report.report_title
     reportDescription.value = report.report_desc || ''
     sharingPolicy.value = report.sharing_policy
-    columns.value = (report.columns || []).map(item => ({ ...item }))
+    columns.value = (report.columns || []).map(item => ({
+      ...item,
+      width_px: Number(item.width_px) || 180,
+      label_mode: item.label_mode || 'FULL',
+      custom_label: item.custom_label || '',
+      header_height_px: Number(item.header_height_px) || 56
+    }))
     loadFilterTree(report.filters || [])
     includeFiltersOnSave.value = (report.filters || []).length > 0
     syncFilterBaseline()
