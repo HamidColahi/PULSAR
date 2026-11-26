@@ -766,6 +766,10 @@ async function runReport(resetPage = true) {
   }
 }
 
+defineExpose({
+  runReport
+})
+
 async function previousPage() {
   if (offset.value <= 0) return
   offset.value = Math.max(0, offset.value - pageSize)
