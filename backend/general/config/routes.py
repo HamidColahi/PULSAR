@@ -7,10 +7,10 @@
 #
 # Author: MHKolahi@gmail.com
 # In collaboration with GPT4 Chat Assistant: Bahram
-# Last Modified: 2026-11-23 23:55 (Asia/Baku)
+# Last Modified: 2026-11-26 13:30 (Asia/Baku)
 # ===============================================
 
-from typing import List, Literal
+from typing import Any, List, Literal
 import json
 
 from fastapi import (
@@ -20,12 +20,13 @@ from fastapi import (
     Query,
 )
 
-from pydantic import BaseModel
+from pydantic import BaseModel, ConfigDict, Field
 
 from sqlalchemy import and_, select, text
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from core.database import get_async_session
+from core.audit_context import get_audited_session
 from core.component_base import get_component_base
 
 from general.config.models import (
@@ -36,6 +37,7 @@ from general.config.models import (
 
 from general.translation.models import TranslationDictionary
 from general.auth.dependencies import get_current_user
+from general.permissions.service import has_permission, require_permission
 
  
 router = APIRouter(
@@ -503,6 +505,303 @@ async def save_grid_sort_preference(
             for item in payload.sort_spec
         ],
     }
+
+
+# ===============================================
+# User Grid Personalization
+# ===============================================
+
+GRID_LAYOUT_PERMISSION = "GRID.PERSONALIZATION.SAVE"
+
+
+class GridLayoutUpdate(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+
+    component_name: str = Field(min_length=1, max_length=255)
+    field_mode: str = Field(default="list", min_length=1, max_length=80)
+    layout: dict[str, Any]
+
+
+class GridRuntimeStateUpdate(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+
+    component_name: str = Field(min_length=1, max_length=255)
+    field_mode: str = Field(default="list", min_length=1, max_length=80)
+    search_panel_open: bool
+    search_filters: dict[str, Any] = Field(default_factory=dict)
+
+
+async def _grid_field_metadata(
+    db: AsyncSession,
+    component_name: str,
+    field_mode: str,
+) -> dict[str, dict[str, Any]]:
+    result = await db.execute(
+        select(
+            ComponentsConfig.field_name,
+            ComponentsConfig.visible_in_grid,
+            ComponentsConfig.visible_in_search,
+        ).where(
+            ComponentsConfig.component_name == component_name,
+            ComponentsConfig.field_mode == field_mode,
+        )
+    )
+    return {
+        row.field_name: {
+            "visible_in_grid": row.visible_in_grid is not False,
+            "visible_in_search": row.visible_in_search is True,
+        }
+        for row in result.all()
+    }
+
+
+def _validate_grid_layout(
+    layout: dict[str, Any],
+    field_metadata: dict[str, dict[str, Any]],
+) -> dict[str, Any]:
+    allowed_fields = {
+        field for field, metadata in field_metadata.items()
+        if metadata["visible_in_grid"]
+    }
+
+    order = layout.get("column_order", [])
+    widths = layout.get("column_widths", {})
+    hidden = layout.get("hidden_columns", [])
+    header_height = layout.get("header_height_px", 44)
+
+    if not isinstance(order, list) or not all(isinstance(item, str) for item in order):
+        raise HTTPException(status_code=422, detail="column_order must be a list of field names.")
+    if len(order) != len(set(order)) or set(order) - allowed_fields:
+        raise HTTPException(status_code=422, detail="column_order contains duplicate or unavailable fields.")
+
+    if not isinstance(widths, dict) or set(widths) - allowed_fields:
+        raise HTTPException(status_code=422, detail="column_widths contains unavailable fields.")
+    normalized_widths = {}
+    for field, width in widths.items():
+        if isinstance(width, bool) or not isinstance(width, int) or not 48 <= width <= 2000:
+            raise HTTPException(status_code=422, detail=f"Invalid width for field '{field}'.")
+        normalized_widths[field] = width
+
+    if not isinstance(hidden, list) or not all(isinstance(item, str) for item in hidden):
+        raise HTTPException(status_code=422, detail="hidden_columns must be a list of field names.")
+    if len(hidden) != len(set(hidden)) or set(hidden) - allowed_fields:
+        raise HTTPException(status_code=422, detail="hidden_columns contains duplicate or unavailable fields.")
+    if allowed_fields and allowed_fields.issubset(set(hidden)):
+        raise HTTPException(status_code=422, detail="At least one Grid column must remain visible.")
+
+    if isinstance(header_height, bool) or not isinstance(header_height, int) or not 28 <= header_height <= 240:
+        raise HTTPException(status_code=422, detail="header_height_px must be between 28 and 240.")
+
+    return {
+        "column_order": order,
+        "column_widths": normalized_widths,
+        "hidden_columns": hidden,
+        "header_height_px": header_height,
+    }
+
+
+def _validate_grid_search_filters(
+    filters: dict[str, Any],
+    field_metadata: dict[str, dict[str, Any]],
+) -> dict[str, Any]:
+    if len(filters) > 100:
+        raise HTTPException(status_code=422, detail="At most 100 search fields can be saved.")
+
+    normalized = {}
+    for field, value in filters.items():
+        metadata = field_metadata.get(field)
+        if not metadata or not metadata["visible_in_search"]:
+            raise HTTPException(
+                status_code=422,
+                detail=f"Search is not enabled for field '{field}'.",
+            )
+        if not isinstance(value, dict) or set(value) - {"from", "to"}:
+            raise HTTPException(status_code=422, detail=f"Invalid search range for field '{field}'.")
+        for bound in ("from", "to"):
+            item = value.get(bound)
+            if item is not None and not isinstance(item, (str, int, float, bool)):
+                raise HTTPException(status_code=422, detail=f"Invalid {bound} value for field '{field}'.")
+            if isinstance(item, str) and len(item) > 2000:
+                raise HTTPException(status_code=422, detail=f"Search value for field '{field}' is too long.")
+        if any(value.get(bound) not in (None, "") for bound in ("from", "to")):
+            normalized[field] = {
+                "from": value.get("from", ""),
+                "to": value.get("to", ""),
+            }
+    return normalized
+
+
+@router.get("/grid_preferences")
+async def read_grid_preferences(
+    component_name: str = Query(..., min_length=1, max_length=255),
+    field_mode: str = Query("list", min_length=1, max_length=80),
+    db: AsyncSession = Depends(get_audited_session),
+    current_user = Depends(get_current_user),
+):
+    """Load the authenticated user's layout and runtime state for one Grid."""
+    metadata = await _grid_field_metadata(db, component_name, field_mode)
+    if not metadata:
+        raise HTTPException(status_code=404, detail="Grid configuration was not found.")
+
+    result = await db.execute(
+        text("""
+            SELECT layout, search_panel_open, search_filters
+            FROM pulsar.t_user_grid_preference
+            WHERE c_user_id = :user_id
+              AND component_name = :component_name
+              AND field_mode = :field_mode
+        """),
+        {
+            "user_id": str(current_user.id),
+            "component_name": component_name,
+            "field_mode": field_mode,
+        },
+    )
+    row = result.mappings().first()
+    can_save_layout = await has_permission(
+        db,
+        str(current_user.id),
+        GRID_LAYOUT_PERMISSION,
+    )
+
+    layout = _validate_grid_layout(
+        dict(row["layout"] or {}) if row else {},
+        metadata,
+    ) if row and row["layout"] else {}
+
+    filters = _validate_grid_search_filters(
+        dict(row["search_filters"] or {}) if row else {},
+        metadata,
+    ) if row and row["search_filters"] else {}
+
+    return {
+        "component_name": component_name,
+        "field_mode": field_mode,
+        "layout": layout,
+        "search_panel_open": row["search_panel_open"] if row else True,
+        "search_filters": filters,
+        "can_save_layout": can_save_layout,
+    }
+
+
+@router.put("/grid_preferences/layout")
+async def save_grid_layout(
+    payload: GridLayoutUpdate,
+    db: AsyncSession = Depends(get_audited_session),
+    current_user = Depends(get_current_user),
+):
+    """Save explicit personal column layout after checking the dedicated permission."""
+    await require_permission(
+        db,
+        str(current_user.id),
+        GRID_LAYOUT_PERMISSION,
+    )
+    metadata = await _grid_field_metadata(
+        db,
+        payload.component_name,
+        payload.field_mode,
+    )
+    if not metadata:
+        raise HTTPException(status_code=404, detail="Grid configuration was not found.")
+
+    layout = _validate_grid_layout(payload.layout, metadata)
+    await db.execute(
+        text("""
+            INSERT INTO pulsar.t_user_grid_preference
+                (c_user_id, component_name, field_mode, layout, updated_at)
+            VALUES
+                (:user_id, :component_name, :field_mode, CAST(:layout AS JSONB), CURRENT_TIMESTAMP)
+            ON CONFLICT (c_user_id, component_name, field_mode)
+            DO UPDATE SET
+                layout = EXCLUDED.layout,
+                updated_at = CURRENT_TIMESTAMP
+        """),
+        {
+            "user_id": str(current_user.id),
+            "component_name": payload.component_name,
+            "field_mode": payload.field_mode,
+            "layout": json.dumps(layout),
+        },
+    )
+    await db.commit()
+    return {"layout": layout, "saved": True}
+
+
+@router.patch("/grid_preferences/state")
+async def save_grid_runtime_state(
+    payload: GridRuntimeStateUpdate,
+    db: AsyncSession = Depends(get_audited_session),
+    current_user = Depends(get_current_user),
+):
+    """Auto-save the user's search panel state and last search filters."""
+    metadata = await _grid_field_metadata(
+        db,
+        payload.component_name,
+        payload.field_mode,
+    )
+    if not metadata:
+        raise HTTPException(status_code=404, detail="Grid configuration was not found.")
+
+    filters = _validate_grid_search_filters(payload.search_filters, metadata)
+    await db.execute(
+        text("""
+            INSERT INTO pulsar.t_user_grid_preference
+                (c_user_id, component_name, field_mode, search_panel_open, search_filters, updated_at)
+            VALUES
+                (:user_id, :component_name, :field_mode, :search_panel_open,
+                 CAST(:search_filters AS JSONB), CURRENT_TIMESTAMP)
+            ON CONFLICT (c_user_id, component_name, field_mode)
+            DO UPDATE SET
+                search_panel_open = EXCLUDED.search_panel_open,
+                search_filters = EXCLUDED.search_filters,
+                updated_at = CURRENT_TIMESTAMP
+        """),
+        {
+            "user_id": str(current_user.id),
+            "component_name": payload.component_name,
+            "field_mode": payload.field_mode,
+            "search_panel_open": payload.search_panel_open,
+            "search_filters": json.dumps(filters),
+        },
+    )
+    await db.commit()
+    return {
+        "search_panel_open": payload.search_panel_open,
+        "search_filters": filters,
+        "saved": True,
+    }
+
+
+@router.delete("/grid_preferences/layout")
+async def reset_grid_layout(
+    component_name: str = Query(..., min_length=1, max_length=255),
+    field_mode: str = Query("list", min_length=1, max_length=80),
+    db: AsyncSession = Depends(get_audited_session),
+    current_user = Depends(get_current_user),
+):
+    """Remove only the personal layout; retain auto-saved search state."""
+    await require_permission(
+        db,
+        str(current_user.id),
+        GRID_LAYOUT_PERMISSION,
+    )
+    await db.execute(
+        text("""
+            UPDATE pulsar.t_user_grid_preference
+            SET layout = '{}'::JSONB,
+                updated_at = CURRENT_TIMESTAMP
+            WHERE c_user_id = :user_id
+              AND component_name = :component_name
+              AND field_mode = :field_mode
+        """),
+        {
+            "user_id": str(current_user.id),
+            "component_name": component_name,
+            "field_mode": field_mode,
+        },
+    )
+    await db.commit()
+    return {"reset": True}
 
 
 # ===============================================
