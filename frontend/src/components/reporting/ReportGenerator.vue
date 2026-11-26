@@ -769,13 +769,17 @@ function reportPayload() {
   }
 }
 
-function handleReportSelectionChange(pageSelectedRows) {
+function handleReportSelectionChange(pageSelectedRows, options = {}) {
   const pageIdentities = new Set(
     gridItems.value.map(item => String(item?._pulsar_identity || '')).filter(Boolean)
   )
   const selectedByIdentity = new Map(
     selectedReportRows.value.map(item => [String(item._pulsar_identity), item])
   )
+
+  if (options.replace === true) {
+    selectedByIdentity.clear()
+  }
 
   for (const identity of pageIdentities) {
     selectedByIdentity.delete(identity)
