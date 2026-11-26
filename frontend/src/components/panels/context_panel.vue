@@ -184,7 +184,8 @@ import {
 
 import { useTranslation } from '@/composables/useTranslation'
 
-import { useContextAccess } from '@/composables/useContextAccess.js'\nimport { fetchPageRecordCount } from '@/composables/usePageRecordCount'
+import { useContextAccess } from '@/composables/useContextAccess.js'
+import { fetchPageRecordCount } from '@/composables/usePageRecordCount'
 
 
 
@@ -306,7 +307,8 @@ const {
 
 const { translate } = useTranslation()
 
-const translations = ref({})\nconst recordCounts = ref({})
+const translations = ref({})
+const recordCounts = ref({})
 
 
 
@@ -539,7 +541,8 @@ async function loadPanel() {
 
 
 
-    await loadTranslations()\n    await loadPageRecordCounts()
+    await loadTranslations()
+    await loadPageRecordCounts()
 
   } catch (err) {
 
