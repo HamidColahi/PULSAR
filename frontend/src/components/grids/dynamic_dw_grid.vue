@@ -1354,9 +1354,8 @@ const numericFields = computed(() => {
       metadata.control_type || metadata.type || ''
     ).toLowerCase()
 
-    return numericTypes.has(type) ||
-      typeof props.items?.[0]?.[col.field] === 'number' ||
-      Object.prototype.hasOwnProperty.call(props.reportAggregates || {}, col.field)
+    return metadata.aggregate_enabled === true &&
+      numericTypes.has(type)
   })
 })
 
@@ -1899,14 +1898,8 @@ onBeforeUnmount(() => {
 
           </tbody>
 
-          <tfoot
-            v-if="numericFields.length"
-            class="sticky bottom-0 z-20 text-xs font-semibold"
-          >
-            <tr
-              class="border-t"
-              style="background-color:var(--pulsar-level-surface);border-color:var(--pulsar-level-border)"
-            >
+          <tfoot class="pulsar-grid-footer sticky bottom-0 z-20 text-xs font-semibold">
+            <tr class="pulsar-grid-footer-selected">
               <td class="whitespace-nowrap px-3 py-2 text-label">
                 {{ footerLabels.selectedTotal }} ({{ selectedRows.length }})
               </td>
@@ -1921,10 +1914,7 @@ onBeforeUnmount(() => {
                   : '' }}
               </td>
             </tr>
-            <tr
-              class="border-t"
-              style="background-color:var(--pulsar-level-surface);border-color:var(--pulsar-level-border)"
-            >
+            <tr class="pulsar-grid-footer-all">
               <td class="whitespace-nowrap px-3 py-2 text-label">
                 {{ footerLabels.allTotal }}
               </td>
@@ -2017,6 +2007,41 @@ onBeforeUnmount(() => {
   box-shadow:
     inset 3px 0 0
     var(--pulsar-level-accent);
+}
+
+.pulsar-grid-footer td {
+  border-top: 1px solid var(--pulsar-level-border);
+  border-left: 1px solid var(--pulsar-level-border);
+  color: var(--pulsar-level-text);
+  font-weight: 700;
+}
+
+.pulsar-grid-footer td:first-child {
+  border-left: 0;
+  text-align: start;
+}
+
+.pulsar-grid-footer-selected td {
+  background-color: color-mix(
+    in srgb,
+    var(--pulsar-level-accent) 9%,
+    var(--pulsar-level-surface)
+  );
+}
+
+.pulsar-grid-footer-all td {
+  background-color: color-mix(
+    in srgb,
+    var(--pulsar-level-accent) 16%,
+    var(--pulsar-level-surface)
+  );
+  border-top-width: 2px;
+}
+
+.pulsar-grid-footer-selected td:not(:first-child),
+.pulsar-grid-footer-all td:not(:first-child) {
+  text-align: end;
+  font-variant-numeric: tabular-nums;
 }
 
 [dir='rtl'] .pulsar-row-selected {
