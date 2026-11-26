@@ -1,0 +1,149 @@
+-- ===============================================
+-- File: grid_personalization.sql
+-- Description: Per-user Grid layout and runtime preferences
+-- Modified: 2026-11-26 13:35 (Asia/Baku)
+-- In collaboration with GPT4 Chat Assistant: Bahram
+--
+-- Apply after the PULSAR permission catalog is installed.
+-- Set authenticated deployment audit context before execution:
+--   SELECT set_config('pulsar.log_user', '<ACTIVE_USER_UUID>', FALSE);
+--   SELECT set_config('pulsar.log_ip', '<DEPLOYMENT_CLIENT_IP>', FALSE);
+-- ===============================================
+
+BEGIN;
+
+DO $audit_context$
+DECLARE
+    v_actor UUID;
+    v_ip TEXT;
+BEGIN
+    v_actor := NULLIF(current_setting('pulsar.log_user', TRUE), '')::UUID;
+    v_ip := NULLIF(current_setting('pulsar.log_ip', TRUE), '');
+
+    IF v_actor IS NULL OR NOT EXISTS (
+        SELECT 1
+        FROM pulsar.t_user
+        WHERE c_user_id = v_actor
+          AND c_user_active IS TRUE
+    ) THEN
+        RAISE EXCEPTION
+            'Set pulsar.log_user to an active PULSAR user UUID before applying this migration.';
+    END IF;
+
+    IF v_ip IS NULL THEN
+        RAISE EXCEPTION
+            'Set pulsar.log_ip to the deployment client IP before applying this migration.';
+    END IF;
+
+    PERFORM v_ip::INET;
+END;
+$audit_context$;
+
+CREATE TABLE IF NOT EXISTS pulsar.t_user_grid_preference
+(
+    c_user_id UUID NOT NULL
+        REFERENCES pulsar.t_user(c_user_id)
+        ON UPDATE CASCADE
+        ON DELETE CASCADE,
+    component_name TEXT NOT NULL,
+    field_mode TEXT NOT NULL DEFAULT 'list',
+    layout JSONB NOT NULL DEFAULT '{}'::JSONB,
+    search_panel_open BOOLEAN NOT NULL DEFAULT TRUE,
+    search_filters JSONB NOT NULL DEFAULT '{}'::JSONB,
+    updated_at TIMESTAMPTZ NOT NULL DEFAULT CURRENT_TIMESTAMP,
+
+    CONSTRAINT t_user_grid_preference_pkey
+        PRIMARY KEY (c_user_id, component_name, field_mode),
+
+    CONSTRAINT t_user_grid_preference_component_ck
+        CHECK (NULLIF(BTRIM(component_name), '') IS NOT NULL),
+
+    CONSTRAINT t_user_grid_preference_mode_ck
+        CHECK (NULLIF(BTRIM(field_mode), '') IS NOT NULL),
+
+    CONSTRAINT t_user_grid_preference_layout_object_ck
+        CHECK (JSONB_TYPEOF(layout) = 'object'),
+
+    CONSTRAINT t_user_grid_preference_filters_object_ck
+        CHECK (JSONB_TYPEOF(search_filters) = 'object')
+);
+
+CREATE INDEX IF NOT EXISTS t_user_grid_preference_component_idx
+    ON pulsar.t_user_grid_preference(component_name, field_mode);
+
+COMMENT ON TABLE pulsar.t_user_grid_preference IS
+    'Per-user, per-component Grid layout and runtime search preferences; never changes canonical Grid metadata';
+
+COMMENT ON COLUMN pulsar.t_user_grid_preference.layout IS
+    'Explicitly saved personal column order, widths, visibility, and header height';
+
+COMMENT ON COLUMN pulsar.t_user_grid_preference.search_panel_open IS
+    'Automatically saved expanded/collapsed state of the Grid search panel';
+
+COMMENT ON COLUMN pulsar.t_user_grid_preference.search_filters IS
+    'Automatically saved last search filter values for the authenticated user';
+
+-- The dedicated permission is system-scoped and must be explicitly granted.
+INSERT INTO pulsar.t_permission
+(
+    permission_code,
+    permission_title,
+    page_key,
+    scope_type,
+    scope_key,
+    permission_desc,
+    created_by,
+    created_at
+)
+SELECT
+    'GRID.PERSONALIZATION.SAVE',
+    'Save personal Grid layouts',
+    NULL,
+    'SYSTEM',
+    NULL,
+    'Allows a user to explicitly save and reset personal Grid column layouts.',
+    NULLIF(current_setting('pulsar.log_user', TRUE), '')::UUID,
+    CURRENT_TIMESTAMP
+WHERE NOT EXISTS (
+    SELECT 1
+    FROM pulsar.t_permission
+    WHERE permission_code = 'GRID.PERSONALIZATION.SAVE'
+      AND scope_type = 'SYSTEM'
+      AND scope_key IS NULL
+      AND page_key IS NULL
+);
+
+INSERT INTO pulsar.translation_dictionary
+    (item_code, language_code, translated_text)
+VALUES
+    ('pulsar.grid.personalization', 'en', 'Grid personalization'),
+    ('pulsar.grid.personalization', 'fa', 'شخصی‌سازی گرید'),
+    ('pulsar.grid.saveLayout', 'en', 'Save layout'),
+    ('pulsar.grid.saveLayout', 'fa', 'ذخیره چیدمان'),
+    ('pulsar.grid.resetLayout', 'en', 'Reset layout'),
+    ('pulsar.grid.resetLayout', 'fa', 'بازنشانی چیدمان'),
+    ('pulsar.grid.columns', 'en', 'Columns'),
+    ('pulsar.grid.columns', 'fa', 'ستون‌ها'),
+    ('pulsar.grid.headerHeight', 'en', 'Header height'),
+    ('pulsar.grid.headerHeight', 'fa', 'ارتفاع سرستون'),
+    ('pulsar.grid.showSearch', 'en', 'Show search panel'),
+    ('pulsar.grid.showSearch', 'fa', 'نمایش پنل جستجو'),
+    ('pulsar.grid.hideSearch', 'en', 'Hide search panel'),
+    ('pulsar.grid.hideSearch', 'fa', 'پنهان‌کردن پنل جستجو'),
+    ('pulsar.grid.layoutSaved', 'en', 'Grid layout saved.'),
+    ('pulsar.grid.layoutSaved', 'fa', 'چیدمان گرید ذخیره شد.'),
+    ('pulsar.grid.layoutReset', 'en', 'Grid layout restored to defaults.'),
+    ('pulsar.grid.layoutReset', 'fa', 'چیدمان گرید به حالت پیش‌فرض بازگشت.'),
+    ('pulsar.grid.saveUnavailable', 'en', 'You do not have permission to save personal Grid layouts.'),
+    ('pulsar.grid.saveUnavailable', 'fa', 'مجوز ذخیره چیدمان شخصی گرید را ندارید.')
+ON CONFLICT (item_code, language_code)
+DO UPDATE SET translated_text = EXCLUDED.translated_text;
+
+COMMIT;
+
+-- Important Learning Points:
+-- 1. Canonical component metadata remains unchanged by personal layouts.
+-- 2. Layout is saved explicitly and requires GRID.PERSONALIZATION.SAVE.
+-- 3. Search panel state and search filters are automatically saved.
+-- 4. Sorting remains in pulsar.t_user_grid_sort.
+-- 5. All preferences are isolated by user, component, and field mode.
