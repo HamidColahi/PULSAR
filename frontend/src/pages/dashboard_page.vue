@@ -13,7 +13,7 @@ import {
 import { useRouter } from 'vue-router'
 import TopControls from '@/components/top_controls.vue'
 import { useTranslation } from '@/composables/useTranslation'
-import { useUserAccess } from '@/composables/useUserAccess'
+import { useUserAccess } from '@/composables/useUserAccess'\nimport { fetchPageRecordCount } from '@/composables/usePageRecordCount'\nimport { userIdentity } from '@/stores/uiStore'
 
 const router = useRouter()
 
@@ -30,7 +30,7 @@ const {
   translate
 } = useTranslation()
 
-const translations = ref({})
+const translations = ref({})\nconst recordCounts = ref({})
 
 const isRtl = computed(() => {
   return languageMeta.value?.is_rtl === true
@@ -67,6 +67,42 @@ const accessList = computed(() =>
       level: access?.page_level || ''
     })
   )
+)
+
+let countRequestVersion = 0
+
+async function loadRecordCounts() {
+  const version = ++countRequestVersion
+  const entries = accessList.value
+  const nextCounts = {}
+
+  await Promise.all(entries.map(async item => {
+    try {
+      const count = await fetchPageRecordCount(
+        item.pageKey,
+        { runtimeContext: userIdentity.value || {} }
+      )
+      if (count !== null && version === countRequestVersion) {
+        nextCounts[item.pageKey] = count
+      }
+    } catch (err) {
+      console.warn(
+        'dashboard_page: record count unavailable',
+        item.pageKey,
+        err
+      )
+    }
+  }))
+
+  if (version === countRequestVersion) {
+    recordCounts.value = nextCounts
+  }
+}
+
+watch(
+  accessList,
+  loadRecordCounts,
+  { immediate: true }
 )
 
 function getLevelColor(level) {
@@ -151,12 +187,21 @@ fetchUserAccess()
         </div>
       </div>
 
-      <span
-        class="ml-3 rounded-md px-2 py-1 text-[10px] font-bold"
-        :class="getLevelColor(item.level)"
-      >
-        {{ item.level }}
-      </span>
+      <div class="ml-3 flex shrink-0 items-center gap-2">
+        <span
+          v-if="recordCounts[item.pageKey] !== undefined"
+          class="min-w-7 rounded-full bg-primary/10 px-2 py-1 text-center text-[10px] font-bold tabular-nums text-primary"
+          :aria-label="`Record count: ${recordCounts[item.pageKey]}`"
+        >
+          {{ recordCounts[item.pageKey] }}
+        </span>
+        <span
+          class="rounded-md px-2 py-1 text-[10px] font-bold"
+          :class="getLevelColor(item.level)"
+        >
+          {{ item.level }}
+        </span>
+      </div>
     </button>
   </div>
 
