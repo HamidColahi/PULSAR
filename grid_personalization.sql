@@ -1,7 +1,7 @@
 -- ===============================================
 -- File: grid_personalization.sql
 -- Description: Per-user Grid layout and runtime preferences
--- Modified: 2026-11-26 14:25 (Asia/Baku)
+-- Modified: 2026-11-26 15:02 (Asia/Baku)
 -- In collaboration with GPT4 Chat Assistant: Bahram
 --
 -- Apply after the PULSAR permission catalog is installed.
