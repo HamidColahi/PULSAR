@@ -13,7 +13,9 @@ import {
 import { useRouter } from 'vue-router'
 import TopControls from '@/components/top_controls.vue'
 import { useTranslation } from '@/composables/useTranslation'
-import { useUserAccess } from '@/composables/useUserAccess'\nimport { fetchPageRecordCount } from '@/composables/usePageRecordCount'\nimport { userIdentity } from '@/stores/uiStore'
+import { useUserAccess } from '@/composables/useUserAccess'
+import { fetchPageRecordCount } from '@/composables/usePageRecordCount'
+import { userIdentity } from '@/stores/uiStore'
 
 const router = useRouter()
 
@@ -30,7 +32,8 @@ const {
   translate
 } = useTranslation()
 
-const translations = ref({})\nconst recordCounts = ref({})
+const translations = ref({})
+const recordCounts = ref({})
 
 const isRtl = computed(() => {
   return languageMeta.value?.is_rtl === true
