@@ -1,8 +1,8 @@
 
 <!-- ===============================================
 File: frontend/src/components/grids/dynamic_dw_grid.vue
-Description: Metadata-driven dynamic data grid with user-specific multi-column sorting
-Last Modified: 2026-11-26 13:52 (Asia/Baku)
+Description: Metadata-driven dynamic data grid with per-user layout and runtime personalization
+Last Modified: 2026-11-26 14:12 (Asia/Baku)
 Author: MHKolahi@gmail.com
 In collaboration with GPT4 Chat Assistant: Bahram
 =============================================== -->
@@ -1452,7 +1452,8 @@ onBeforeUnmount(() => {
             <button
               type="button"
               class="pulsar-action h-8 min-h-8 px-2 text-xs"
-              :title="searchPanelOpen ? translations.hideSearch : translations.showSearch"
+               :title="searchPanelOpen ? translations.hideSearch : translations.showSearch"
+              :aria-label="searchPanelOpen ? translations.hideSearch : translations.showSearch"
               @click="searchPanelOpen = !searchPanelOpen"
             >
               <span aria-hidden="true">⌕</span>
@@ -1460,7 +1461,8 @@ onBeforeUnmount(() => {
             <button
               type="button"
               class="pulsar-action h-8 min-h-8 px-2 text-xs"
-              :title="translations.personalization || translations.columnsLabel"
+               :title="translations.personalization || translations.columnsLabel"
+              :aria-label="translations.personalization || translations.columnsLabel"
               @click="layoutPanelOpen = !layoutPanelOpen"
             >
               <span aria-hidden="true">☷</span>
@@ -1470,7 +1472,8 @@ onBeforeUnmount(() => {
               type="button"
               class="pulsar-action h-8 min-h-8 px-2 text-xs"
               :disabled="!gridPreferenceReady"
-              :title="translations.saveLayout"
+               :title="translations.saveLayout"
+              :aria-label="translations.saveLayout"
               @click="saveGridLayout"
             >
               <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" class="h-4 w-4" aria-hidden="true">
@@ -1819,4 +1822,11 @@ Important Learning Points:
 34. Grid passes its current mode to the universal field expander.
 35. Grid uses the existing formatted field value for expanded viewing.
 36. Double Click stops row-selection propagation while opening the expanded viewer.
+37. Personal layouts are isolated by authenticated user, component, and field mode.
+38. Column order, width, visibility, and header height are saved only by explicit user action.
+39. The personal layout save action is exposed only when GRID.PERSONALIZATION.SAVE is effective.
+40. Search panel visibility and search filters are automatically persisted with debounce.
+41. Last user-controlled sorting continues to use the existing t_user_grid_sort contract.
+42. Personal layout overrides never mutate canonical component metadata.
+43. Report Generator designer mode retains its independent report-column configuration.
 -->
