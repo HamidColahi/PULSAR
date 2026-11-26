@@ -7,7 +7,7 @@
 #
 # Author: MHKolahi@gmail.com
 # In collaboration with GPT4 Chat Assistant: Bahram
-# Last Modified: 2026-11-26 14:14 (Asia/Baku)
+# Last Modified: 2026-11-26 14:35 (Asia/Baku)
 # ===============================================
 
 from typing import Any, List, Literal
@@ -631,6 +631,35 @@ def _validate_grid_search_filters(
     return normalized
 
 
+async def _record_grid_personalization_event(
+    db: AsyncSession,
+    user_id: str,
+    component_name: str,
+    field_mode: str,
+    event_type: str,
+    field_name: str | None = None,
+    event_value: dict[str, Any] | None = None,
+) -> None:
+    await db.execute(
+        text("""
+            INSERT INTO pulsar.t_grid_personalization_event
+                (c_user_id, component_name, field_mode,
+                 event_type, field_name, event_value, occurred_at)
+            VALUES
+                (:user_id, :component_name, :field_mode,
+                 :event_type, :field_name, CAST(:event_value AS JSONB), CURRENT_TIMESTAMP)
+        """),
+        {
+            "user_id": user_id,
+            "component_name": component_name,
+            "field_mode": field_mode,
+            "event_type": event_type,
+            "field_name": field_name,
+            "event_value": json.dumps(event_value or {}),
+        },
+    )
+
+
 @router.get("/grid_preferences")
 async def read_grid_preferences(
     component_name: str = Query(..., min_length=1, max_length=255),
@@ -716,6 +745,26 @@ async def save_grid_layout(
         raise HTTPException(status_code=404, detail="Grid configuration was not found.")
 
     layout = _validate_grid_layout(payload.layout, metadata)
+
+    previous_result = await db.execute(
+        text("""
+            SELECT layout
+            FROM pulsar.t_user_grid_preference
+            WHERE c_user_id = :user_id
+              AND component_name = :component_name
+              AND field_mode = :field_mode
+        """),
+        {
+            "user_id": str(current_user.id),
+            "component_name": payload.component_name,
+            "field_mode": payload.field_mode,
+        },
+    )
+    previous_row = previous_result.mappings().first()
+    previous_layout = dict(previous_row["layout"] or {}) if previous_row else {}
+    previous_hidden = set(previous_layout.get("hidden_columns", []))
+    current_hidden = set(layout["hidden_columns"])
+
     await db.execute(
         text("""
             INSERT INTO pulsar.t_user_grid_preference
@@ -734,6 +783,42 @@ async def save_grid_layout(
             "layout": json.dumps(layout),
         },
     )
+    user_id = str(current_user.id)
+    await _record_grid_personalization_event(
+        db,
+        user_id,
+        payload.component_name,
+        payload.field_mode,
+        "LAYOUT_SAVED",
+    )
+
+    for field, field_config in metadata.items():
+        if not field_config["visible_in_grid"]:
+            continue
+        was_visible = field not in previous_hidden
+        is_visible = field not in current_hidden
+        if was_visible != is_visible:
+            await _record_grid_personalization_event(
+                db,
+                user_id,
+                payload.component_name,
+                payload.field_mode,
+                "COLUMN_VISIBILITY",
+                field,
+                {"visible": is_visible},
+            )
+
+    for position, field in enumerate(layout["column_order"], start=1):
+        await _record_grid_personalization_event(
+            db,
+            user_id,
+            payload.component_name,
+            payload.field_mode,
+            "COLUMN_POSITION",
+            field,
+            {"position": position},
+        )
+
     await db.commit()
     return {"layout": layout, "saved": True}
 
@@ -811,8 +896,92 @@ async def reset_grid_layout(
             "field_mode": field_mode,
         },
     )
+    await _record_grid_personalization_event(
+        db,
+        str(current_user.id),
+        component_name,
+        field_mode,
+        "LAYOUT_RESET",
+    )
     await db.commit()
     return {"reset": True}
+
+
+@router.get("/grid_personalization/analytics")
+async def read_grid_personalization_analytics(
+    component_name: str | None = Query(default=None, max_length=255),
+    db: AsyncSession = Depends(get_audited_session),
+    current_user = Depends(get_current_user),
+):
+    """Return aggregate Grid usage metrics for authorized system optimization."""
+    await require_permission(
+        db,
+        str(current_user.id),
+        "GRID.PERSONALIZATION.ANALYTICS",
+    )
+
+    layout_result = await db.execute(
+        text("""
+            SELECT
+                component_name,
+                field_mode,
+                COUNT(*) AS layout_save_count,
+                COUNT(DISTINCT c_user_id) AS participating_users,
+                MAX(occurred_at) AS last_customized_at
+            FROM pulsar.t_grid_personalization_event
+            WHERE event_type = 'LAYOUT_SAVED'
+              AND (:component_name IS NULL OR component_name = :component_name)
+            GROUP BY component_name, field_mode
+            ORDER BY layout_save_count DESC, component_name, field_mode
+        """),
+        {"component_name": component_name},
+    )
+
+    column_result = await db.execute(
+        text("""
+            SELECT
+                component_name,
+                field_mode,
+                field_name,
+                COUNT(*) FILTER (
+                    WHERE event_type = 'COLUMN_VISIBILITY'
+                      AND event_value ->> 'visible' = 'false'
+                ) AS hide_count,
+                COUNT(*) FILTER (
+                    WHERE event_type = 'COLUMN_VISIBILITY'
+                      AND event_value ->> 'visible' = 'true'
+                ) AS show_count,
+                COUNT(DISTINCT c_user_id) FILTER (
+                    WHERE event_type = 'COLUMN_VISIBILITY'
+                      AND event_value ->> 'visible' = 'false'
+                ) AS users_who_hid_column,
+                AVG((event_value ->> 'position')::NUMERIC) FILTER (
+                    WHERE event_type = 'COLUMN_POSITION'
+                ) AS average_position,
+                COUNT(*) FILTER (
+                    WHERE event_type = 'COLUMN_POSITION'
+                ) AS position_samples
+            FROM pulsar.t_grid_personalization_event
+            WHERE field_name IS NOT NULL
+              AND (:component_name IS NULL OR component_name = :component_name)
+            GROUP BY component_name, field_mode, field_name
+            ORDER BY component_name, field_mode, field_name
+        """),
+        {"component_name": component_name},
+    )
+
+    return {
+        "layout_customization": [
+            dict(row) for row in layout_result.mappings().all()
+        ],
+        "column_usage": [
+            dict(row) for row in column_result.mappings().all()
+        ],
+        "interpretation_note": (
+            "Visibility and position metrics describe user behavior; "
+            "they are not standalone measures of business importance."
+        ),
+    }
 
 
 # ===============================================
