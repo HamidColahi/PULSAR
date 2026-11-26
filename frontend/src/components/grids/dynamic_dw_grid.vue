@@ -1869,42 +1869,50 @@ onBeforeUnmount(() => {
 
           </tbody>
 
+          <tfoot
+            v-if="numericFields.length"
+            class="sticky bottom-0 z-20 text-xs font-semibold"
+          >
+            <tr
+              class="border-t"
+              style="background:var(--pulsar-level-accent-soft);border-color:var(--pulsar-level-border)"
+            >
+              <td class="whitespace-nowrap px-3 py-2 text-label">
+                {{ footerLabels.selectedTotal }} ({{ selectedRows.length }})
+              </td>
+              <td
+                v-for="col in fields"
+                :key="'selected-' + col.field"
+                class="whitespace-nowrap border-l px-3 py-2 text-right tabular-nums text-label"
+                style="border-color:var(--pulsar-level-border)"
+              >
+                {{ numericFields.some(item => item.field === col.field)
+                  ? formatAggregate(selectedTotal(col.field))
+                  : '' }}
+              </td>
+            </tr>
+            <tr
+              class="border-t"
+              style="background:color-mix(in srgb, var(--pulsar-level-accent) 10%, var(--pulsar-level-surface));border-color:var(--pulsar-level-border)"
+            >
+              <td class="whitespace-nowrap px-3 py-2 text-label">
+                {{ footerLabels.allTotal }}
+              </td>
+              <td
+                v-for="col in fields"
+                :key="'all-' + col.field"
+                class="whitespace-nowrap border-l px-3 py-2 text-right tabular-nums text-label"
+                style="border-color:var(--pulsar-level-border)"
+              >
+                {{ numericFields.some(item => item.field === col.field)
+                  ? formatAggregate(allRowsTotal(col.field))
+                  : '' }}
+              </td>
+            </tr>
+          </tfoot>
+
         </table>
 
-      </div>
-
-      <div
-        v-if="numericFields.length"
-        class="grid shrink-0 border-t text-xs"
-        style="border-color:var(--pulsar-level-border)"
-      >
-        <div
-          class="flex min-w-0 items-center gap-3 border-b px-3 py-2"
-          style="background:var(--pulsar-level-accent-soft);border-color:var(--pulsar-level-border)"
-        >
-          <span class="w-36 shrink-0 font-semibold text-label">
-            {{ footerLabels.selectedTotal }}
-            <span class="font-normal text-muted">({{ selectedRows.length }})</span>
-          </span>
-          <div class="flex min-w-0 flex-1 items-center gap-4 overflow-x-auto">
-            <div v-for="col in numericFields" :key="'selected-' + col.field" class="min-w-24">
-              <span class="block text-[10px] text-muted">{{ translations[col.field] || col.field }}</span>
-              <span class="font-semibold tabular-nums text-label">{{ formatAggregate(selectedTotal(col.field)) }}</span>
-            </div>
-          </div>
-        </div>
-        <div
-          class="flex min-w-0 items-center gap-3 px-3 py-2"
-          style="background:color-mix(in srgb, var(--pulsar-level-accent) 10%, var(--pulsar-level-surface))"
-        >
-          <span class="w-36 shrink-0 font-semibold text-label">{{ footerLabels.allTotal }}</span>
-          <div class="flex min-w-0 flex-1 items-center gap-4 overflow-x-auto">
-            <div v-for="col in numericFields" :key="'all-' + col.field" class="min-w-24">
-              <span class="block text-[10px] text-muted">{{ translations[col.field] || col.field }}</span>
-              <span class="font-semibold tabular-nums text-label">{{ formatAggregate(allRowsTotal(col.field)) }}</span>
-            </div>
-          </div>
-        </div>
       </div>
 
     </div>
