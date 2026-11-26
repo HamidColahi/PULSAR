@@ -1,7 +1,7 @@
 # ===============================================
 # File: backend/reporting/filter_sql.py
 # Description: Restricted SQL predicate validation for Report Generator
-# Modified: 2026-11-26 (Asia/Baku)
+# Modified: 2026-11-26 05:00 (Asia/Baku)
 # In collaboration with GPT4 Chat Assistant: Bahram
 # ===============================================
 
@@ -9,6 +9,8 @@ import re
 from typing import Any
 
 from fastapi import HTTPException
+from pglast import parse_sql
+from pglast.parser import ParseError
 
 
 _TOKEN_PATTERN = re.compile(
@@ -185,5 +187,13 @@ def validate_sql_filter(
 
     if not safe_expression:
         raise HTTPException(status_code=422, detail="SQL Filter cannot be empty.")
+
+    try:
+        parse_sql(f"SELECT 1 WHERE ({safe_expression})")
+    except ParseError as exc:
+        raise HTTPException(
+            status_code=422,
+            detail="SQL Filter contains invalid PostgreSQL syntax.",
+        ) from exc
 
     return safe_expression
