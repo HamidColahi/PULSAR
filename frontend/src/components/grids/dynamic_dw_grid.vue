@@ -2,7 +2,7 @@
 <!-- ===============================================
 File: frontend/src/components/grids/dynamic_dw_grid.vue
 Description: Metadata-driven dynamic data grid with per-user layout and runtime personalization
-Last Modified: 2026-11-26 18:10 (Asia/Baku)
+Last Modified: 2026-11-26 18:18 (Asia/Baku)
 Author: MHKolahi@gmail.com
 In collaboration with GPT4 Chat Assistant: Bahram
 =============================================== -->
@@ -77,6 +77,16 @@ const props = defineProps({
   reportAggregates: {
     type: Object,
     default: () => ({})
+  },
+
+  selectedRowIdentities: {
+    type: Array,
+    default: () => []
+  },
+
+  externalSelectedRows: {
+    type: Array,
+    default: () => []
   }
 })
 
@@ -1362,6 +1372,10 @@ function sumRows(rows, field) {
 }
 
 const selectedRows = computed(() => {
+  if (props.reportMode) {
+    return props.externalSelectedRows
+  }
+
   const selected = new Set(selectedIdentities.value)
   const visible = new Set(sortedItems.value.map(getRowIdentity))
   return props.items.filter(item =>
@@ -1369,6 +1383,16 @@ const selectedRows = computed(() => {
     visible.has(getRowIdentity(item))
   )
 })
+
+watch(
+  () => props.selectedRowIdentities,
+  identities => {
+    if (props.reportMode) {
+      selectedIdentities.value = identities.map(String)
+    }
+  },
+  { immediate: true }
+)
 
 function formatAggregate(value) {
   return new Intl.NumberFormat(lang.value || undefined, {
@@ -1444,15 +1468,21 @@ watch(
   () => props.items,
   items => {
     const available = new Set(items.map(getRowIdentity).filter(Boolean))
-    selectedIdentities.value = selectedIdentities.value.filter(
-      identity => available.has(identity)
-    )
+    if (!props.reportMode) {
+      selectedIdentities.value = selectedIdentities.value.filter(
+        identity => available.has(identity)
+      )
+    }
 
     if (!items.includes(selectedRowLocal.value)) {
       selectedRowLocal.value = null
     }
 
-    if (selectionAnchor.value && !available.has(selectionAnchor.value)) {
+    if (
+      !props.reportMode &&
+      selectionAnchor.value &&
+      !available.has(selectionAnchor.value)
+    ) {
       selectionAnchor.value = null
     }
 
