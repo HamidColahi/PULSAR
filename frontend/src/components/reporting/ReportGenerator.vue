@@ -1,7 +1,7 @@
 <!-- ===============================================
 File: frontend/src/components/reporting/ReportGenerator.vue
 Description: Metadata-driven Report Generator designer and manager
-Modified: 2026-11-26 12:27 (Asia/Baku)
+Modified: 2026-11-26 12:34 (Asia/Baku)
 In collaboration with GPT4 Chat Assistant: Bahram
 =============================================== -->
 
@@ -46,8 +46,15 @@ In collaboration with GPT4 Chat Assistant: Bahram
         <div class="min-h-0 flex-1 overflow-y-auto p-3">
           <section v-if="activeTab === 'columns'" class="space-y-2">
             <div class="text-xs font-semibold">{{ labels.columns }}</div>
+            <input
+              v-model="columnSearch"
+              type="search"
+              class="w-full rounded-lg border border-border bg-panel px-2.5 py-2 text-xs"
+              :placeholder="labels.search"
+              :aria-label="labels.search"
+            />
             <div
-              v-for="(column, index) in columns"
+              v-for="column in filteredColumns"
               :key="column.field_name"
               class="rounded-lg border border-border p-2"
             >
@@ -56,8 +63,8 @@ In collaboration with GPT4 Chat Assistant: Bahram
                   <input v-model="column.is_visible" type="checkbox" @change="runReport" />
                   <span class="min-w-0 flex-1 truncate">{{ fieldLabel(column.field_name) }}</span>
                 </label>
-                <button class="text-xs text-muted disabled:opacity-30" :disabled="index === 0" :aria-label="labels.moveUp" @click="moveColumn(index, -1)">↑</button>
-                <button class="text-xs text-muted disabled:opacity-30" :disabled="index === columns.length - 1" :aria-label="labels.moveDown" @click="moveColumn(index, 1)">↓</button>
+                <button class="text-xs text-muted disabled:opacity-30" :disabled="columns.indexOf(column) === 0" :aria-label="labels.moveUp" @click="moveColumn(columns.indexOf(column), -1)">↑</button>
+                <button class="text-xs text-muted disabled:opacity-30" :disabled="columns.indexOf(column) === columns.length - 1" :aria-label="labels.moveDown" @click="moveColumn(columns.indexOf(column), 1)">↓</button>
               </div>
               <div class="mt-2 flex items-center gap-2">
                 <label class="text-[10px] text-muted">{{ labels.width }}</label>
@@ -286,6 +293,7 @@ const reportTitle = ref('')
 const reportDescription = ref('')
 const sharingPolicy = ref('PRIVATE')
 const columns = ref([])
+const columnSearch = ref('')
 const filters = ref([])
 const filterBaseline = ref('[]')
 const filterMode = ref('standard')
@@ -462,6 +470,21 @@ const searchableFields = computed(() => {
   return Object.entries(props.config?.fields || {})
     .filter(([, meta]) => meta?.visible_in_search === true)
     .map(([field]) => field)
+})
+
+const filteredColumns = computed(() => {
+  const query = columnSearch.value.trim().toLocaleLowerCase()
+  if (!query) return columns.value
+
+  return columns.value.filter(column => {
+    const searchableText = [
+      column.field_name,
+      fieldLabel(column.field_name),
+      column.custom_label
+    ].filter(Boolean).join(' ').toLocaleLowerCase()
+
+    return searchableText.includes(query)
+  })
 })
 
 const sortableColumns = computed(() => {
