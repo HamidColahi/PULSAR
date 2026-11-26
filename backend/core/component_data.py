@@ -1100,6 +1100,88 @@ def create_component_data_router(
         return projected_rows
 
     # ---------------------------------------------
+    # COUNT
+    # ---------------------------------------------
+
+    @router.get(
+        "/count/data"
+    )
+    async def count_records(
+        request: Request,
+        session: AsyncSession =
+            Depends(
+                get_async_session
+            )
+    ):
+        base = await _load_base(
+            session,
+            component_name,
+            "list"
+        )
+
+        Model = await _build_model(
+            session,
+            base,
+            component_name,
+            request,
+            "list"
+        )
+
+        scope_dict, raw_sql = (
+            await _resolve_request_scope(
+                request,
+                base,
+                component_name,
+                session,
+                Model
+            )
+        )
+
+        query = select(
+            func.count()
+        ).select_from(
+            Model
+        )
+
+        if scope_dict:
+            query = apply_scope_query(
+                query,
+                Model,
+                scope_dict
+            )
+
+        elif raw_sql:
+            query = query.where(
+                sql_text(raw_sql)
+            )
+
+        try:
+            result = await session.execute(
+                query
+            )
+            return {
+                "component_name": component_name,
+                "count": int(result.scalar_one() or 0)
+            }
+
+        except SQLAlchemyError as exc:
+            await _handle_database_error(
+                session,
+                exc,
+                error_code=QUERY_COMPONENT_DATA_LIST,
+                component_name=component_name,
+                operation_name="COUNT",
+                base=base,
+                request=request,
+                parameters={
+                    "where_scope": scope_dict,
+                    "raw_sql": raw_sql
+                },
+                function_name="count_records"
+            )
+            raise
+
+    # ---------------------------------------------
     # VIEW
     # ---------------------------------------------
 
