@@ -40,6 +40,63 @@ _SAFE_FUNCTIONS = {
     "LENGTH", "CHAR_LENGTH", "COALESCE", "NULLIF",
 }
 
+_FUNCTION_ARITY = {
+    "ABS": (1, 1),
+    "CEIL": (1, 1),
+    "FLOOR": (1, 1),
+    "ROUND": (1, 2),
+    "LOWER": (1, 1),
+    "UPPER": (1, 1),
+    "BTRIM": (1, 2),
+    "LTRIM": (1, 2),
+    "RTRIM": (1, 2),
+    "LENGTH": (1, 1),
+    "CHAR_LENGTH": (1, 1),
+    "COALESCE": (2, 100),
+    "NULLIF": (2, 2),
+}
+
+
+def _validate_function_arity(
+    tokens: list[tuple[str, str]],
+    function_index: int,
+    function_name: str,
+) -> None:
+    """Validate the number of arguments for an allowed SQL function."""
+    depth = 0
+    argument_count = 0
+    has_argument = False
+
+    for kind, value in tokens[function_index + 1:]:
+        if value == "(":
+            depth += 1
+            if depth > 1:
+                has_argument = True
+            continue
+
+        if value == ")":
+            depth -= 1
+            if depth == 0:
+                break
+            continue
+
+        if depth == 1 and value == ",":
+            argument_count += 1
+            continue
+
+        if depth == 1:
+            has_argument = True
+
+    if has_argument:
+        argument_count += 1
+
+    minimum, maximum = _FUNCTION_ARITY[function_name]
+    if not minimum <= argument_count <= maximum:
+        raise HTTPException(
+            status_code=422,
+            detail=f"SQL Filter function '{function_name}' has an invalid number of arguments.",
+        )
+
 
 def validate_sql_filter(
     expression: str,
@@ -135,6 +192,7 @@ def validate_sql_filter(
                         status_code=403,
                         detail=f"SQL Filter function '{value}' is not allowed.",
                     )
+                _validate_function_arity(tokens, index, upper)
                 if upper in {"COALESCE", "NULLIF"} or not qualify_functions:
                     normalized.append(upper)
                 else:
