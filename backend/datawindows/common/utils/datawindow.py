@@ -5,6 +5,7 @@
 #
 # Description:
 # Universal DataWindow-like router for dynamic metadata access
+# Modified: 26/11/2026, 05:00 (Asia/Baku)
 #
 # Author: MHKolahi@gmail.com
 # In collaboration with GPT4 Chat Assistant: Bahram
@@ -125,7 +126,7 @@ async def get_user_access(
             log_user,
             log_ip
         FROM pulsar.t_page_usracc
-        WHERE pulsar.get_page_type(page_key) = 'O'
+        WHERE pulsar.get_page_type(page_key) IN ('O', 'RG')
           AND c_user_id = :context_id
         ORDER BY page_key
         """
@@ -189,7 +190,7 @@ async def get_renderer_types(
             ON rt.c_renderer_type = ur.c_renderer_type
         WHERE ur.c_user_id = :context_id
           AND ur.page_key = :pagekey
-          AND pulsar.get_page_type(ua.page_key) = 'O'
+          AND pulsar.get_page_type(ua.page_key) IN ('O', 'RG')
           AND ua.c_page_state = 'active'
           AND ua.c_page_renderer = TRUE
           AND rt.c_state = 'active'
