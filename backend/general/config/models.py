@@ -8,7 +8,7 @@
 #
 # Author: MHKolahi@gmail.com
 # In collaboration with GPT4 Chat Assistant: Bahram
-# Last Modified: 2026-11-23 23:55 (Asia/Baku)
+# Last Modified: 2026-11-27 00:00 (Asia/Baku)
 # ===============================================
 
 from sqlalchemy import (
@@ -47,6 +47,7 @@ class ComponentsConfig(Base):
     visible_in_search = Column(Boolean, nullable=True)
     field_sort = Column(SmallInteger, nullable=False, default=0, server_default=text("0"))
     field_sort_order = Column(Integer, nullable=True)
+    aggregate_enabled = Column(Boolean, nullable=False, server_default=text("false"))
 
     is_readonly = Column(Boolean, nullable=True)
 
