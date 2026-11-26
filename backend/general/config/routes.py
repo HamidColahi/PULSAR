@@ -7,7 +7,7 @@
 #
 # Author: MHKolahi@gmail.com
 # In collaboration with GPT4 Chat Assistant: Bahram
-# Last Modified: 2026-11-26 14:42 (Asia/Baku)
+# Last Modified: 2026-11-26 14:55 (Asia/Baku)
 # ===============================================
 
 from typing import Any, List, Literal
@@ -978,11 +978,16 @@ async def read_grid_personalization_analytics(
             SELECT
                 component_name,
                 field_mode,
-                COUNT(*) AS layout_save_count,
+                COUNT(*) FILTER (
+                    WHERE event_type = 'LAYOUT_SAVED'
+                ) AS layout_save_count,
+                COUNT(*) FILTER (
+                    WHERE event_type = 'LAYOUT_RESET'
+                ) AS layout_reset_count,
                 COUNT(DISTINCT c_user_id) AS participating_users,
                 MAX(occurred_at) AS last_customized_at
             FROM pulsar.t_grid_personalization_event
-            WHERE event_type = 'LAYOUT_SAVED'
+            WHERE event_type IN ('LAYOUT_SAVED', 'LAYOUT_RESET')
               AND (:component_name IS NULL OR component_name = :component_name)
             GROUP BY component_name, field_mode
             ORDER BY layout_save_count DESC, component_name, field_mode
