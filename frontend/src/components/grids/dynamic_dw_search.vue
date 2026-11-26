@@ -3,7 +3,7 @@
 File: frontend/src/components/grids/dynamic_dw_search.vue
 Description: Metadata-driven dynamic search and filter component
 Author: MHKolahi@gmail.com
-Last Modified: 2026-11-16 (Asia/Baku)
+Last Modified: 2026-11-26 14:02 (Asia/Baku)
 In collaboration with GPT4 Chat Assistant: Bahram
 =============================================== -->
 
@@ -256,7 +256,9 @@ function areFiltersEqual(left = {}, right = {}) {
 // Fields
 // --------------------------------------------------
 const fields = computed(() => {
-  return props.config?.field_order || []
+  return (props.config?.field_order || []).filter(
+    field => props.config?.fields?.[field]?.visible_in_search !== false
+  )
 })
 
 function getFieldMeta(field) {
