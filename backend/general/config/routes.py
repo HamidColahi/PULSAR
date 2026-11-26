@@ -7,7 +7,7 @@
 #
 # Author: MHKolahi@gmail.com
 # In collaboration with GPT4 Chat Assistant: Bahram
-# Last Modified: 2026-11-26 14:35 (Asia/Baku)
+# Last Modified: 2026-11-26 14:42 (Asia/Baku)
 # ===============================================
 
 from typing import Any, List, Literal
@@ -881,6 +881,36 @@ async def reset_grid_layout(
         str(current_user.id),
         GRID_LAYOUT_PERMISSION,
     )
+    previous_result = await db.execute(
+        text("""
+            SELECT layout
+            FROM pulsar.t_user_grid_preference
+            WHERE c_user_id = :user_id
+              AND component_name = :component_name
+              AND field_mode = :field_mode
+        """),
+        {
+            "user_id": str(current_user.id),
+            "component_name": component_name,
+            "field_mode": field_mode,
+        },
+    )
+    previous_row = previous_result.mappings().first()
+    previous_layout = dict(previous_row["layout"] or {}) if previous_row else {}
+    previous_hidden = set(previous_layout.get("hidden_columns", []))
+
+    default_fields_result = await db.execute(
+        select(ComponentsConfig.field_name).where(
+            ComponentsConfig.component_name == component_name,
+            ComponentsConfig.field_mode == field_mode,
+            ComponentsConfig.visible_in_grid.is_not(False),
+        ).order_by(
+            ComponentsConfig.ordering_index,
+            ComponentsConfig.field_name,
+        )
+    )
+    default_fields = [row[0] for row in default_fields_result.all()]
+
     await db.execute(
         text("""
             UPDATE pulsar.t_user_grid_preference
@@ -896,13 +926,36 @@ async def reset_grid_layout(
             "field_mode": field_mode,
         },
     )
+    user_id = str(current_user.id)
     await _record_grid_personalization_event(
         db,
-        str(current_user.id),
+        user_id,
         component_name,
         field_mode,
         "LAYOUT_RESET",
     )
+
+    for field in previous_hidden.intersection(default_fields):
+        await _record_grid_personalization_event(
+            db,
+            user_id,
+            component_name,
+            field_mode,
+            "COLUMN_VISIBILITY",
+            field,
+            {"visible": True},
+        )
+
+    for position, field in enumerate(default_fields, start=1):
+        await _record_grid_personalization_event(
+            db,
+            user_id,
+            component_name,
+            field_mode,
+            "COLUMN_POSITION",
+            field,
+            {"position": position},
+        )
     await db.commit()
     return {"reset": True}
 
@@ -970,12 +1023,36 @@ async def read_grid_personalization_analytics(
         {"component_name": component_name},
     )
 
+    position_result = await db.execute(
+        text("""
+            SELECT
+                component_name,
+                field_mode,
+                field_name,
+                (event_value ->> 'position')::INTEGER AS display_position,
+                COUNT(*) AS sample_count
+            FROM pulsar.t_grid_personalization_event
+            WHERE event_type = 'COLUMN_POSITION'
+              AND (:component_name IS NULL OR component_name = :component_name)
+            GROUP BY
+                component_name,
+                field_mode,
+                field_name,
+                (event_value ->> 'position')::INTEGER
+            ORDER BY component_name, field_mode, field_name, display_position
+        """),
+        {"component_name": component_name},
+    )
+
     return {
         "layout_customization": [
             dict(row) for row in layout_result.mappings().all()
         ],
         "column_usage": [
             dict(row) for row in column_result.mappings().all()
+        ],
+        "position_distribution": [
+            dict(row) for row in position_result.mappings().all()
         ],
         "interpretation_note": (
             "Visibility and position metrics describe user behavior; "
