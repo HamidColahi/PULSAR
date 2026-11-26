@@ -37,17 +37,16 @@
 
       <template v-else>
         <dw_toolbar
-          v-if="!reportGeneratorEnabled"
           class="mb-2.5"
           :style="themeStyle"
           :disabled="gridLoading || !!gridError"
           :translations="gridConfig?.translations || {}"
           :hasSelection="hasSelection"
           :c_page_view="props.c_page_view"
-          :c_page_insert="props.c_page_insert"
-          :c_page_update="props.c_page_update"
-          :c_page_delete="props.c_page_delete"
-          :c_page_renderer="props.c_page_renderer"
+          :c_page_insert="reportGeneratorEnabled ? false : props.c_page_insert"
+          :c_page_update="reportGeneratorEnabled ? false : props.c_page_update"
+          :c_page_delete="reportGeneratorEnabled ? false : props.c_page_delete"
+          :c_page_renderer="reportGeneratorEnabled ? false : props.c_page_renderer"
           @insert="handleInsert"
           @update="handleUpdate"
           @view="handleView"
@@ -118,6 +117,7 @@
             </div>
 
             <ReportGenerator
+              ref="reportGeneratorRef"
               v-if="reportGeneratorEnabled && gridConfig"
               :style="themeStyle"
               :page-key="props.pageTitleKey"
@@ -479,6 +479,7 @@ async function appendCurrentParentRecord() {
 
 const selectedRecord = ref(null)
 const selectedId = ref(null)
+const reportGeneratorRef = ref(null)
 const showForm = ref(false)
 const formMode = ref('view')
 
@@ -1022,6 +1023,11 @@ function handleRenderer() {
 
 async function handleRefresh() {
   try {
+    if (reportGeneratorEnabled.value) {
+      await reportGeneratorRef.value?.runReport()
+      return
+    }
+
     await loadRecords()
   } catch (err) {
     console.error('generic_page: refresh failed', err)
