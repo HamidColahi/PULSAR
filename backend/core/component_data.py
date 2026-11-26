@@ -85,6 +85,8 @@ from core.component_where import (
 from core.query_error import (
     handle_query_error
 )
+from general.auth.dependencies import get_current_user
+from general.user.models.user import User
 
 
 # -------------------------------
