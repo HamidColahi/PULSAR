@@ -2,7 +2,7 @@
 <!-- ===============================================
 File: frontend/src/components/grids/dynamic_dw_grid.vue
 Description: Metadata-driven dynamic data grid with user-specific multi-column sorting
-Last Modified: 2026-11-24 (Asia/Baku)
+Last Modified: 2026-11-26 12:25 (Asia/Baku)
 Author: MHKolahi@gmail.com
 In collaboration with GPT4 Chat Assistant: Bahram
 =============================================== -->
