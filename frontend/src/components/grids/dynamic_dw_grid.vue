@@ -873,14 +873,17 @@ const fields = computed(() => {
         const fullLabel = translations.value[field] || field
         const labelMode = String(column.label_mode || 'FULL').toUpperCase()
         const customLabel = String(column.custom_label || '').trim()
-        const initials = fullLabel
+        const labelWords = fullLabel
           .trim()
           .split(/\s+/)
           .filter(Boolean)
           .map(word => word.replace(/^[^\p{L}\p{N}]+|[^\p{L}\p{N}]+$/gu, ''))
           .filter(Boolean)
-          .map(word => Array.from(word)[0].toLocaleUpperCase(lang.value))
-          .join('.')
+        const initials = labelWords.length > 1
+          ? labelWords
+            .map(word => Array.from(word)[0].toLocaleUpperCase(lang.value))
+            .join('.')
+          : ''
 
         return {
           field,
