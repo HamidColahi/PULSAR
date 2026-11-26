@@ -1,7 +1,7 @@
 -- ============================================================
 -- PULSAR Report Column Presentation
 -- File: backend/reporting/sql/003_report_column_presentation.sql
--- Modified: 2026-11-26 (Asia/Baku)
+-- Modified: 2026-11-26 12:25 (Asia/Baku)
 -- In collaboration with GPT4 Chat Assistant: Bahram
 --
 -- Persists per-column label mode, custom label, and header height.
