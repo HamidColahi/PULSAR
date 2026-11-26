@@ -2,7 +2,7 @@
 <!-- ===============================================
 File: frontend/src/components/grids/dynamic_dw_grid.vue
 Description: Metadata-driven dynamic data grid with user-specific multi-column sorting
-Last Modified: 2026-11-26 13:45 (Asia/Baku)
+Last Modified: 2026-11-26 13:52 (Asia/Baku)
 Author: MHKolahi@gmail.com
 In collaboration with GPT4 Chat Assistant: Bahram
 =============================================== -->
@@ -1112,14 +1112,17 @@ async function loadTranslations() {
     )
   }
 
-  const [personalization, saveLayout, resetLayout, columnsLabel, headerHeight, showSearch, hideSearch] = await Promise.all([
+  const [personalization, saveLayout, resetLayout, columnsLabel, headerHeight, showSearch, hideSearch, moveEarlier, moveLater, columnWidth] = await Promise.all([
     translate('pulsar.grid.personalization', lang.value, 'Default'),
     translate('pulsar.grid.saveLayout', lang.value, 'Default'),
     translate('pulsar.grid.resetLayout', lang.value, 'Default'),
     translate('pulsar.grid.columns', lang.value, 'Default'),
     translate('pulsar.grid.headerHeight', lang.value, 'Default'),
     translate('pulsar.grid.showSearch', lang.value, 'Default'),
-    translate('pulsar.grid.hideSearch', lang.value, 'Default')
+    translate('pulsar.grid.hideSearch', lang.value, 'Default'),
+    translate('pulsar.grid.moveEarlier', lang.value, 'Default'),
+    translate('pulsar.grid.moveLater', lang.value, 'Default'),
+    translate('pulsar.grid.columnWidth', lang.value, 'Default')
   ])
 
   Object.assign(result, {
@@ -1129,7 +1132,10 @@ async function loadTranslations() {
     columnsLabel,
     headerHeight,
     showSearch,
-    hideSearch
+    hideSearch,
+    moveEarlier,
+    moveLater,
+    columnWidth
   })
   translations.value = result
 
@@ -1483,6 +1489,7 @@ onBeforeUnmount(() => {
         style="border-color:var(--pulsar-level-border)"
       >
         <div class="flex flex-col gap-2">
+          <span class="text-xs font-semibold text-label">{{ translations.columnsLabel }}</span>
           <label class="text-xs font-semibold text-label">
             {{ translations.headerHeight }}: {{ headerHeightPx }}px
           </label>
@@ -1510,15 +1517,15 @@ onBeforeUnmount(() => {
               @change="toggleColumnVisibility(column.field, $event.target.checked)"
             />
             <span class="min-w-0 flex-1 truncate text-xs" :title="column.label">{{ column.label }}</span>
-            <button type="button" class="text-muted disabled:opacity-30" :disabled="columnIndex === 0" @click="moveGridColumn(column.field, -1)" aria-label="Move column left">↑</button>
-            <button type="button" class="text-muted disabled:opacity-30" :disabled="columnIndex === allGridFields.length - 1" @click="moveGridColumn(column.field, 1)" aria-label="Move column right">↓</button>
+            <button type="button" class="text-muted disabled:opacity-30" :disabled="columnIndex === 0" @click="moveGridColumn(column.field, -1)"  :aria-label="translations.moveEarlier">↑</button>
+            <button type="button" class="text-muted disabled:opacity-30" :disabled="columnIndex === allGridFields.length - 1" @click="moveGridColumn(column.field, 1)"  :aria-label="translations.moveLater">↓</button>
             <input
               type="range"
               min="48"
               max="800"
               step="8"
               :value="columnWidths[column.field] || 180"
-              :aria-label="'Width ' + column.label"
+               :aria-label="translations.columnWidth + ' ' + column.label"
               class="w-20"
               @input="setColumnWidth(column.field, $event.target.value)"
             />
