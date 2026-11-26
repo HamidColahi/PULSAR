@@ -984,10 +984,34 @@ async def execute_report(
             ),
         )
 
+    identity_fields = [
+        field_name.strip()
+        for field_name in str(base.get("primary_key") or "").split(",")
+        if field_name.strip()
+    ]
+    invalid_identity_fields = [
+        field_name
+        for field_name in identity_fields
+        if field_name not in Model.__table__.columns
+    ]
+    if invalid_identity_fields:
+        raise HTTPException(
+            status_code=422,
+            detail={
+                "message": "The source component primary-key metadata references unavailable fields.",
+                "fields": invalid_identity_fields,
+            },
+        )
+
+    query_fields = list(dict.fromkeys([
+        *requested_fields,
+        *identity_fields,
+    ]))
+
     query = select(
         *[
             getattr(Model, field_name)
-            for field_name in requested_fields
+            for field_name in query_fields
         ]
     )
 
