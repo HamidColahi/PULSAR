@@ -2,7 +2,7 @@
 <!-- ===============================================
 File: frontend/src/components/grids/dynamic_dw_grid.vue
 Description: Metadata-driven dynamic data grid with per-user layout and runtime personalization
-Last Modified: 2026-11-26 14:12 (Asia/Baku)
+Last Modified: 2026-11-26 14:20 (Asia/Baku)
 Author: MHKolahi@gmail.com
 In collaboration with GPT4 Chat Assistant: Bahram
 =============================================== -->
@@ -925,14 +925,20 @@ function scheduleGridRuntimeStateSave() {
     return
   }
 
+  const component = componentName.value
+  const fieldMode = props.config?.field_mode || 'list'
+  const stateSnapshot = {
+    search_panel_open: searchPanelOpen.value,
+    search_filters: JSON.parse(JSON.stringify(filters.value || {}))
+  }
+
   clearTimeout(runtimeStateSaveTimer)
   runtimeStateSaveTimer = setTimeout(async () => {
     try {
       await axios.patch('/config/grid_preferences/state', {
-        component_name: componentName.value,
-        field_mode: props.config?.field_mode || 'list',
-        search_panel_open: searchPanelOpen.value,
-        search_filters: filters.value || {}
+        component_name: component,
+        field_mode: fieldMode,
+        ...stateSnapshot
       })
     } catch (err) {
       console.error('dynamic_dw_grid: failed to auto-save Grid state', err)
