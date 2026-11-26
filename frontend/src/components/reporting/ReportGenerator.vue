@@ -50,13 +50,8 @@ In collaboration with GPT4 Chat Assistant: Bahram
               v-for="(column, index) in columns"
               :key="column.field_name"
               class="rounded-lg border border-border p-2"
-              draggable="true"
-              @dragstart="startColumnDrag(index, $event)"
-              @dragover.prevent
-              @drop="dropColumn(index)"
             >
               <div class="flex items-center gap-2">
-                <span class="shrink-0 select-none text-muted">⋮⋮</span>
                 <label class="flex min-w-0 flex-1 items-center gap-2 text-xs">
                   <input v-model="column.is_visible" type="checkbox" @change="runReport" />
                   <span class="min-w-0 flex-1 truncate">{{ fieldLabel(column.field_name) }}</span>
@@ -73,11 +68,47 @@ In collaboration with GPT4 Chat Assistant: Bahram
                   max="1200"
                   class="min-w-0 flex-1"
                   :aria-label="labels.width + ' ' + fieldLabel(column.field_name)"
-                  @change="resizeColumn(column, $event)"
+                  @input="resizeColumn(column, $event)"
                 />
-                <input v-model.number="column.width_px" type="number" min="48" max="1200" class="w-16 rounded border border-border bg-panel px-1.5 py-1 text-xs" @change="runReport" />
+                <input
+                  v-model.number="column.width_px"
+                  type="number"
+                  min="48"
+                  max="1200"
+                  class="w-16 rounded border border-border bg-panel px-1.5 py-1 text-xs"
+                  @change="normalizeColumnWidth(column)"
+                />
                 <span class="text-[10px] text-muted">px</span>
               </div>
+              <div class="mt-2 grid grid-cols-2 gap-2">
+                <label class="min-w-0 text-[10px] text-muted">
+                  {{ labels.labelMode }}
+                  <select v-model="column.label_mode" class="mt-1 w-full rounded border border-border bg-panel px-1.5 py-1.5 text-xs">
+                    <option value="FULL">{{ labels.labelFull }}</option>
+                    <option value="INITIALS">{{ labels.labelInitials }}</option>
+                    <option value="CUSTOM">{{ labels.labelCustom }}</option>
+                  </select>
+                </label>
+                <label class="min-w-0 text-[10px] text-muted">
+                  {{ labels.headerHeight }}
+                  <input
+                    :value="column.header_height_px || 56"
+                    type="range"
+                    min="36"
+                    max="160"
+                    class="mt-2 w-full"
+                    @input="setHeaderHeight(column, $event)"
+                  />
+                  <span class="text-[10px]">{{ column.header_height_px || 56 }} px</span>
+                </label>
+              </div>
+              <input
+                v-if="column.label_mode === 'CUSTOM'"
+                v-model="column.custom_label"
+                class="mt-2 w-full rounded border border-border bg-panel px-2 py-1.5 text-xs"
+                :placeholder="labels.customLabel"
+                maxlength="255"
+              />
             </div>
           </section>
 
@@ -259,7 +290,6 @@ const filters = ref([])
 const filterBaseline = ref('[]')
 const filterMode = ref('standard')
 const includeFiltersOnSave = ref(true)
-const draggedColumnIndex = ref(null)
 const shares = ref([])
 const permissions = ref([])
 const gridItems = ref([...props.items])
@@ -309,6 +339,12 @@ const labelDictionary = {
   delete: 'report.delete',
   columns: 'report.columns',
   width: 'report.width',
+  labelMode: 'report.labelMode',
+  labelFull: 'report.labelFull',
+  labelInitials: 'report.labelInitials',
+  labelCustom: 'report.labelCustom',
+  customLabel: 'report.customLabel',
+  headerHeight: 'report.headerHeight',
   includeFilters: 'report.includeFilters',
   copyTitle: 'report.copyTitle',
   moveUp: 'report.moveUp',
@@ -412,8 +448,11 @@ const defaultColumns = computed(() => {
     .map((field, index) => ({
       field_name: field,
       display_order: index + 1,
-      width_px: null,
+      width_px: 180,
       is_visible: true,
+      label_mode: 'FULL',
+      custom_label: null,
+      header_height_px: 56,
       sort_direction: null,
       sort_order: null
     }))
@@ -643,6 +682,18 @@ function updateColumns(nextColumns) {
   }))
 }
 
+function normalizeColumnWidth(column) {
+  const width = Number(column.width_px || 180)
+  column.width_px = Math.min(1200, Math.max(48, Number.isFinite(width) ? width : 180))
+}
+
+function setHeaderHeight(column, event) {
+  const height = Number(event.target.value)
+  if (Number.isFinite(height)) {
+    column.header_height_px = Math.min(160, Math.max(36, height))
+  }
+}
+
 function normalizeColumnOrder() {
   columns.value = columns.value.map((column, index) => ({
     ...column,
@@ -654,7 +705,6 @@ function resizeColumn(column, event) {
   const width = Number(event.target.value)
   if (Number.isFinite(width)) {
     column.width_px = Math.min(1200, Math.max(48, width))
-    runReport()
   }
 }
 
@@ -664,24 +714,6 @@ function moveColumn(index, offset) {
   const next = [...columns.value]
   const [moved] = next.splice(index, 1)
   next.splice(target, 0, moved)
-  columns.value = next
-  normalizeColumnOrder()
-  runReport()
-}
-
-function startColumnDrag(index, event) {
-  draggedColumnIndex.value = index
-  event.dataTransfer.effectAllowed = 'move'
-  event.dataTransfer.setData('text/plain', String(index))
-}
-
-function dropColumn(targetIndex) {
-  const sourceIndex = draggedColumnIndex.value
-  draggedColumnIndex.value = null
-  if (sourceIndex === null || sourceIndex === targetIndex) return
-  const next = [...columns.value]
-  const [moved] = next.splice(sourceIndex, 1)
-  next.splice(targetIndex, 0, moved)
   columns.value = next
   normalizeColumnOrder()
   runReport()
