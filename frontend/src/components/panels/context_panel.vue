@@ -105,6 +105,13 @@ Last Modified: 2026-11-23 23:35 (Asia/Baku)
               <span class="truncate text-sm font-medium text-label group-hover:text-primary">
                 {{ translations[item.panelKey] || item.panelKey }}
               </span>
+              <span
+                v-if="item.panelType === 'PAGE' && recordCounts[item.panelKey] !== undefined"
+                class="ml-auto min-w-7 shrink-0 rounded-full bg-primary/10 px-2 py-0.5 text-center text-[10px] font-bold tabular-nums text-primary"
+                :aria-label="`Record count: ${recordCounts[item.panelKey]}`"
+              >
+                {{ recordCounts[item.panelKey] }}
+              </span>
             </div>
           </button>
         </div>
@@ -177,7 +184,7 @@ import {
 
 import { useTranslation } from '@/composables/useTranslation'
 
-import { useContextAccess } from '@/composables/useContextAccess.js'
+import { useContextAccess } from '@/composables/useContextAccess.js'\nimport { fetchPageRecordCount } from '@/composables/usePageRecordCount'
 
 
 
@@ -299,7 +306,7 @@ const {
 
 const { translate } = useTranslation()
 
-const translations = ref({})
+const translations = ref({})\nconst recordCounts = ref({})
 
 
 
@@ -417,6 +424,37 @@ const hasSelectedRecord = computed(() => {
 
 // =================================================
 
+let countRequestVersion = 0
+
+async function loadPageRecordCounts() {
+  const version = ++countRequestVersion
+  const pages = accessList.value.filter(
+    item => item?.panelType === 'PAGE' && item?.panelKey
+  )
+  const nextCounts = {}
+
+  await Promise.all(pages.map(async item => {
+    try {
+      const count = await fetchPageRecordCount(
+        item.panelKey,
+        {
+          selectedRecord: props.selectedRecord,
+          runtimeContext: props.runtimeContext || {}
+        }
+      )
+      if (count !== null && version === countRequestVersion) {
+        nextCounts[item.panelKey] = count
+      }
+    } catch (err) {
+      console.warn('ContextPanel: record count unavailable', item.panelKey, err)
+    }
+  }))
+
+  if (version === countRequestVersion) {
+    recordCounts.value = nextCounts
+  }
+}
+
 async function loadTranslations() {
 
   const result = {}
@@ -501,7 +539,7 @@ async function loadPanel() {
 
 
 
-    await loadTranslations()
+    await loadTranslations()\n    await loadPageRecordCounts()
 
   } catch (err) {
 
@@ -746,6 +784,15 @@ watch(
 // Lifecycle
 
 // =================================================
+
+watch(
+  [
+    () => props.selectedRecord,
+    () => props.runtimeContext
+  ],
+  loadPageRecordCounts,
+  { deep: true }
+)
 
 onMounted(loadPanel)
 
