@@ -7,7 +7,7 @@
 #
 # Author: MHKolahi@gmail.com
 # In collaboration with GPT4 Chat Assistant: Bahram
-# Last Modified: 2026-11-26 13:55 (Asia/Baku)
+# Last Modified: 2026-11-26 14:14 (Asia/Baku)
 # ===============================================
 
 from typing import Any, List, Literal
@@ -872,5 +872,10 @@ async def read_component_base(
 # 11. parm[n] is not created or resolved here.
 # 12. Field labels use the translation dictionary.
 # 13. Nullable database booleans remain nullable in the API.
+# 14. Personal Grid layouts are scoped by user, component, and field mode.
+# 15. Layout mutations require GRID.PERSONALIZATION.SAVE.
+# 16. Search panel state and search filters are saved independently of layout permission.
+# 17. Personal preferences never update canonical component metadata.
+# 18. Saved layout and filters are revalidated against current component metadata.
 #
 # ===============================================
