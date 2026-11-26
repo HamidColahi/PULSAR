@@ -1,7 +1,7 @@
 # ===============================================
 # File: backend/general/permissions/routes.py
 # Description: PULSAR permission catalog and user grant APIs
-# Modified: 2026-11-24 (Asia/Baku)
+# Modified: 2026-11-26 (Asia/Baku)
 # In collaboration with GPT4 Chat Assistant: Bahram
 # ===============================================
 
@@ -126,8 +126,8 @@ async def read_permission_catalog(
             FROM pulsar.t_permission
             WHERE is_active IS TRUE
               AND (
-                    :page_key IS NULL
-                    OR page_key = :page_key
+                    CAST(:page_key AS TEXT) IS NULL
+                    OR page_key = CAST(:page_key AS TEXT)
                     OR page_key IS NULL
               )
             ORDER BY
