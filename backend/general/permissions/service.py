@@ -1,7 +1,7 @@
 # ===============================================
 # File: backend/general/permissions/service.py
 # Description: Scoped PULSAR permission authorization
-# Modified: 2026-11-24 (Asia/Baku)
+# Modified: 2026-11-26 (Asia/Baku)
 # In collaboration with GPT4 Chat Assistant: Bahram
 # ===============================================
 
@@ -89,18 +89,18 @@ async def has_permission(
                         permission_row.scope_type = 'SYSTEM'
                         OR (
                             permission_row.scope_type = 'PAGE'
-                            AND :page_key IS NOT NULL
-                            AND permission_row.page_key = :page_key
+                            AND CAST(:page_key AS text) IS NOT NULL
+                            AND permission_row.page_key = CAST(:page_key AS text)
                         )
                         OR (
                             permission_row.scope_type = 'SUBSYSTEM'
-                            AND :page_key IS NOT NULL
+                            AND CAST(:page_key AS text) IS NOT NULL
                             AND EXISTS (
                                 SELECT 1
                                 FROM pulsar.t_permission page_definition
                                 WHERE page_definition.permission_code = permission_row.permission_code
                                   AND page_definition.scope_type = 'PAGE'
-                                  AND page_definition.page_key = :page_key
+                                  AND page_definition.page_key = CAST(:page_key AS text)
                                   AND page_definition.subsystem_key = COALESCE(
                                       permission_row.subsystem_key,
                                       permission_row.scope_key
