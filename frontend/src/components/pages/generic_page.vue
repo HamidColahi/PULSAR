@@ -69,6 +69,7 @@
             :sourceComponent="derivedGridName"
             :selectedRecord="selectedRecord"
             :parentRecordContext="parentRecordContext"
+            :runtimeContext="props.runtimeContext"
             @open-function="handleOpenFunction"
           />
 
