@@ -380,7 +380,10 @@ async def load_report_definition(
                 width_px,
                 is_visible,
                 sort_direction,
-                sort_order
+                sort_order,
+                label_mode,
+                custom_label,
+                header_height_px
             FROM pulsar.t_report_column
             WHERE report_id = :report_id
             ORDER BY display_order, field_name
@@ -485,7 +488,10 @@ async def replace_report_definition(
                     width_px,
                     is_visible,
                     sort_direction,
-                    sort_order
+                    sort_order,
+                    label_mode,
+                    custom_label,
+                    header_height_px
                 )
                 VALUES
                 (
@@ -495,7 +501,10 @@ async def replace_report_definition(
                     :width_px,
                     :is_visible,
                     :sort_direction,
-                    :sort_order
+                    :sort_order,
+                    :label_mode,
+                    :custom_label,
+                    :header_height_px
                 )
                 """
             ),
@@ -507,6 +516,9 @@ async def replace_report_definition(
                 "is_visible": column.get("is_visible", True),
                 "sort_direction": column.get("sort_direction"),
                 "sort_order": column.get("sort_order"),
+                "label_mode": column.get("label_mode", "FULL"),
+                "custom_label": column.get("custom_label"),
+                "header_height_px": column.get("header_height_px"),
             },
         )
 
