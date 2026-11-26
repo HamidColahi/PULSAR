@@ -1108,11 +1108,41 @@ def create_component_data_router(
     )
     async def count_records(
         request: Request,
+        page_key: str,
+        current_user: User = Depends(get_current_user),
         session: AsyncSession =
             Depends(
                 get_async_session
             )
     ):
+        access_result = await session.execute(
+            sql_text(
+                """
+                SELECT 1
+                FROM pulsar.dynamic_components AS component_row
+                INNER JOIN pulsar.t_page_usracc AS access_row
+                    ON access_row.page_key = component_row.page_key
+                WHERE component_row.component_name = :component_name
+                  AND component_row.page_key = :page_key
+                  AND access_row.c_user_id = :user_id
+                  AND access_row.c_page_state = 'active'
+                  AND access_row.c_page_view IS TRUE
+                LIMIT 1
+                """
+            ),
+            {
+                "component_name": component_name,
+                "page_key": page_key,
+                "user_id": current_user.id
+            }
+        )
+
+        if access_result.scalar_one_or_none() is None:
+            raise HTTPException(
+                status_code=403,
+                detail="Page access is not available"
+            )
+
         base = await _load_base(
             session,
             component_name,
