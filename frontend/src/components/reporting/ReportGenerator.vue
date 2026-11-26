@@ -241,6 +241,7 @@ In collaboration with GPT4 Chat Assistant: Bahram
           :items="gridItems"
           :report-mode="true"
           :report-columns="columns"
+          :report-aggregates="reportAggregates"
           @report-columns-change="updateColumns"
           @row-selected="$emit('row-selected', $event)"
         />
@@ -301,6 +302,7 @@ const includeFiltersOnSave = ref(true)
 const shares = ref([])
 const permissions = ref([])
 const gridItems = ref([...props.items])
+const reportAggregates = ref({})
 const totalRows = ref(0)
 const pageSize = 100
 const offset = ref(0)
@@ -781,6 +783,7 @@ async function runReport(resetPage = true) {
       offset: offset.value
     })
     gridItems.value = response.data?.rows || []
+    reportAggregates.value = response.data?.aggregates || {}
     totalRows.value = Number(response.data?.total || 0)
   } catch (err) {
     error.value = errorMessage(err, labels.value.errorExecution)

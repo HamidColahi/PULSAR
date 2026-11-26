@@ -1,7 +1,7 @@
 # ===============================================
 # File: backend/reporting/service.py
 # Description: Report definition, access, and metadata-driven runtime services
-# Modified: 2026-11-26 12:25 (Asia/Baku)
+# Modified: 2026-11-26 18:10 (Asia/Baku)
 # In collaboration with GPT4 Chat Assistant: Bahram
 # ===============================================
 
@@ -13,6 +13,7 @@ import json
 
 from fastapi import HTTPException, Request
 from sqlalchemy import and_, cast, func, or_, select, text
+from sqlalchemy.sql.sqltypes import Boolean, Float, Integer, Numeric
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.sql.sqltypes import String
 
@@ -21,6 +22,7 @@ from core.component_data import (
     _convert_value_for_column,
     apply_scope_query,
 )
+from core.component_key import build_primary_key_identity
 from core.component_where import (
     analyze_where_clause,
     resolve_runtime_parameters,
@@ -1093,13 +1095,54 @@ async def execute_report(
         query.limit(limit).offset(offset)
     )
 
-    rows = [
-        {
+    rows = []
+    for row in result.mappings().all():
+        record = {
             key: json_safe(value)
             for key, value in dict(row).items()
         }
-        for row in result.mappings().all()
+        record["_pulsar_identity"] = build_primary_key_identity(
+            base.get("primary_key"),
+            record,
+        )
+        rows.append(record)
+
+    numeric_fields = [
+        field_name
+        for field_name in requested_fields
+        if isinstance(
+            Model.__table__.columns[field_name].type,
+            (Integer, Float, Numeric),
+        )
+        and not isinstance(Model.__table__.columns[field_name].type, Boolean)
     ]
+
+    aggregate_query = select(
+        *[
+            func.coalesce(func.sum(getattr(Model, field_name)), 0).label(field_name)
+            for field_name in numeric_fields
+        ]
+    ).select_from(Model)
+
+    if scope_filters:
+        aggregate_query = apply_scope_query(
+            aggregate_query,
+            Model,
+            scope_filters,
+        )
+    elif raw_sql:
+        aggregate_query = aggregate_query.where(text(raw_sql))
+
+    if filter_expressions:
+        aggregate_query = aggregate_query.where(and_(*filter_expressions))
+
+    aggregate_result = await session.execute(aggregate_query)
+    aggregate_row = aggregate_result.mappings().one() if numeric_fields else {}
+
+    aggregates = {
+        field_name: json_safe(aggregate_row[field_name])
+        for field_name in numeric_fields
+    }
 
     return {
         "report_id": str(report["report_id"]),
@@ -1110,6 +1153,8 @@ async def execute_report(
         "offset": offset,
         "columns": selected_columns,
         "rows": rows,
+        "aggregates": aggregates,
+        "aggregate_fields": numeric_fields,
         "sort": [
             {
                 "field": field_name,

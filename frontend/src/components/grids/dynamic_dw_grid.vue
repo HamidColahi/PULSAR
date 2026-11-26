@@ -2,7 +2,7 @@
 <!-- ===============================================
 File: frontend/src/components/grids/dynamic_dw_grid.vue
 Description: Metadata-driven dynamic data grid with per-user layout and runtime personalization
-Last Modified: 2026-11-26 14:50 (Asia/Baku)
+Last Modified: 2026-11-26 18:10 (Asia/Baku)
 Author: MHKolahi@gmail.com
 In collaboration with GPT4 Chat Assistant: Bahram
 =============================================== -->
@@ -72,6 +72,11 @@ const props = defineProps({
   reportColumns: {
     type: Array,
     default: () => []
+  },
+
+  reportAggregates: {
+    type: Object,
+    default: () => ({})
   }
 })
 
@@ -81,6 +86,7 @@ const props = defineProps({
 // --------------------------------------------------
 const emit = defineEmits([
   'row-selected',
+  'selection-change',
   'report-columns-change'
 ])
 
@@ -93,6 +99,8 @@ const translations = ref({})
 const domainOptionsMap = ref({})
 const domainOptionRefs = ref({})
 const selectedRowLocal = ref(null)
+const selectedIdentities = ref([])
+const selectionAnchor = ref(null)
 const sortSpec = ref([])
 const sortPreferenceReady = ref(false)
 const gridPreferenceReady = ref(false)
@@ -110,6 +118,10 @@ const sortLabels = ref({
   asc: 'Sort ascending',
   desc: 'Sort descending',
   forced: 'Forced sorting'
+})
+const footerLabels = ref({
+  selectedTotal: 'Selected total',
+  allTotal: 'All records total'
 })
 
 const expandedField = ref({
@@ -139,13 +151,71 @@ const {
 // --------------------------------------------------
 // Row Selection
 // --------------------------------------------------
-function selectRow(item) {
-  selectedRowLocal.value = item || null
+function getRowIdentity(item) {
+  return item?._pulsar_identity == null
+    ? null
+    : String(item._pulsar_identity)
+}
 
-  emit(
-    'row-selected',
-    item || null
+function isRowSelected(item) {
+  const identity = getRowIdentity(item)
+  return identity !== null && selectedIdentities.value.includes(identity)
+}
+
+function emitSelectionChange() {
+  const selected = props.items.filter(item =>
+    selectedIdentities.value.includes(getRowIdentity(item))
   )
+  emit('selection-change', selected)
+}
+
+function selectRow(item, event) {
+  selectedRowLocal.value = item || null
+  const identity = getRowIdentity(item)
+
+  if (identity === null) {
+    selectedIdentities.value = []
+    selectionAnchor.value = null
+    emit('selection-change', item ? [item] : [])
+    emit('row-selected', item || null)
+    return
+  }
+
+  const visibleRows = sortedItems.value
+  const clickedIndex = visibleRows.findIndex(
+    row => getRowIdentity(row) === identity
+  )
+  const anchorIndex = visibleRows.findIndex(
+    row => getRowIdentity(row) === selectionAnchor.value
+  )
+  const additive = Boolean(event?.ctrlKey || event?.metaKey)
+
+  if (event?.shiftKey && clickedIndex >= 0 && anchorIndex >= 0) {
+    const start = Math.min(anchorIndex, clickedIndex)
+    const end = Math.max(anchorIndex, clickedIndex)
+    const range = visibleRows
+      .slice(start, end + 1)
+      .map(getRowIdentity)
+      .filter(Boolean)
+    selectedIdentities.value = additive
+      ? [...new Set([...selectedIdentities.value, ...range])]
+      : range
+  } else if (additive) {
+    const selected = new Set(selectedIdentities.value)
+    if (selected.has(identity)) {
+      selected.delete(identity)
+    } else {
+      selected.add(identity)
+    }
+    selectedIdentities.value = [...selected]
+    selectionAnchor.value = identity
+  } else {
+    selectedIdentities.value = [identity]
+    selectionAnchor.value = identity
+  }
+
+  emitSelectionChange()
+  emit('row-selected', item || null)
 }
 
 
@@ -1168,12 +1238,19 @@ async function loadTranslations() {
   })
   translations.value = result
 
-  const [none, asc, desc, forced] = await Promise.all([
+  const [none, asc, desc, forced, selectedTotalLabel, allTotalLabel] = await Promise.all([
     translate('pulsar.grid.sortNone', lang.value, 'Default'),
     translate('pulsar.grid.sortAscending', lang.value, 'Default'),
     translate('pulsar.grid.sortDescending', lang.value, 'Default'),
-    translate('pulsar.grid.sortForced', lang.value, 'Default')
+    translate('pulsar.grid.sortForced', lang.value, 'Default'),
+    translate('pulsar.grid.selectedTotal', lang.value, 'Default'),
+    translate('pulsar.grid.allTotal', lang.value, 'Default')
   ])
+
+  footerLabels.value = {
+    selectedTotal: selectedTotalLabel || 'Selected total',
+    allTotal: allTotalLabel || 'All records total'
+  }
 
   sortLabels.value = {
     none: none && none !== 'pulsar.grid.sortNone' ? none : 'No sorting',
@@ -1252,6 +1329,65 @@ const fields = computed(() => {
 
 
 // --------------------------------------------------
+// Grid Aggregation Footer
+// --------------------------------------------------
+const numericTypes = new Set([
+  'number', 'numeric', 'integer', 'bigint', 'smallint',
+  'decimal', 'float', 'double', 'currency', 'money'
+])
+
+const numericFields = computed(() => {
+  return fields.value.filter(col => {
+    const metadata = props.config?.fields?.[col.field] || {}
+    const type = String(
+      col.control_type || col.type ||
+      metadata.control_type || metadata.type || ''
+    ).toLowerCase()
+
+    return numericTypes.has(type) ||
+      typeof props.items?.[0]?.[col.field] === 'number' ||
+      Object.prototype.hasOwnProperty.call(props.reportAggregates || {}, col.field)
+  })
+})
+
+function sumRows(rows, field) {
+  return rows.reduce((total, item) => {
+    const value = item?.[field]
+    if (value === null || value === undefined || value === '' || typeof value === 'boolean') {
+      return total
+    }
+    const number = Number(value)
+    return Number.isFinite(number) ? total + number : total
+  }, 0)
+}
+
+const selectedRows = computed(() => {
+  const selected = new Set(selectedIdentities.value)
+  const visible = new Set(sortedItems.value.map(getRowIdentity))
+  return props.items.filter(item =>
+    selected.has(getRowIdentity(item)) &&
+    visible.has(getRowIdentity(item))
+  )
+})
+
+function formatAggregate(value) {
+  return new Intl.NumberFormat(lang.value || undefined, {
+    maximumFractionDigits: 2
+  }).format(Number(value) || 0)
+}
+
+function selectedTotal(field) {
+  return sumRows(selectedRows.value, field)
+}
+
+function allRowsTotal(field) {
+  return props.reportMode
+    ? Number(props.reportAggregates?.[field] || 0)
+    : sumRows(filteredItems.value, field)
+}
+
+
+// --------------------------------------------------
 // Value Formatting
 // --------------------------------------------------
 function formatValue(item, col) {
@@ -1307,14 +1443,20 @@ watch(
 watch(
   () => props.items,
   items => {
+    const available = new Set(items.map(getRowIdentity).filter(Boolean))
+    selectedIdentities.value = selectedIdentities.value.filter(
+      identity => available.has(identity)
+    )
 
-    if (
-      !items.includes(
-        selectedRowLocal.value
-      )
-    ) {
+    if (!items.includes(selectedRowLocal.value)) {
       selectedRowLocal.value = null
     }
+
+    if (selectionAnchor.value && !available.has(selectionAnchor.value)) {
+      selectionAnchor.value = null
+    }
+
+    emitSelectionChange()
   }
 )
 
@@ -1667,10 +1809,10 @@ onBeforeUnmount(() => {
               v-for="(
                 item, index
               ) in sortedItems"
-              :key="index"
-              @click="selectRow(item)"
+              :key="getRowIdentity(item) || index"
+              @click="selectRow(item, $event)"
               :class="
-                selectedRowLocal === item
+                isRowSelected(item)
                   ? 'pulsar-row-selected'
                   : 'pulsar-row'
               "
@@ -1729,6 +1871,40 @@ onBeforeUnmount(() => {
 
         </table>
 
+      </div>
+
+      <div
+        v-if="numericFields.length"
+        class="grid shrink-0 border-t text-xs"
+        style="border-color:var(--pulsar-level-border)"
+      >
+        <div
+          class="flex min-w-0 items-center gap-3 border-b px-3 py-2"
+          style="background:var(--pulsar-level-accent-soft);border-color:var(--pulsar-level-border)"
+        >
+          <span class="w-36 shrink-0 font-semibold text-label">
+            {{ footerLabels.selectedTotal }}
+            <span class="font-normal text-muted">({{ selectedRows.length }})</span>
+          </span>
+          <div class="flex min-w-0 flex-1 items-center gap-4 overflow-x-auto">
+            <div v-for="col in numericFields" :key="'selected-' + col.field" class="min-w-24">
+              <span class="block text-[10px] text-muted">{{ translations[col.field] || col.field }}</span>
+              <span class="font-semibold tabular-nums text-label">{{ formatAggregate(selectedTotal(col.field)) }}</span>
+            </div>
+          </div>
+        </div>
+        <div
+          class="flex min-w-0 items-center gap-3 px-3 py-2"
+          style="background:color-mix(in srgb, var(--pulsar-level-accent) 10%, var(--pulsar-level-surface))"
+        >
+          <span class="w-36 shrink-0 font-semibold text-label">{{ footerLabels.allTotal }}</span>
+          <div class="flex min-w-0 flex-1 items-center gap-4 overflow-x-auto">
+            <div v-for="col in numericFields" :key="'all-' + col.field" class="min-w-24">
+              <span class="block text-[10px] text-muted">{{ translations[col.field] || col.field }}</span>
+              <span class="font-semibold tabular-nums text-label">{{ formatAggregate(allRowsTotal(col.field)) }}</span>
+            </div>
+          </div>
+        </div>
       </div>
 
     </div>

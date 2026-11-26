@@ -9,7 +9,7 @@
 # Author: MHKolahi@gmail.com
 # In collaboration with GPT4 Chat Assistant: Bahram
 #
-# Modified: 2026-11-21 01:00 (Asia/Baku)
+# Modified: 2026-11-26 18:10 (Asia/Baku)
 # =============================================
 """
 Dynamic CRUD and binary file routes for Pulsar dynamic components.
@@ -76,6 +76,7 @@ from starlette.datastructures import UploadFile
 from core.database import get_async_session
 from core.component_base import get_component_base
 from core.component_key import (
+    build_primary_key_identity,
     resolve_primary_key_identity_values
 )
 from core.component_where import (
@@ -1083,14 +1084,20 @@ def create_component_data_router(
 
         rows = result.mappings().all()
 
-        return [
-            _projection_row_to_dict(
+        projected_rows = []
+        for row in rows:
+            record = _projection_row_to_dict(
                 row,
                 normal_fields,
                 binary_fields
             )
-            for row in rows
-        ]
+            record["_pulsar_identity"] = build_primary_key_identity(
+                base.get("primary_key"),
+                record,
+            )
+            projected_rows.append(record)
+
+        return projected_rows
 
     # ---------------------------------------------
     # VIEW
