@@ -870,9 +870,28 @@ const fields = computed(() => {
         const field = column.field_name
         const meta = props.config?.fields?.[field] || {}
 
+        const fullLabel = translations.value[field] || field
+        const labelMode = String(column.label_mode || 'FULL').toUpperCase()
+        const customLabel = String(column.custom_label || '').trim()
+        const initials = fullLabel
+          .trim()
+          .split(/\s+/)
+          .filter(Boolean)
+          .map(word => word.replace(/^[^\p{L}\p{N}]+|[^\p{L}\p{N}]+$/gu, ''))
+          .filter(Boolean)
+          .map(word => Array.from(word)[0].toLocaleUpperCase(lang.value))
+          .join('.')
+
         return {
           field,
-          width_px: column.width_px || null,
+          width_px: Number(column.width_px) || 180,
+          label: labelMode === 'CUSTOM' && customLabel
+            ? customLabel
+            : labelMode === 'INITIALS' && initials
+              ? initials + '.'
+              : fullLabel,
+          full_label: fullLabel,
+          header_height_px: Number(column.header_height_px) || null,
           type: meta.control_type || meta.type || 'text',
           control_type: meta.control_type || meta.type || 'text'
         }
@@ -1126,8 +1145,17 @@ onBeforeUnmount(() => {
       >
 
         <table
-          class="min-w-full table-auto border-collapse text-xs text-input"
+          class="min-w-full w-max table-fixed border-collapse text-xs text-input"
+          style="width: max-content; min-width: 100%; table-layout: fixed;"
         >
+          <colgroup>
+            <col style="width: 2.5rem;" />
+            <col
+              v-for="col in fields"
+              :key="col.field"
+              :style="{ width: col.width_px + 'px' }"
+            />
+          </colgroup>
 
           <thead
             class="pulsar-grid-header sticky top-0 z-10 text-label"
@@ -1149,19 +1177,19 @@ onBeforeUnmount(() => {
                 @dragstart="startReportColumnDrag($event, col)"
                 @dragover.prevent="props.reportMode"
                 @drop="dropReportColumn($event, col)"
-                class="relative whitespace-nowrap border-b border-l px-3 py-2.5 text-left font-semibold"
+                class="relative whitespace-normal break-words border-b border-l px-3 py-2.5 text-left font-semibold"
+                :title="col.full_label || col.label"
                 :style="{
                   borderColor: 'var(--pulsar-level-border)',
-                  width: col.width_px ? col.width_px + 'px' : undefined,
-                  minWidth: col.width_px ? col.width_px + 'px' : undefined
+                  height: col.header_height_px ? col.header_height_px + 'px' : undefined,
+                  minHeight: col.header_height_px ? col.header_height_px + 'px' : undefined,
+                  overflowWrap: 'anywhere',
+                  lineHeight: '1.25'
                 }"
               >
                 <span class="inline-flex items-center gap-1.5">
                   <span v-if="props.reportMode" class="cursor-grab text-muted" aria-hidden="true">⠿</span>
-                  <span>{{
-                    translations[col.field] ||
-                    col.field
-                  }}</span>
+                  <span>{{ props.reportMode ? col.label : (translations[col.field] || col.field) }}</span>
                   <button
                     v-if="!props.reportMode && isSortEnabled(col.field)"
                     type="button"
@@ -1241,9 +1269,7 @@ onBeforeUnmount(() => {
                 "
                 class="whitespace-nowrap border-l px-3 py-2.5"
                 :style="{
-                  borderColor: 'var(--pulsar-level-border)',
-                  width: col.width_px ? col.width_px + 'px' : undefined,
-                  minWidth: col.width_px ? col.width_px + 'px' : undefined
+                  borderColor: 'var(--pulsar-level-border)'
                 }"
               >
                 {{
