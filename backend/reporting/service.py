@@ -1117,32 +1117,35 @@ async def execute_report(
         and not isinstance(Model.__table__.columns[field_name].type, Boolean)
     ]
 
-    aggregate_query = select(
-        *[
-            func.coalesce(func.sum(getattr(Model, field_name)), 0).label(field_name)
+    aggregates = {}
+
+    if numeric_fields:
+        aggregate_query = select(
+            *[
+                func.coalesce(func.sum(getattr(Model, field_name)), 0).label(field_name)
+                for field_name in numeric_fields
+            ]
+        ).select_from(Model)
+
+        if scope_filters:
+            aggregate_query = apply_scope_query(
+                aggregate_query,
+                Model,
+                scope_filters,
+            )
+        elif raw_sql:
+            aggregate_query = aggregate_query.where(text(raw_sql))
+
+        if filter_expressions:
+            aggregate_query = aggregate_query.where(and_(*filter_expressions))
+
+        aggregate_result = await session.execute(aggregate_query)
+        aggregate_row = aggregate_result.mappings().one()
+
+        aggregates = {
+            field_name: json_safe(aggregate_row[field_name])
             for field_name in numeric_fields
-        ]
-    ).select_from(Model)
-
-    if scope_filters:
-        aggregate_query = apply_scope_query(
-            aggregate_query,
-            Model,
-            scope_filters,
-        )
-    elif raw_sql:
-        aggregate_query = aggregate_query.where(text(raw_sql))
-
-    if filter_expressions:
-        aggregate_query = aggregate_query.where(and_(*filter_expressions))
-
-    aggregate_result = await session.execute(aggregate_query)
-    aggregate_row = aggregate_result.mappings().one() if numeric_fields else {}
-
-    aggregates = {
-        field_name: json_safe(aggregate_row[field_name])
-        for field_name in numeric_fields
-    }
+        }
 
     return {
         "report_id": str(report["report_id"]),
