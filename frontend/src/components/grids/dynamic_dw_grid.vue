@@ -2,7 +2,7 @@
 <!-- ===============================================
 File: frontend/src/components/grids/dynamic_dw_grid.vue
 Description: Metadata-driven dynamic data grid with per-user layout and runtime personalization
-Last Modified: 2026-11-26 19:45 (Asia/Baku)
+Last Modified: 2026-11-27 02:25 (Asia/Baku)
 Author: MHKolahi@gmail.com
 In collaboration with GPT4 Chat Assistant: Bahram
 =============================================== -->
@@ -1341,21 +1341,10 @@ const fields = computed(() => {
 // --------------------------------------------------
 // Grid Aggregation Footer
 // --------------------------------------------------
-const numericTypes = new Set([
-  'number', 'numeric', 'integer', 'bigint', 'smallint',
-  'decimal', 'float', 'double', 'currency', 'money'
-])
-
 const numericFields = computed(() => {
   return fields.value.filter(col => {
     const metadata = props.config?.fields?.[col.field] || {}
-    const type = String(
-      col.control_type || col.type ||
-      metadata.control_type || metadata.type || ''
-    ).toLowerCase()
-
-    return metadata.aggregate_enabled === true &&
-      numericTypes.has(type)
+    return metadata.aggregate_enabled === true
   })
 })
 
@@ -1393,10 +1382,24 @@ watch(
   { immediate: true }
 )
 
-function formatAggregate(value) {
+function formatNumeric(value) {
+  if (value === null || value === undefined || value === '') {
+    return value
+  }
+
+  const number = Number(value)
+
+  if (!Number.isFinite(number)) {
+    return value
+  }
+
   return new Intl.NumberFormat(lang.value || undefined, {
-    maximumFractionDigits: 2
-  }).format(Number(value) || 0)
+    maximumFractionDigits: 20
+  }).format(number)
+}
+
+function formatAggregate(value) {
+  return formatNumeric(Number(value) || 0)
 }
 
 function selectedTotal(field) {
@@ -1419,6 +1422,10 @@ function formatValue(item, col) {
 
   const meta =
     props.config?.fields?.[col.field] || {}
+
+  if (meta.aggregate_enabled === true) {
+    return formatNumeric(val)
+  }
 
   if (isDDLB(meta)) {
     return getLabel(
