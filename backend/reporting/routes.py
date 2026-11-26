@@ -51,6 +51,9 @@ class ReportColumnInput(BaseModel):
     display_order: int = Field(ge=1)
     width_px: int | None = Field(default=None, ge=24, le=2000)
     is_visible: bool = True
+    label_mode: Literal["FULL", "INITIALS", "CUSTOM"] = "FULL"
+    custom_label: str | None = Field(default=None, max_length=255)
+    header_height_px: int | None = Field(default=None, ge=36, le=160)
     sort_direction: Literal["asc", "desc"] | None = None
     sort_order: int | None = Field(default=None, ge=1)
 
