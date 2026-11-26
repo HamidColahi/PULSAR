@@ -2,7 +2,7 @@
 <!-- ===============================================
 File: frontend/src/components/grids/dynamic_dw_grid.vue
 Description: Metadata-driven dynamic data grid with user-specific multi-column sorting
-Last Modified: 2026-11-26 12:25 (Asia/Baku)
+Last Modified: 2026-11-26 13:45 (Asia/Baku)
 Author: MHKolahi@gmail.com
 In collaboration with GPT4 Chat Assistant: Bahram
 =============================================== -->
@@ -95,6 +95,16 @@ const domainOptionRefs = ref({})
 const selectedRowLocal = ref(null)
 const sortSpec = ref([])
 const sortPreferenceReady = ref(false)
+const gridPreferenceReady = ref(false)
+const canSaveLayout = ref(false)
+const searchPanelOpen = ref(true)
+const layoutPanelOpen = ref(false)
+const columnOrder = ref([])
+const columnWidths = ref({})
+const hiddenColumns = ref([])
+const headerHeightPx = ref(44)
+const draggedGridField = ref(null)
+const activeGridResize = ref(null)
 const sortLabels = ref({
   none: 'No sorting',
   asc: 'Sort ascending',
@@ -804,6 +814,276 @@ watch(
 )
 
 
+
+// --------------------------------------------------
+// Grid Personalization
+// --------------------------------------------------
+const configuredGridFields = computed(() => {
+  return (props.config?.field_order || [])
+    .filter(field => props.config?.fields?.[field]?.visible_in_grid !== false)
+})
+
+const orderedGridFieldNames = computed(() => {
+  const configured = configuredGridFields.value
+  const preferred = columnOrder.value.filter(field => configured.includes(field))
+  return [
+    ...preferred,
+    ...configured.filter(field => !preferred.includes(field))
+  ]
+})
+
+const allGridFields = computed(() => {
+  return orderedGridFieldNames.value.map(field => ({
+    field,
+    width_px: Number(columnWidths.value[field]) || null,
+    label: translations.value[field] || field
+  }))
+})
+
+async function loadGridPreferences() {
+  gridPreferenceReady.value = false
+
+  if (props.reportMode || !componentName.value) {
+    gridPreferenceReady.value = true
+    return
+  }
+
+  try {
+    const response = await axios.get('/config/grid_preferences', {
+      params: {
+        component_name: componentName.value,
+        field_mode: props.config?.field_mode || 'list'
+      }
+    })
+
+    const layout = response.data?.layout || {}
+    const configured = configuredGridFields.value
+
+    columnOrder.value = Array.isArray(layout.column_order)
+      ? layout.column_order.filter(field => configured.includes(field))
+      : []
+
+    columnWidths.value = Object.fromEntries(
+      Object.entries(layout.column_widths || {})
+        .filter(([field, width]) =>
+          configured.includes(field) &&
+          Number.isInteger(Number(width)) &&
+          Number(width) >= 48 &&
+          Number(width) <= 2000
+        )
+        .map(([field, width]) => [field, Number(width)])
+    )
+
+    hiddenColumns.value = Array.isArray(layout.hidden_columns)
+      ? layout.hidden_columns.filter(field => configured.includes(field))
+      : []
+
+    if (configured.length && hiddenColumns.value.length >= configured.length) {
+      hiddenColumns.value = []
+    }
+
+    headerHeightPx.value = Number(layout.header_height_px) || 44
+    searchPanelOpen.value = response.data?.search_panel_open !== false
+    filters.value = response.data?.search_filters || {}
+    canSaveLayout.value = response.data?.can_save_layout === true
+  } catch (err) {
+    columnOrder.value = []
+    columnWidths.value = {}
+    hiddenColumns.value = []
+    headerHeightPx.value = 44
+    searchPanelOpen.value = true
+    filters.value = {}
+    canSaveLayout.value = false
+    console.error('dynamic_dw_grid: failed to load Grid preferences', err)
+  } finally {
+    gridPreferenceReady.value = true
+  }
+}
+
+watch(
+  () => [
+    componentName.value,
+    props.config?.field_mode,
+    props.reportMode,
+    props.config?.field_order
+  ],
+  loadGridPreferences,
+  {
+    immediate: true,
+    deep: true
+  }
+)
+
+let runtimeStateSaveTimer = null
+
+function scheduleGridRuntimeStateSave() {
+  if (
+    !gridPreferenceReady.value ||
+    props.reportMode ||
+    !componentName.value
+  ) {
+    return
+  }
+
+  clearTimeout(runtimeStateSaveTimer)
+  runtimeStateSaveTimer = setTimeout(async () => {
+    try {
+      await axios.patch('/config/grid_preferences/state', {
+        component_name: componentName.value,
+        field_mode: props.config?.field_mode || 'list',
+        search_panel_open: searchPanelOpen.value,
+        search_filters: filters.value || {}
+      })
+    } catch (err) {
+      console.error('dynamic_dw_grid: failed to auto-save Grid state', err)
+    }
+  }, 500)
+}
+
+watch(
+  [filters, searchPanelOpen],
+  scheduleGridRuntimeStateSave,
+  {
+    deep: true
+  }
+)
+
+function toggleColumnVisibility(field, visible) {
+  const next = new Set(hiddenColumns.value)
+  if (visible) {
+    next.delete(field)
+  } else {
+    const visibleCount = configuredGridFields.value.length - next.size
+    if (visibleCount <= 1) return
+    next.add(field)
+  }
+  hiddenColumns.value = [...next]
+}
+
+function setColumnWidth(field, value) {
+  const width = Math.max(48, Math.min(2000, Number(value) || 180))
+  columnWidths.value = {
+    ...columnWidths.value,
+    [field]: width
+  }
+}
+
+function moveGridColumn(field, offset) {
+  const next = [...orderedGridFieldNames.value]
+  const index = next.indexOf(field)
+  const target = index + offset
+  if (index < 0 || target < 0 || target >= next.length) return
+  ;[next[index], next[target]] = [next[target], next[index]]
+  columnOrder.value = next
+}
+
+function startGridColumnDrag(event, column) {
+  if (props.reportMode) {
+    startReportColumnDrag(event, column)
+    return
+  }
+  draggedGridField.value = column.field
+  if (event.dataTransfer) {
+    event.dataTransfer.effectAllowed = 'move'
+    event.dataTransfer.setData('text/plain', column.field)
+  }
+}
+
+function dropGridColumn(event, targetColumn) {
+  if (props.reportMode) {
+    dropReportColumn(event, targetColumn)
+    return
+  }
+  const source = draggedGridField.value ||
+    event.dataTransfer?.getData('text/plain')
+  draggedGridField.value = null
+  if (!source || source === targetColumn.field) return
+
+  const next = [...orderedGridFieldNames.value]
+  const sourceIndex = next.indexOf(source)
+  const targetIndex = next.indexOf(targetColumn.field)
+  if (sourceIndex < 0 || targetIndex < 0) return
+  next.splice(sourceIndex, 1)
+  next.splice(targetIndex, 0, source)
+  columnOrder.value = next
+}
+
+function startGridColumnResize(event, column) {
+  if (props.reportMode) {
+    startReportColumnResize(event, column)
+    return
+  }
+  event.preventDefault()
+  activeGridResize.value = {
+    field: column.field,
+    startX: event.clientX,
+    startWidth: Number(column.width_px) ||
+      event.currentTarget.parentElement.getBoundingClientRect().width
+  }
+  window.addEventListener('mousemove', moveGridColumnResize)
+  window.addEventListener('mouseup', stopGridColumnResize)
+}
+
+function moveGridColumnResize(event) {
+  if (!activeGridResize.value) return
+  const width = Math.max(
+    48,
+    Math.min(
+      2000,
+      Math.round(
+        activeGridResize.value.startWidth +
+        event.clientX -
+        activeGridResize.value.startX
+      )
+    )
+  )
+  setColumnWidth(activeGridResize.value.field, width)
+}
+
+function stopGridColumnResize() {
+  activeGridResize.value = null
+  window.removeEventListener('mousemove', moveGridColumnResize)
+  window.removeEventListener('mouseup', stopGridColumnResize)
+}
+
+async function saveGridLayout() {
+  if (!canSaveLayout.value || !gridPreferenceReady.value) return
+  try {
+    await axios.put('/config/grid_preferences/layout', {
+      component_name: componentName.value,
+      field_mode: props.config?.field_mode || 'list',
+      layout: {
+        column_order: orderedGridFieldNames.value,
+        column_widths: columnWidths.value,
+        hidden_columns: hiddenColumns.value,
+        header_height_px: headerHeightPx.value
+      }
+    })
+  } catch (err) {
+    console.error('dynamic_dw_grid: failed to save Grid layout', err)
+  }
+}
+
+async function resetGridLayout() {
+  if (!canSaveLayout.value || !componentName.value) return
+  try {
+    await axios.delete('/config/grid_preferences/layout', {
+      params: {
+        component_name: componentName.value,
+        field_mode: props.config?.field_mode || 'list'
+      }
+    })
+    columnOrder.value = []
+    columnWidths.value = {}
+    hiddenColumns.value = []
+    headerHeightPx.value = 44
+  } catch (err) {
+    console.error('dynamic_dw_grid: failed to reset Grid layout', err)
+  }
+}
+
+
+
 // --------------------------------------------------
 // Translations
 // --------------------------------------------------
@@ -832,6 +1112,25 @@ async function loadTranslations() {
     )
   }
 
+  const [personalization, saveLayout, resetLayout, columnsLabel, headerHeight, showSearch, hideSearch] = await Promise.all([
+    translate('pulsar.grid.personalization', lang.value, 'Default'),
+    translate('pulsar.grid.saveLayout', lang.value, 'Default'),
+    translate('pulsar.grid.resetLayout', lang.value, 'Default'),
+    translate('pulsar.grid.columns', lang.value, 'Default'),
+    translate('pulsar.grid.headerHeight', lang.value, 'Default'),
+    translate('pulsar.grid.showSearch', lang.value, 'Default'),
+    translate('pulsar.grid.hideSearch', lang.value, 'Default')
+  ])
+
+  Object.assign(result, {
+    personalization,
+    saveLayout,
+    resetLayout,
+    columnsLabel,
+    headerHeight,
+    showSearch,
+    hideSearch
+  })
   translations.value = result
 
   const [none, asc, desc, forced] = await Promise.all([
@@ -901,18 +1200,19 @@ const fields = computed(() => {
       })
   }
 
-  return (
-    props.config?.field_order || []
-  ).map(field => {
-    const meta = props.config?.fields?.[field] || {}
+  return orderedGridFieldNames.value
+    .filter(field => !hiddenColumns.value.includes(field))
+    .map(field => {
+      const meta = props.config?.fields?.[field] || {}
 
-    return {
-      field,
-      width_px: null,
-      type: meta.control_type || meta.type || 'text',
-      control_type: meta.control_type || meta.type || 'text'
-    }
-  })
+      return {
+        field,
+        width_px: Number(columnWidths.value[field]) || null,
+        header_height_px: headerHeightPx.value,
+        type: meta.control_type || meta.type || 'text',
+        control_type: meta.control_type || meta.type || 'text'
+      }
+    })
 })
 
 
@@ -1080,6 +1380,8 @@ function stopReportColumnResize() {
 onBeforeUnmount(() => {
   stopDomainOptionScopes()
   stopReportColumnResize()
+  stopGridColumnResize()
+  clearTimeout(runtimeStateSaveTimer)
 })
 
 </script>
@@ -1092,8 +1394,9 @@ onBeforeUnmount(() => {
     class="flex min-h-0 min-w-0 flex-1 flex-col overflow-hidden"
   >
 
-    <div class="shrink-0">
+    <div v-if="!props.reportMode" class="shrink-0">
       <dynamic_dw_search
+        v-show="searchPanelOpen"
         v-if="!props.reportMode"
         :config="props.config"
         :base-config="props.baseConfig"
@@ -1133,13 +1436,94 @@ onBeforeUnmount(() => {
 
         </div>
 
-        <span
-          class="text-[11px] text-muted"
-        >
-          {{ filteredItems.length }}
-          {{ translations.records || 'records' }}
-        </span>
+        <div class="flex items-center gap-1.5">
+          <span class="text-[11px] text-muted">
+            {{ filteredItems.length }}
+            {{ translations.records || 'records' }}
+          </span>
 
+          <template v-if="!props.reportMode">
+            <button
+              type="button"
+              class="pulsar-action h-8 min-h-8 px-2 text-xs"
+              :title="searchPanelOpen ? translations.hideSearch : translations.showSearch"
+              @click="searchPanelOpen = !searchPanelOpen"
+            >
+              <span aria-hidden="true">⌕</span>
+            </button>
+            <button
+              type="button"
+              class="pulsar-action h-8 min-h-8 px-2 text-xs"
+              :title="translations.personalization || translations.columnsLabel"
+              @click="layoutPanelOpen = !layoutPanelOpen"
+            >
+              <span aria-hidden="true">☷</span>
+            </button>
+            <button
+              v-if="canSaveLayout"
+              type="button"
+              class="pulsar-action h-8 min-h-8 px-2 text-xs"
+              :disabled="!gridPreferenceReady"
+              :title="translations.saveLayout"
+              @click="saveGridLayout"
+            >
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" class="h-4 w-4" aria-hidden="true">
+                <path d="M5 3h12l4 4v14H3V3h2Z" />
+                <path d="M7 3v6h10V3M7 21v-8h10v8" />
+              </svg>
+            </button>
+          </template>
+        </div>
+
+      </div>
+
+      <div
+        v-if="!props.reportMode && layoutPanelOpen"
+        class="grid grid-cols-1 gap-3 border-b p-3 md:grid-cols-[minmax(0,1fr)_minmax(0,2fr)]"
+        style="border-color:var(--pulsar-level-border)"
+      >
+        <div class="flex flex-col gap-2">
+          <label class="text-xs font-semibold text-label">
+            {{ translations.headerHeight }}: {{ headerHeightPx }}px
+          </label>
+          <input v-model.number="headerHeightPx" type="range" min="28" max="120" step="2" />
+          <button
+            v-if="canSaveLayout"
+            type="button"
+            class="pulsar-action h-8 min-h-8 px-2 text-xs"
+            @click="resetGridLayout"
+          >
+            {{ translations.resetLayout }}
+          </button>
+        </div>
+        <div class="grid max-h-48 grid-cols-1 gap-2 overflow-y-auto sm:grid-cols-2">
+          <div
+            v-for="(column, columnIndex) in allGridFields"
+            :key="column.field"
+            class="flex min-w-0 items-center gap-2 rounded border p-2"
+            style="border-color:var(--pulsar-level-border)"
+          >
+            <input
+              type="checkbox"
+              :checked="!hiddenColumns.includes(column.field)"
+              :aria-label="column.label"
+              @change="toggleColumnVisibility(column.field, $event.target.checked)"
+            />
+            <span class="min-w-0 flex-1 truncate text-xs" :title="column.label">{{ column.label }}</span>
+            <button type="button" class="text-muted disabled:opacity-30" :disabled="columnIndex === 0" @click="moveGridColumn(column.field, -1)" aria-label="Move column left">↑</button>
+            <button type="button" class="text-muted disabled:opacity-30" :disabled="columnIndex === allGridFields.length - 1" @click="moveGridColumn(column.field, 1)" aria-label="Move column right">↓</button>
+            <input
+              type="range"
+              min="48"
+              max="800"
+              step="8"
+              :value="columnWidths[column.field] || 180"
+              :aria-label="'Width ' + column.label"
+              class="w-20"
+              @input="setColumnWidth(column.field, $event.target.value)"
+            />
+          </div>
+        </div>
       </div>
 
 
@@ -1156,7 +1540,7 @@ onBeforeUnmount(() => {
             <col
               v-for="col in fields"
               :key="col.field"
-              :style="{ width: col.width_px + 'px' }"
+               :style="{ width: col.width_px ? col.width_px + 'px' : undefined }"
             />
           </colgroup>
 
@@ -1176,16 +1560,16 @@ onBeforeUnmount(() => {
               <th
                 v-for="col in fields"
                 :key="col.field"
-                :draggable="props.reportMode"
-                @dragstart="startReportColumnDrag($event, col)"
-                @dragover.prevent="props.reportMode"
-                @drop="dropReportColumn($event, col)"
+                 :draggable="true"
+                @dragstart="startGridColumnDrag($event, col)"
+                @dragover.prevent
+                @drop="dropGridColumn($event, col)"
                 class="relative whitespace-normal break-words border-b border-l px-3 py-2.5 text-left font-semibold"
                 :title="col.full_label || col.label"
                 :style="{
                   borderColor: 'var(--pulsar-level-border)',
-                  height: col.header_height_px ? col.header_height_px + 'px' : undefined,
-                  minHeight: col.header_height_px ? col.header_height_px + 'px' : undefined,
+                  height: col.header_height_px ? col.header_height_px + 'px' : (!props.reportMode ? headerHeightPx + 'px' : undefined),
+                  minHeight: col.header_height_px ? col.header_height_px + 'px' : (!props.reportMode ? headerHeightPx + 'px' : undefined),
                   overflowWrap: 'anywhere',
                   lineHeight: '1.25'
                 }"
@@ -1226,9 +1610,8 @@ onBeforeUnmount(() => {
                   </button>
                 </span>
                 <span
-                  v-if="props.reportMode"
                   class="absolute right-0 top-0 h-full w-1.5 cursor-col-resize hover:bg-primary/30"
-                  @mousedown.stop="startReportColumnResize($event, col)"
+                  @mousedown.stop="startGridColumnResize($event, col)"
                   aria-hidden="true"
                 ></span>
               </th>
