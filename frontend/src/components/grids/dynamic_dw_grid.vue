@@ -2,7 +2,7 @@
 <!-- ===============================================
 File: frontend/src/components/grids/dynamic_dw_grid.vue
 Description: Metadata-driven dynamic data grid with per-user layout and runtime personalization
-Last Modified: 2026-11-26 18:18 (Asia/Baku)
+Last Modified: 2026-11-26 19:45 (Asia/Baku)
 Author: MHKolahi@gmail.com
 In collaboration with GPT4 Chat Assistant: Bahram
 =============================================== -->
@@ -1905,7 +1905,7 @@ onBeforeUnmount(() => {
           >
             <tr
               class="border-t"
-              style="background:var(--pulsar-level-accent-soft);border-color:var(--pulsar-level-border)"
+              style="background-color:var(--pulsar-level-surface);border-color:var(--pulsar-level-border)"
             >
               <td class="whitespace-nowrap px-3 py-2 text-label">
                 {{ footerLabels.selectedTotal }} ({{ selectedRows.length }})
@@ -1923,7 +1923,7 @@ onBeforeUnmount(() => {
             </tr>
             <tr
               class="border-t"
-              style="background:color-mix(in srgb, var(--pulsar-level-accent) 10%, var(--pulsar-level-surface));border-color:var(--pulsar-level-border)"
+              style="background-color:var(--pulsar-level-surface);border-color:var(--pulsar-level-border)"
             >
               <td class="whitespace-nowrap px-3 py-2 text-label">
                 {{ footerLabels.allTotal }}
