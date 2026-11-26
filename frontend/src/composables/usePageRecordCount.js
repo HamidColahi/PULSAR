@@ -34,7 +34,7 @@ export async function fetchPageRecordCount(
   if (!pageKey) return null
 
   const runtimeResponse = await axios.get(
-    `/runtime/${encodeURIComponent(pageKey)}`
+    `/page/runtime/${encodeURIComponent(pageKey)}`
   )
   const components = runtimeResponse.data?.components || []
   const grid = components.find(item =>
