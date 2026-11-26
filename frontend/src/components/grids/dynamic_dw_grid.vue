@@ -172,11 +172,11 @@ function isRowSelected(item) {
   return identity !== null && selectedIdentities.value.includes(identity)
 }
 
-function emitSelectionChange() {
+function emitSelectionChange(options = {}) {
   const selected = props.items.filter(item =>
     selectedIdentities.value.includes(getRowIdentity(item))
   )
-  emit('selection-change', selected)
+  emit('selection-change', selected, options)
 }
 
 function selectRow(item, event) {
@@ -186,7 +186,7 @@ function selectRow(item, event) {
   if (identity === null) {
     selectedIdentities.value = []
     selectionAnchor.value = null
-    emit('selection-change', item ? [item] : [])
+    emit('selection-change', item ? [item] : [], { replace: true })
     emit('row-selected', item || null)
     return
   }
@@ -224,7 +224,7 @@ function selectRow(item, event) {
     selectionAnchor.value = identity
   }
 
-  emitSelectionChange()
+  emitSelectionChange({ replace: !additive })
   emit('row-selected', item || null)
 }
 
