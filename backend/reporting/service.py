@@ -923,7 +923,14 @@ async def execute_report(
         "current_profile": profile_id,
     })
 
-    definitions = analyze_where_clause(base.get("where_clause"))
+    source_where_clause = base.get("where_clause")
+    if (
+        isinstance(source_where_clause, str)
+        and source_where_clause.strip().lower() in {"true", "(true)"}
+    ):
+        source_where_clause = None
+
+    definitions = analyze_where_clause(source_where_clause)
     selected_record_values = selected_record or {}
     required_scope_fields = {
         definition["field"]
@@ -949,7 +956,7 @@ async def execute_report(
     resolver.update(parameters)
 
     scope_filters, raw_sql = await resolve_where_request_scope(
-        where_clause=base.get("where_clause"),
+        where_clause=source_where_clause,
         component_name=component_name,
         resolver=resolver,
         model=Model,
