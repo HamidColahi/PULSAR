@@ -178,7 +178,9 @@ import {
 
   language,
 
-  languageMeta
+  languageMeta,
+
+  userIdentity
 
 } from '@/stores/uiStore'
 
@@ -396,14 +398,63 @@ async function openPanelManually() {
   pinButton.value?.focus()
 }
 
+const PANEL_PIN_STORAGE_PREFIX = 'pulsar:context-panel:pin:v1'
+
+function getPanelPinStorageKey() {
+  const userId = userIdentity.value?.id
+  if (!userId || !props.contextId || !props.cartableKey) {
+    return null
+  }
+
+  return [
+    PANEL_PIN_STORAGE_PREFIX,
+    encodeURIComponent(String(userId)),
+    encodeURIComponent(String(props.contextId)),
+    encodeURIComponent(String(props.cartableKey))
+  ].join(':')
+}
+
+function restorePanelPinState() {
+  const key = getPanelPinStorageKey()
+  if (!key) {
+    isPinned.value = false
+    isOpen.value = false
+    return
+  }
+
+  try {
+    const stored = localStorage.getItem(key)
+    isPinned.value = stored === 'true'
+    isOpen.value = isPinned.value
+  } catch (err) {
+    console.warn('ContextPanel: failed to restore pin preference', err)
+    isPinned.value = false
+    isOpen.value = false
+  }
+}
+
+function persistPanelPinState() {
+  const key = getPanelPinStorageKey()
+  if (!key) {
+    return
+  }
+
+  try {
+    localStorage.setItem(key, String(isPinned.value))
+  } catch (err) {
+    console.warn('ContextPanel: failed to save pin preference', err)
+  }
+}
+
 function togglePin() {
   isPinned.value = !isPinned.value
 
   if (isPinned.value) {
     isOpen.value = true
   }
-}
 
+  persistPanelPinState()
+}
 
 
 // =================================================
@@ -563,6 +614,7 @@ async function loadPanel() {
 
     await loadTranslations()
     await loadPageRecordCounts()
+    restorePanelPinState()
 
   } catch (err) {
 
@@ -800,6 +852,12 @@ watch(
 
 )
 
+watch(
+  userIdentity,
+  restorePanelPinState,
+  { deep: true }
+)
+
 
 
 // =================================================
@@ -886,5 +944,7 @@ onBeforeUnmount(stopResize)
 // 30. The collapsed tab opens the panel on hover and supports keyboard activation.
 // 31. Pinned panels remain expanded until they are unpinned and the pointer leaves.
 // 32. Panel visibility and pin state do not mutate Grid selection or navigation context.
+// 33. Pin preference is isolated by authenticated user, context, and Cartable.
+// 34. Browser storage persists the preference across reloads on the same browser.
 
 </script>
