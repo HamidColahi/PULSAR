@@ -1,8 +1,8 @@
 
 <!-- ===============================================
 File: frontend/src/components/grids/dynamic_dw_grid.vue
-Description: Metadata-driven dynamic data grid with per-user layout and runtime personalization
-Last Modified: 2026-11-27 02:25 (Asia/Baku)
+Description: Metadata-driven dynamic data grid with bounded column sizing, user personalization, and universal field expansion
+Last Modified: 2026-11-27 10:20 (Asia/Baku)
 Author: MHKolahi@gmail.com
 In collaboration with GPT4 Chat Assistant: Bahram
 =============================================== -->
@@ -896,6 +896,51 @@ watch(
 
 
 // --------------------------------------------------
+// Column Sizing
+// --------------------------------------------------
+const DEFAULT_COLUMN_WIDTH = 180
+const DEFAULT_COLUMN_MIN_WIDTH = 96
+const DEFAULT_COLUMN_MAX_WIDTH = 480
+const ABSOLUTE_COLUMN_MIN_WIDTH = 48
+const ABSOLUTE_COLUMN_MAX_WIDTH = 2000
+
+function getColumnSizing(field) {
+  const meta = props.config?.fields?.[field] || {}
+  const minCandidate = Number(meta.grid_min_width_px)
+  const maxCandidate = Number(meta.grid_max_width_px)
+  const minWidth = Number.isFinite(minCandidate) && minCandidate >= ABSOLUTE_COLUMN_MIN_WIDTH
+    ? Math.min(minCandidate, ABSOLUTE_COLUMN_MAX_WIDTH)
+    : DEFAULT_COLUMN_MIN_WIDTH
+  const maxWidth = Number.isFinite(maxCandidate) && maxCandidate >= minWidth
+    ? Math.min(maxCandidate, ABSOLUTE_COLUMN_MAX_WIDTH)
+    : Math.max(minWidth, DEFAULT_COLUMN_MAX_WIDTH)
+  const configuredWidth = Number(meta.grid_width_px)
+  const defaultWidth = Number.isFinite(configuredWidth) && configuredWidth > 0
+    ? configuredWidth
+    : DEFAULT_COLUMN_WIDTH
+
+  return {
+    minWidth,
+    maxWidth,
+    defaultWidth: Math.max(minWidth, Math.min(maxWidth, defaultWidth))
+  }
+}
+
+function clampColumnWidth(field, value) {
+  const sizing = getColumnSizing(field)
+  const width = Number(value)
+  return Math.max(
+    sizing.minWidth,
+    Math.min(
+      sizing.maxWidth,
+      Number.isFinite(width) && width > 0
+        ? Math.round(width)
+        : sizing.defaultWidth
+    )
+  )
+}
+
+// --------------------------------------------------
 // Grid Personalization
 // --------------------------------------------------
 const configuredGridFields = computed(() => {
@@ -915,7 +960,12 @@ const orderedGridFieldNames = computed(() => {
 const allGridFields = computed(() => {
   return orderedGridFieldNames.value.map(field => ({
     field,
-    width_px: Number(columnWidths.value[field]) || null,
+    width_px: clampColumnWidth(
+      field,
+      columnWidths.value[field] ?? getColumnSizing(field).defaultWidth
+    ),
+    min_width_px: getColumnSizing(field).minWidth,
+    max_width_px: getColumnSizing(field).maxWidth,
     label: translations.value[field] || field
   }))
 })
@@ -947,11 +997,13 @@ async function loadGridPreferences() {
       Object.entries(layout.column_widths || {})
         .filter(([field, width]) =>
           configured.includes(field) &&
-          Number.isInteger(Number(width)) &&
-          Number(width) >= 48 &&
-          Number(width) <= 2000
+          Number.isFinite(Number(width)) &&
+          Number(width) > 0
         )
-        .map(([field, width]) => [field, Number(width)])
+        .map(([field, width]) => [
+          field,
+          clampColumnWidth(field, width)
+        ])
     )
 
     hiddenColumns.value = Array.isArray(layout.hidden_columns)
@@ -1070,10 +1122,9 @@ function toggleColumnVisibility(field, visible) {
 }
 
 function setColumnWidth(field, value) {
-  const width = Math.max(48, Math.min(2000, Number(value) || 180))
   columnWidths.value = {
     ...columnWidths.value,
-    [field]: width
+    [field]: clampColumnWidth(field, value)
   }
 }
 
@@ -1135,18 +1186,14 @@ function startGridColumnResize(event, column) {
 
 function moveGridColumnResize(event) {
   if (!activeGridResize.value) return
-  const width = Math.max(
-    48,
-    Math.min(
-      2000,
-      Math.round(
-        activeGridResize.value.startWidth +
-        event.clientX -
-        activeGridResize.value.startX
-      )
-    )
+  const field = activeGridResize.value.field
+  const width = clampColumnWidth(
+    field,
+    activeGridResize.value.startWidth +
+    event.clientX -
+    activeGridResize.value.startX
   )
-  setColumnWidth(activeGridResize.value.field, width)
+  setColumnWidth(field, width)
 }
 
 function stopGridColumnResize() {
@@ -1308,7 +1355,12 @@ const fields = computed(() => {
 
         return {
           field,
-          width_px: Number(column.width_px) || 180,
+          width_px: clampColumnWidth(
+            field,
+            column.width_px ?? getColumnSizing(field).defaultWidth
+          ),
+          min_width_px: getColumnSizing(field).minWidth,
+          max_width_px: getColumnSizing(field).maxWidth,
           label: labelMode === 'CUSTOM' && customLabel
             ? customLabel
             : labelMode === 'INITIALS' && initials
@@ -1329,7 +1381,12 @@ const fields = computed(() => {
 
       return {
         field,
-        width_px: Number(columnWidths.value[field]) || null,
+        width_px: clampColumnWidth(
+          field,
+          columnWidths.value[field] ?? getColumnSizing(field).defaultWidth
+        ),
+        min_width_px: getColumnSizing(field).minWidth,
+        max_width_px: getColumnSizing(field).maxWidth,
         header_height_px: headerHeightPx.value,
         type: meta.control_type || meta.type || 'text',
         control_type: meta.control_type || meta.type || 'text'
@@ -1560,16 +1617,11 @@ function startReportColumnResize(event, column) {
 function moveReportColumnResize(event) {
   if (!activeReportResize.value) return
 
-  const width = Math.max(
-    48,
-    Math.min(
-      2000,
-      Math.round(
-        activeReportResize.value.startWidth +
-        event.clientX -
-        activeReportResize.value.startX
-      )
-    )
+  const width = clampColumnWidth(
+    activeReportResize.value.field,
+    activeReportResize.value.startWidth +
+    event.clientX -
+    activeReportResize.value.startX
   )
 
   emit(
@@ -1732,11 +1784,11 @@ onBeforeUnmount(() => {
             <button type="button" class="text-muted disabled:opacity-30" :disabled="columnIndex === allGridFields.length - 1" @click="moveGridColumn(column.field, 1)"  :aria-label="translations.moveLater">↓</button>
             <input
               type="range"
-              min="48"
-              max="800"
-              step="8"
-              :value="columnWidths[column.field] || 180"
-               :aria-label="translations.columnWidth + ' ' + column.label"
+              :min="column.min_width_px"
+              :max="column.max_width_px"
+              step="4"
+              :value="column.width_px"
+              :aria-label="translations.columnWidth + ' ' + column.label"
               class="w-20"
               @input="setColumnWidth(column.field, $event.target.value)"
             />
@@ -1758,7 +1810,7 @@ onBeforeUnmount(() => {
             <col
               v-for="col in fields"
               :key="col.field"
-               :style="{ width: col.width_px ? col.width_px + 'px' : undefined }"
+              :style="{ width: col.width_px + 'px' }"
             />
           </colgroup>
 
@@ -1782,10 +1834,13 @@ onBeforeUnmount(() => {
                 @dragstart="startGridColumnDrag($event, col)"
                 @dragover.prevent
                 @drop="dropGridColumn($event, col)"
-                class="relative whitespace-normal break-words border-b border-l px-3 py-2.5 text-left font-semibold"
+                class="relative overflow-hidden whitespace-normal break-words border-b border-l px-3 py-2.5 text-left font-semibold"
                 :title="col.full_label || col.label"
                 :style="{
                   borderColor: 'var(--pulsar-level-border)',
+                  width: col.width_px + 'px',
+                  minWidth: col.min_width_px + 'px',
+                  maxWidth: col.max_width_px + 'px',
                   height: col.header_height_px ? col.header_height_px + 'px' : (!props.reportMode ? headerHeightPx + 'px' : undefined),
                   minHeight: col.header_height_px ? col.header_height_px + 'px' : (!props.reportMode ? headerHeightPx + 'px' : undefined),
                   overflowWrap: 'anywhere',
@@ -1871,17 +1926,23 @@ onBeforeUnmount(() => {
                     col
                   )
                 "
-                class="whitespace-nowrap border-l px-3 py-2.5"
+                class="overflow-hidden border-l px-3 py-2.5"
                 :style="{
-                  borderColor: 'var(--pulsar-level-border)'
+                  borderColor: 'var(--pulsar-level-border)',
+                  maxWidth: col.width_px + 'px'
                 }"
               >
-                {{
-                  formatValue(
-                    item,
-                    col
-                  )
-                }}
+                <span
+                  class="block overflow-hidden text-ellipsis whitespace-nowrap"
+                  :title="String(formatValue(item, col) ?? '')"
+                >
+                  {{
+                    formatValue(
+                      item,
+                      col
+                    )
+                  }}
+                </span>
               </td>
 
             </tr>
@@ -1913,7 +1974,7 @@ onBeforeUnmount(() => {
               <td
                 v-for="col in fields"
                 :key="'selected-' + col.field"
-                class="whitespace-nowrap border-l px-3 py-2 text-right tabular-nums text-label"
+                class="overflow-hidden whitespace-nowrap border-l px-3 py-2 text-right tabular-nums text-label"
                 style="border-color:var(--pulsar-level-border)"
               >
                 {{ numericFields.some(item => item.field === col.field)
@@ -1928,7 +1989,7 @@ onBeforeUnmount(() => {
               <td
                 v-for="col in fields"
                 :key="'all-' + col.field"
-                class="whitespace-nowrap border-l px-3 py-2 text-right tabular-nums text-label"
+                class="overflow-hidden whitespace-nowrap border-l px-3 py-2 text-right tabular-nums text-label"
                 style="border-color:var(--pulsar-level-border)"
               >
                 {{ numericFields.some(item => item.field === col.field)
@@ -2099,7 +2160,12 @@ Important Learning Points:
 35. Grid uses the existing formatted field value for expanded viewing.
 36. Double Click stops row-selection propagation while opening the expanded viewer.
 37. Personal layouts are isolated by authenticated user, component, and field mode.
-38. Column order, width, visibility, and header height are saved only by explicit user action.
+38. Developer column sizing metadata defines initial width and hard minimum/maximum bounds.
+39. User column widths remain independent preferences and are clamped to developer bounds.
+40. Grid and Report Generator use the same bounded column-sizing contract.
+41. Fixed table layout and clipped cell content prevent long values from expanding columns.
+42. Double-click expansion remains the universal path for reading long cell values.
+43. Column order, width, visibility, and header height are saved only by explicit user action.
 39. The personal layout save action is exposed only when GRID.PERSONALIZATION.SAVE is effective.
 40. Search panel visibility and search filters are automatically persisted with debounce.
 41. Last user-controlled sorting continues to use the existing t_user_grid_sort contract.
