@@ -7,7 +7,7 @@
 #
 # Author: MHKolahi@gmail.com
 # In collaboration with GPT4 Chat Assistant: Bahram
-# Last Modified: 2026-11-27 00:00 (Asia/Baku)
+# Last Modified: 2026-11-27 10:20 (Asia/Baku)
 # ===============================================
 
 from typing import Any, List, Literal
@@ -55,6 +55,9 @@ class ComponentFieldConfig(BaseModel):
     field_sort: int = 0
     field_sort_order: int | None = None
     aggregate_enabled: bool = False
+    grid_width_px: int | None = None
+    grid_min_width_px: int | None = None
+    grid_max_width_px: int | None = None
 
     label: str | None = None
 
@@ -292,6 +295,9 @@ async def read_component_config(
                 field_sort=int(config.field_sort or 0),
                 field_sort_order=config.field_sort_order,
                 aggregate_enabled=bool(config.aggregate_enabled),
+                grid_width_px=config.grid_width_px,
+                grid_min_width_px=config.grid_min_width_px,
+                grid_max_width_px=config.grid_max_width_px,
 
                 is_readonly=config.is_readonly,
 
