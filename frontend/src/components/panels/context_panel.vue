@@ -8,7 +8,7 @@ Author: MHKolahi@gmail.com
 
 In collaboration with GPT4 Chat Assistant: Bahram
 
-Last Modified: 2026-11-23 23:35 (Asia/Baku)
+Last Modified: 2026-11-27 22:08 (Asia/Baku)
 
 =============================================== -->
 
@@ -237,6 +237,14 @@ const props = defineProps({
 
   },
 
+  runtimeContext: {
+
+    type: Object,
+
+    default: () => ({})
+
+  },
+
   initialWidth: {
 
     type: Number,
@@ -430,6 +438,18 @@ let countRequestVersion = 0
 
 async function loadPageRecordCounts() {
   const version = ++countRequestVersion
+  const selectedRecord =
+    props.selectedRecord &&
+    typeof props.selectedRecord === 'object' &&
+    !Array.isArray(props.selectedRecord)
+      ? props.selectedRecord
+      : null
+
+  if (!selectedRecord || Object.keys(selectedRecord).length === 0) {
+    recordCounts.value = {}
+    return
+  }
+
   const pages = accessList.value.filter(
     item => item?.panelType === 'PAGE' && item?.panelKey
   )
